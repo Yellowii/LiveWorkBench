@@ -14,6 +14,7 @@ function frame(r){const encode=(name,value)=>{const type=r.parser.native.root.lo
 test('WebSource waits for durable RAW before upstream decoder and event persistence',async t=>{
  assert.equal(typeof WebSource,'function','A RAW-first WebSource adapter is required');
  const r=await setup(t),wss=new WebSocketServer({host:'127.0.0.1',port:0});await new Promise(resolve=>wss.once('listening',resolve));
+ const businessType=r.parser.native.types.get('webcast.im.ChatMessage').original,decode=businessType.decode;let businessDecodes=0;businessType.decode=function(...args){businessDecodes++;return decode.apply(this,args);};
  const source=new WebSource(r,{allowLocalTest:true,mode:'test'});t.after(async()=>{await source.stop();for(const ws of wss.clients)ws.terminate();await new Promise(resolve=>wss.close(resolve));});
  const append=r.recorder.append.bind(r.recorder);let entered=false,release;const gate=new Promise(resolve=>{release=resolve;});
  r.recorder.append=async input=>{entered=true;await gate;return append(input);};
@@ -24,6 +25,7 @@ test('WebSource waits for durable RAW before upstream decoder and event persiste
  const raw=r.store.rawFor(source.captureId)[0];assert.equal(raw.sourceType,'WebSource');assert.equal(raw.sourceEpoch,'2');assert.equal(raw.byteBoundary,'reassembled-websocket-message');
  assert.equal(r.store.events({mode:'test'}).items[0].payload.official.content,'synthetic source');
  await wait(()=>acks===1);await source.stop();
+ assert.equal(businessDecodes,1,'Protocol ACK handling must not perform a second business decode');
 });
 
 test('selected WebSource interruption changes capture state without ending the session',async t=>{

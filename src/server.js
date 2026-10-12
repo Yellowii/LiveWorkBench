@@ -47,6 +47,7 @@ export async function createGateway({dataDir,port=18780,settings={}}={}){
         if(p==='/api/v1/events'){const page=runtime.store.events({limit:u.searchParams.get('limit'),cursor:u.searchParams.get('cursor'),mode:u.searchParams.get('mode'),namespace:u.searchParams.get('namespace'),method:u.searchParams.get('method'),afterSeq:u.searchParams.get('afterSeq')});return ok(res,{...page,items:page.items.map(event=>({...event,payload:{decodeStatus:event.payload?.decodeStatus,official:{content:event.payload?.official?.content||null},extensions:{lifecycleCandidate:event.payload?.extensions?.lifecycleCandidate||null}},detailAvailable:true}))});}
         if(p.startsWith('/api/v1/events/')){const item=runtime.store.event(p.split('/').at(-1));return item?ok(res,item):fail(res,'RESOURCE_NOT_FOUND',404);}
         if(p==='/api/v1/recordings')return ok(res,{items:runtime.store.recordings(),historicalInputs:settings.r01Root?[{inputId:'M0-R01',format:'business-payload',readOnly:true}]:[]});
+        if(/^\/api\/v1\/protos\/[^/]+$/.test(p))return ok(res,runtime.protoDetail(decodeURIComponent(p.split('/')[4])));
         if(/^\/api\/v1\/recordings\/[^/]+\/raw\/[^/]+$/.test(p)){const raw=runtime.store.raw(decodeURIComponent(p.split('/')[6]));return raw&&raw.recordingId===decodeURIComponent(p.split('/')[4])?ok(res,{...raw,processing:runtime.store.rawTrace(raw.rawId)}):fail(res,'RESOURCE_NOT_FOUND',404);}
         if(p==='/api/v1/sessions')return ok(res,{items:runtime.store.sessions()});
         if(p==='/api/v1/logs')return ok(res,runtime.store.logPage({module:u.searchParams.get('module'),level:u.searchParams.get('level'),code:u.searchParams.get('code'),operationId:u.searchParams.get('operationId'),cursor:u.searchParams.get('cursor'),limit:Math.min(200,Number(u.searchParams.get('limit'))||100)}));
@@ -74,6 +75,8 @@ export async function createGateway({dataDir,port=18780,settings={}}={}){
         if(body.format&&body.format!=='jsonl')throw new Error('CAPABILITY_UNAVAILABLE');result=operation('logs.export',()=>logExports.create(body.filters||{}));status=202;
       }else if(p==='/api/v1/development/r01-runs'){
         result=operation(body.goldenOnly?'golden':'r01',op=>runHistorical(runtime,settings,{goldenOnly:Boolean(body.goldenOnly)},op));status=202;
+      }else if(/^\/api\/v1\/protos\/[^/]+\/actions$/.test(p)){
+        if(body.action!=='reparse')throw new Error('CAPABILITY_UNAVAILABLE');result=await runtime.reparseMessage(decodeURIComponent(p.split('/')[4]));
       }else if(p==='/api/v1/replays'){result=await runtime.createReplay(body);}
       else if(p.match(/^\/api\/v1\/replays\/[^/]+\/actions$/)){
         const id=p.split('/')[4];

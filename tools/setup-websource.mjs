@@ -21,9 +21,12 @@ replaceOnce('        .then(async () => {\n          if (g !== this.generation) r
             }
           }
           if (g !== this.generation) return;`);
-const output=`// Local WebSource adaptation v2; upstream ${sourceHash}; official Parser unchanged.\n${text}`;
-const target=path.join(root,'src/parser/live-raw-first-v2.js');
+replaceOnce('            const packet = decodePacket(this.p, Buffer.from(bytes), {\n              modernAck: this.config.modern,\n            });',`            const packet = this.options.packetDecoder
+              ? await this.options.packetDecoder({ modernAck: this.config.modern })
+              : decodePacket(this.p, Buffer.from(bytes), { modernAck: this.config.modern });`);
+const output=`// Local WebSource adaptation v3; upstream ${sourceHash}; official Parser unchanged.\n${text}`;
+const target=path.join(root,'src/parser/live-raw-first-v3.js');
 let existing;try{existing=await fs.readFile(target,'utf8');}catch(e){if(e.code!=='ENOENT')throw e;}
 if(existing&&existing!==output)throw new Error('WEB_ADAPTATION_CHANGED');
 if(!existing)await fs.writeFile(target,output,{flag:'wx'});
-console.log(JSON.stringify({sourceHash,patchVersion:'raw-first-v2',sha256:createHash('sha256').update(output).digest('hex')}));
+console.log(JSON.stringify({sourceHash,patchVersion:'raw-first-v3',sha256:createHash('sha256').update(output).digest('hex')}));

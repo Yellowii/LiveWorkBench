@@ -6,6 +6,7 @@ import {Store,RawRecorder} from './storage.js';
 import {OfficialParser} from './parser/index.js';
 import {SessionManager} from './session-manager.js';
 import {TransportUnpacker} from './transport-unpacker.js';
+import {parserExtensions} from './parser/extensions.js';
 
 export class Runtime extends EventEmitter {
   static async open({dataDir}={}){const r=new Runtime();r.dataDir=path.resolve(dataDir||'data');await fs.mkdir(r.dataDir,{recursive:true});r.store=new Store(r.dataDir);r.recorder=new RawRecorder(path.join(r.dataDir,'raw'),r.store);r.parser=await OfficialParser.open();r.unpacker=new TransportUnpacker({native:r.parser.native,index:r.store.protos,payloadDirectory:path.join(r.dataDir,'proto'),readRaw:async(raw,{pathOnly=false}={})=>{const file=r.store.raw(raw.rawId)?.filePath;if(!file)throw new Error('RESOURCE_NOT_FOUND');return pathOnly?file:fs.readFile(file);}});r.sessions=new SessionManager(r.store);r.replays=new Map();r.operations=new Map();r.metrics={inputs:0,decoded:0,unknown:0,failed:0,duplicates:0,events:0};const current=r.store.sessions().filter(s=>s.mode==='live'&&s.sessionState!=='ENDED');r.activeRoom=current.length===1?current[0].roomId:null;if(current.length>1)r.log('SESSION_SELECTION_REQUIRES_RECONCILIATION');return r;}
@@ -23,12 +24,22 @@ export class Runtime extends EventEmitter {
       const unpacked=await this.unpacker.unpack(raw,{transport});
       if(unpacked.status==='error'){error=true;this.log(unpacked.errorCode,{rawId:raw.rawId,stage:unpacked.stage});this.publish(raw,{method:'ParseFailed',status:'error'});return;}
       for(const indexed of unpacked.messages){
-        const payload=await this.unpacker.readPayload(indexed.protoId),message={...this.parser.decode({format:'business-payload',method:indexed.method,bytes:payload})[0],msg_id:indexed.msgId};
+        const {message,attempt}=await this.parseProto(indexed,raw.runtimeNamespace,'pipeline');
         if(message.status==='error')error=true;const event=this.publish(raw,message);
-        this.store.protos.update(indexed.protoId,{parseStatus:message.status,errorCode:message.status==='error'?'BUSINESS_PROTO_INVALID':null,eventId:event?.eventId||null});
+        this.store.protos.update(indexed.protoId,{parseStatus:message.status,errorCode:message.errorCode,eventId:event?.eventId||null,attemptId:attempt.attemptId},raw.runtimeNamespace);
       }
     }catch{error=true;this.log('PARSE_FAILED',{rawId:raw.rawId});this.publish(raw,{method:'ParseFailed',status:'error'});}finally{this.timing('parse',started,error);}
   }
+  async parseProto(indexed,runtimeNamespace,origin){
+    let message;const started=performance.now();
+    try{message=this.parser.parseBusiness(indexed,await this.unpacker.readPayload(indexed.protoId));}
+    catch(error){message={method:indexed.method,msg_id:indexed.msgId,status:'error',data:null,errorCode:error.message==='PROTO_PAYLOAD_HASH_MISMATCH'?error.message:'PROTO_PAYLOAD_READ_FAILED',parserVersion:this.parser.version};}
+    this.timing('businessParse',started,message.status==='error');
+    const attempt=this.store.protos.attempt({protoId:indexed.protoId,rawId:indexed.rawId,runtimeNamespace,origin,parseStatus:message.status,errorCode:message.errorCode,parserVersion:message.parserVersion,payloadHash:indexed.payloadHash,official:message.data});
+    return {message,attempt};
+  }
+  protoDetail(id){const indexed=this.store.protos.get(id);if(!indexed)throw new Error('RESOURCE_NOT_FOUND');const {payloadFile,...metadata}=indexed;return {...metadata,attempts:this.store.protos.attempts(id)};}
+  async reparseMessage(id){const indexed=this.store.protos.get(id);if(!indexed)throw new Error('RESOURCE_NOT_FOUND');const {message,attempt}=await this.parseProto(indexed,indexed.runtimeNamespace,'manual-reparse');this.log('PROTO_REPARSED',{protoId:id,rawId:indexed.rawId,parseStatus:message.status});return attempt;}
   httpEvidence(raw,bytes){
     let data;try{data=JSON.parse(bytes.toString('utf8'),(_key,value,context)=>typeof value==='number'&&!Number.isSafeInteger(value)&&/^-?\d+$/.test(context?.source||'')?context.source:value);}catch{this.metrics.failed++;this.log('HTTP_PARSE_FAILED',{rawId:raw.rawId});return;}
     if(raw.processName!=='直播伴侣'||raw.httpStatus!==200)return;
@@ -70,16 +81,7 @@ export class Runtime extends EventEmitter {
     if(session)this.emit('session.updated',session);
     const msgId=common.msg_id?String(common.msg_id):message.msg_id&&message.msg_id!=='0'?String(message.msg_id):null;
     const key=message.method==='RoomCreatedObserved'||message.method==='PlatformLiveEndObserved'?JSON.stringify([raw.runtimeNamespace,roomId,message.method]):msgId&&msgId!=='0'&&roomId?JSON.stringify([raw.runtimeNamespace,session?.anchorUid||raw.anchorUid,roomId,message.method,msgId]):null;
-    const extensions={};if(official?.user?.webcast_uid)extensions.userIdAlias=official.user.webcast_uid;
-    if(roomId)extensions.roomContextSource=commonRoom?'common.room_id':raw.observedRoomId?'registered-source-context':'capture-evidence';
-    const seconds=Number(common.create_time),milliseconds=seconds*1000;
-    const validTime=Number.isFinite(milliseconds)&&Math.abs(milliseconds)<=8.64e15&&Number.isSafeInteger(seconds)&&seconds>0;
-    const occurredAt=validTime?new Date(milliseconds).toISOString():null;
-    if(common.create_time&&!validTime)extensions.occurredAtReason='OFFICIAL_TIME_NOT_REPRESENTABLE_AS_SECONDS';
-    if(raw.originalSequence)extensions.originalSequence=raw.originalSequence;
-    if(raw.indexMsgId)extensions.indexMsgId=raw.indexMsgId;
-    if(message.msg_id)extensions.transportMsgId=String(message.msg_id);
-    if(isControlEnd)extensions.lifecycleCandidate=associatedEnd?'platform-ended':'unassociated-platform-end';
+    const {extensions,occurredAt}=parserExtensions({official,raw,message,roomId,commonRoom,isControlEnd,associatedEnd});
     const event={schemaVersion:'1',eventType:message.method,producer:'OfficialParser',origin:raw.format==='http-json'?'derived':'platform',mode:raw.mode,runtimeNamespace:raw.runtimeNamespace,streamId:raw.runtimeNamespace,sourceType:raw.sourceType,sourceEpoch:raw.sourceEpoch,captureId:raw.recordingId,anchorUid:session?.anchorUid||null,roomId,sessionId:session?.sessionId||null,msgId,userId:official?.user?.id_str||official?.user?.id||null,receivedAt:raw.receivedAt,occurredAt,rawRefs:[raw.rawId],payload:{decodeStatus:message.status,official,extensions}};
     if(raw.mode==='live'&&roomId===this.activeRoom&&(extensions.lifecycleCandidate==='platform-ended'||message.method==='PlatformLiveEndObserved'))this.activeRoom=null;
     const saved=this.store.addEvent(event,key);if(saved.duplicate){this.metrics.duplicates++;return saved.event;}

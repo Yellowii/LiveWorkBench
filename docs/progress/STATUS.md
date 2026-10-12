@@ -263,3 +263,11 @@ taskId：`P0A-STAGE1-20261013`；owner/交接：本对话→用户。允许写�
 WebSource每条已提交RAW直接进入同一组件，即使连接代次在排空时变化仍可留索引；原Web主动心跳/ACK/重试代码保持。GET recording RAW详情兼容新增processing，现有GUI详情展示完整RAW→Proto→event关联，路径/字节仍隐藏。旧库仅加表，不重写数据；Parser/重解析的独立接口及Replay物理隔离将在后续增量完成，不宣称已完成。
 
 第一增量验证：4项新回归先失败后通过（混合method/未知/损坏业务/gzip/外层损坏/大ID/重复索引/从持久化RAW读字节及哈希异常）；C#独立目录构建退出0、6项既有警告；全套54/54；160合成事件GUI验证含ProtoRef/payloadHash详情、历史锚点/有界滚动/断线补查，浏览器错误0。源码/验证工具正式位于本项目；公开扫描与推送在增量提交时核对。未经真实伴侣验证，不声明零丢包。
+
+第一增量已推送214425c397abf0bf0a6d877d5e75eb3d44970ad5，远程main相同。
+
+第二增量：正式parseBusiness接口、parser/extensions.js独立字段增强、append-only解析尝试、逐消息失败隔离、protoDetail/reparseMessage，以及受认证GET /protos/{id}和POST actions reparse。GUI可查看历史尝试并重新解析；命令重试只产生一次新尝试，不改事件/场次/RAW。单个派生文件哈希损坏留错误且继续其他消息。Replay解析不覆盖原实时Proto eventId。WebSource固定v3独立适配注入传输packetDecoder/ACK编码，业务只解码一次，官方六文件及原live.js/v2未修改。
+
+第二增量验证：5项新用例先失败后通过，含native与extensions分离、重新解析无副作用、单条损坏隔离、Replay链接、认证/脱敏/幂等API；既有Web测试增加实际业务decode计数=1。GUI160合成事件验证Proto详情/重解析及历史功能，浏览器错误0。完整构建/回归结果与推送在完成时补记；Replay物理库隔离及捕获缺口/连接健康继续下一增量。
+
+第二增量完成验证：C#独立构建退出0、全套**59/59自动化测试**（不是R01 Golden复跑），GUI历史/Proto详情/重新解析浏览器错误0；官方Parser/vendor六文件保持固定哈希，未扫描真实样本。v3准备入口验证上游/生成哈希，不覆盖v2或references。

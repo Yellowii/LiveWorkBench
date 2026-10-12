@@ -9,3 +9,7 @@ ProtoIndex关联recordingId/rawId/messageIndex/method/msgId/payloadHash/size/par
 第一增量仅给现有GET recording RAW详情新增processing传输/消息元数据；GUI原详情经正式接口展示。旧库CREATE TABLE IF NOT EXISTS加入索引，不重写既有RAW/事件/文件。新增解析/重新解析REST在对应增量同步PUBLIC_API。未知/失败类型保留payload引用，自定义增强不修改native。Replay后续拆出物理隔离仓库；当前namespace隔离不冒充数据库隔离。
 
 RAW边界是代理HTTP响应主体、重组WS二进制消息或历史业务payload，不是TCP/TLS原包。应用控制PushFrame有RAW/control记录；WS Ping/Pong单独统计，不当业务Proto。无法保存必须留缺口，不把异常全文、原始字节或凭据返回API。
+
+第二增量：OfficialParser.parseBusiness(ProtoRef, bytes)输出独立status/errorCode/parserVersion/native data，decode兼容适配仍供旧历史回归调用；正式管线不用混合decodePacket。ParserExtensions v1只生成独立extensions/occurredAt。ProtoIndex追加parse attempts，保存origin/namespace/input payloadHash/native结果；手动重新解析不发布业务事件，Replay不能覆盖原live Proto的eventId。
+
+WebSource raw-first-v3增加packetDecoder注入，ACK编码复用固定官方传输契约并与业务解析分开；业务decode实际只执行一次。固定上游live.js仍原SHA256，生成v3 SHA256 e4c89b056af1b3bceb28bfc2dfa27fe7bdb497dab071273b7fc9918e929f4fbb。原v2与官方Parser不覆盖；生成资产保持本地忽略。心跳/重试仍由原LiveClient维持。
