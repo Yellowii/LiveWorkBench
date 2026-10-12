@@ -13,10 +13,12 @@ import {SessionManager} from './session-manager.js';
 import {TransportUnpacker} from './transport-unpacker.js';
 import {parserExtensions} from './parser/extensions.js';
 import {CaptureGaps} from './capture-gaps.js';
+import {InstanceLease} from './instance.js';
 
 export class Runtime extends EventBus {
   static async open({dataDir,parser,replayWorker=false}={}){
     const r=new Runtime();r.dataDir=path.resolve(dataDir||'data');await fs.mkdir(r.dataDir,{recursive:true});
+    r.lease=InstanceLease.acquire(r.dataDir);try{
     r.store=new Store(r.dataDir);r.gaps=new CaptureGaps(r.store.db,r.dataDir);r.recorder=new RawRecorder(path.join(r.dataDir,'raw'),r.store);
     r.parser=parser||await OfficialParser.open();
     r.unpacker=new TransportUnpacker({native:r.parser.native,index:r.store.protos,payloadDirectory:path.join(r.dataDir,'proto'),readRaw:async(raw,{pathOnly=false}={})=>{
@@ -28,6 +30,7 @@ export class Runtime extends EventBus {
     if(!replayWorker){r.replayEngine=new ReplayEngine(r,dir=>Runtime.open({dataDir:dir,parser:r.parser,replayWorker:true}));r.replays=r.replayEngine.jobs;}
     const current=r.store.sessions().filter(s=>s.mode==='live'&&s.sessionState!=='ENDED');r.activeRoom=current.length===1?current[0].roomId:null;
     if(current.length>1)r.log('SESSION_SELECTION_REQUIRES_RECONCILIATION');return r;
+    }catch(error){r.store?.close();r.lease.release();throw error;}
   }
   log(code,details={}){return this.logService.write(code,details);}
   timing(stage,started,error=false){this.metricsService.timing(stage,started,error);}
@@ -104,5 +107,5 @@ export class Runtime extends EventBus {
   createReplay(input){return this.replayEngine.create(input);}
   replayView(id){return this.replayEngine.view(id);}
   replayAction(...args){return this.replayEngine.action(...args);}
-  async close(){if(this.closed)return;this.closed=true;await this.replayEngine?.close();this.store.close();}
+  async close(){if(this.closed)return;this.closed=true;try{await this.replayEngine?.close();this.store.close();}finally{this.lease.release();}}
 }

@@ -16,10 +16,12 @@ import {ProfileStore} from './profiles/profile-store.js';
 import {LiveMonitor} from './monitor/live-monitor.js';
 import {MonitorCoordinator} from './coordinator/monitor-coordinator.js';
 import {HookTargetMatcher} from './targets/hook-target-matcher.js';
+import {loadedInstance} from './instance.js';
 
 const root=path.resolve(path.dirname(fileURLToPath(import.meta.url)),'..');
 const publicDir=path.join(root,'public');
 export async function createGateway({dataDir,port=18780,settings={}}={}){
+  const instance=loadedInstance();
   const runtime=await Runtime.open({dataDir:dataDir||path.join(root,'data')}),bridge=new CaptureBridge(runtime),daemon=new LiveHookDaemon(runtime,bridge);await daemon.start();
   const projection=await publicProjection(runtime.dataDir,{allowPrivateDetails:settings.allowPrivateDetails===true}),publicSafe=projection.project;
   const sources=new SourceController(runtime,bridge,settings);
@@ -55,7 +57,7 @@ export async function createGateway({dataDir,port=18780,settings={}}={}){
         if(p==='/api/v1/profiles')return ok(res,{items:profiles.list().map(item=>({...item,monitor:monitor.view(item.profileId)}))});
         if(p==='/api/v1/monitor')return ok(res,{items:monitor.list(),platformEvidenceOnly:true});
         if(p==='/api/v1/coordinator')return ok(res,coordinator.view());
-        if(p==='/api/v1/system/status')return ok(res,{backendReady:true,selectedSource:sources.view().selectedSource,sourceControl:sources.view(),capture:sources.view().selectedSource==='WebSource'?sources.currentWeb().status:bridge.status,daemon:daemon.status,sessions:runtime.store.sessions(),metrics:runtime.metrics,privacy:{mode:projection.mode,projectionVersion:projection.version},liveEnvironmentAuthorized:Boolean(settings.certificatePath)});
+        if(p==='/api/v1/system/status')return ok(res,{instance,profiles:profiles.list(),monitor:monitor.list(),coordinator:coordinator.view(),backendReady:true,selectedSource:sources.view().selectedSource,sourceControl:sources.view(),capture:sources.view().selectedSource==='WebSource'?sources.currentWeb().status:bridge.status,daemon:daemon.status,sessions:runtime.store.sessions(),metrics:runtime.metrics,privacy:{mode:projection.mode,projectionVersion:projection.version},liveEnvironmentAuthorized:Boolean(settings.certificatePath)});
         if(p==='/api/v1/health')return ok(res,{status:'ok',storage:'sqlite-wal-full',parser:'official',gatewayWebsocket:socketHub.view()});
         if(p==='/api/v1/capture/gaps')return ok(res,runtime.gaps.page({limit:u.searchParams.get('limit')}));
         if(p==='/api/v1/capabilities')return ok(res,{...sources.capabilities(),features:{profiles:true,monitor:true,eventHighWatermark:true,signedCursors:true,eventSummaries:true,protoTrace:true,rawPaging:true,captureGapTrace:true,reparse:true,replayPhysicalIsolation:true},limits:{eventPage:200,frontCache:500},replay:{implemented:true},r01:{available:Boolean(settings.r01Root),inputFormat:'business-payload'},lan:{enabled:false}});
