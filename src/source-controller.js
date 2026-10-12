@@ -18,14 +18,21 @@ export class SourceController {
   view(){return {...this.state,connectionMode:this.webMode,captureState:this.state.selectedSource==='WebSource'?this.currentWeb().status.captureState:this.bridge.status.captureState};}
   capabilities(){return {liveHook:{implemented:true,available:Boolean(this.settings.certificatePath),reason:this.settings.certificatePath?null:'TLS_CERTIFICATE_REQUIRED'},webSource:{implemented:true,available:Boolean(this.settings.webSource?.url)&&fs.existsSync(new URL('./parser/live-raw-first-v5.js',import.meta.url)),reason:!this.settings.webSource?.url?'WEB_TARGET_NOT_CONFIGURED':fs.existsSync(new URL('./parser/live-raw-first-v5.js',import.meta.url))?null:'WEB_SOURCE_NOT_PREPARED'}};}
   failureReason(){return this.currentWeb().status.reason;}
+  adoptable(profile){const match=this.hookMatcher?.view();return profile?.sourceType==='LiveHookSource'&&this.bridge.status.hookReady&&match?.streamReady&&match.profileId===profile.profileId;}
+  hookEvidence(profile){const match=this.hookMatcher?.view();return this.adoptable(profile)&&match.platformLiveState==='LIVE'?{profileId:profile.profileId,profileVersion:profile.version,queryState:'LIVE',confirmedState:'LIVE',roomId:match.roomId,anchorUid:match.anchorUid,stateVersion:match.stateVersion,checkedAt:match.lastObservedAt,evidenceSource:'companion-raw'}:null;}
+  hookEndedEvidence(profile){const match=this.hookMatcher?.view();return profile?.sourceType==='LiveHookSource'&&match?.platformLiveState==='ENDED'&&match.profileId===profile.profileId?{profileId:profile.profileId,profileVersion:profile.version,queryState:'ENDED',confirmedState:'ENDED',roomId:match.roomId,anchorUid:match.anchorUid,stateVersion:match.stateVersion,checkedAt:match.lastObservedAt,evidence:{source:'companion-raw'}}:null;}
   save(){this.runtime.store.setState('source-control',this.state);this.runtime.selectedSource=this.state.selectedSource;this.runtime.activeSourceEpoch=this.state.sourceEpoch;this.runtime.emit('source.updated',this.view());}
   action(body){const task=this.queue.catch(()=>{}).then(()=>this.control(body));this.queue=task;return task;}
   startProfile(profile,evidence,expectedVersion,stillCurrent=()=>true){const task=this.queue.catch(()=>{}).then(async()=>{
     if(expectedVersion!==this.state.stateVersion||!stillCurrent())throw new Error('STATE_CONFLICT');
     if(profile.sourceType!==this.state.selectedSource)throw new Error('SOURCE_SELECTION_MISMATCH');
-    if(!['STOPPED','FAILED'].includes(this.view().captureState))throw new Error('SOURCE_BUSY');
     if(this.runtime.activeRoom&&this.runtime.activeRoom!==evidence.roomId)throw new Error('SOURCE_ROOM_BUSY');
-    if(profile.sourceType==='LiveHookSource')throw new Error('LIVEHOOK_ENVIRONMENT_NOT_READY');
+    if(profile.sourceType==='LiveHookSource'){
+      const match=this.hookMatcher?.view();if(!this.bridge.status.proxyBound||!this.bridge.status.hookReady||!match?.streamReady)throw new Error('LIVEHOOK_ENVIRONMENT_NOT_READY');
+      if(match.profileId!==profile.profileId||match.anchorUid!==evidence.anchorUid||match.roomId!==evidence.roomId)throw new Error('LIVEHOOK_PROFILE_MISMATCH');
+      this.activeProfileId=profile.profileId;this.runtime.log('LIVEHOOK_EXISTING_STREAM_ADOPTED',{profileId:profile.profileId});return this.view();
+    }
+    if(!['STOPPED','FAILED'].includes(this.view().captureState))throw new Error('SOURCE_BUSY');
     const config=await this.connectionResolver.resolve(profile,evidence);if(!stillCurrent())throw new Error('STATE_CONFLICT');
     if(this.view().captureState==='FAILED')await this.stopActive();
     this.state.sourceEpoch=String(BigInt(this.state.sourceEpoch)+1n);this.state.stateVersion=String(BigInt(this.state.stateVersion)+1n);this.save();

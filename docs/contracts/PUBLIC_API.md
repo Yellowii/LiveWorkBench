@@ -219,6 +219,8 @@ Golden/全量检查面板通过后端 operation 显示实际验证结果；实�
 
 ### 本机公开投影（2026-10-12 实现）
 
+2026-10-13新增配置/监控/自动调度/可选浏览器/凭据与LiveHook匹配接口，详见[MONITOR_PROFILES v1](MONITOR_PROFILES.md)。旧路由兼容；身份输入只写、凭据不经DTO返回，profile修改及登录管理要求版本。环境操作仍不经新增API自动授权。可信监控END作为独立producer的生命周期证据，不混入官方业务Proto解析结果；SessionManager为唯一权威。
+
 REST/WS 默认返回 redacted 投影，system/status.privacy 记录 mode/projectionVersion。房间/用户/消息标识为数据域内稳定HMAC别名，原生字符串/字节字段只披露必要数值/结构；事件自身不透明ID和RAW引用保留。原生 Parser 输出和RAW仍保存在本地，官方结果投影不能作为原生结果哈希。受控本地诊断可在私有 settings 中显式设置 allowPrivateDetails=true；此模式仍不返回凭据和物理路径。该设置不经API开放，不代表LAN认证/RBAC已经实现。
 
 ### 当前历史/追踪子集（2026-10-12）

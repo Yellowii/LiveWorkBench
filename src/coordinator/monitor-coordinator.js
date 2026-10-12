@@ -4,7 +4,7 @@ const signalKey=(p,s)=>JSON.stringify([p.profileId,p.version,s.stateVersion,s.an
 const terminal=new Set(['WEB_DYNAMIC_PARAMETERS_UNAVAILABLE','WEB_DYNAMIC_PARAMETERS_EXPIRED','WEB_HANDSHAKE_OR_POLICY_BLOCKED','TARGET_MAPPING_REQUIRED','TARGET_IDENTITY_UNRESOLVED','BROWSER_NOT_PREPARED','LIVEHOOK_ENVIRONMENT_NOT_READY']);
 export class MonitorCoordinator extends EventEmitter{
  constructor({profiles,monitor,sources,onPlatformEvidence=()=>{},log=()=>{}}){super();this.profiles=profiles;this.monitor=monitor;this.sources=sources;this.onPlatformEvidence=onPlatformEvidence;this.log=log;this.queue=Promise.resolve();this.closed=false;this.state=profiles.repository.getState('coordinator-v1')||{active:null,suppressed:{},attempts:{},history:[],reason:null};
-  this.changed=()=>{clearTimeout(this.timer);this.timer=setTimeout(()=>this.evaluate().catch(()=>this.record('COORDINATOR_FAILED')),30);this.timer.unref();};monitor.on('monitor.updated',this.changed);
+  this.changed=()=>{if(this.closed)return;clearTimeout(this.timer);this.timer=setTimeout(()=>this.evaluate().catch(()=>{if(!this.closed)this.record('COORDINATOR_FAILED');}),30);this.timer.unref();};monitor.on('monitor.updated',this.changed);
  }
  view(){const {suppressed,attempts,...publicState}=this.state;return structuredClone(publicState);}
  save(){this.profiles.repository.setState('coordinator-v1',this.state);this.emit('coordinator.updated',this.view());}
@@ -13,15 +13,16 @@ export class MonitorCoordinator extends EventEmitter{
  evaluate(){return this.serialize(()=>this.run());}
  async run(choice){
   const source=this.sources.view(),active=this.state.active;
-  if(active){let p;try{p=this.profiles.get(active.profileId);}catch{}const evidence=this.monitor.view(active.profileId);
+  if(active){let p;try{p=this.profiles.get(active.profileId);}catch{}const evidence=this.sources.hookEndedEvidence?.(p)||this.monitor.view(active.profileId);
    if(source.selectedSource!==active.sourceType){this.state.active=null;this.record('PROFILE_SOURCE_CHANGED',{profileId:active.profileId});return;}
    if(p?.autoStop&&evidence.queryState==='ENDED'&&evidence.confirmedState==='ENDED'&&evidence.roomId===active.roomId&&evidence.anchorUid===active.anchorUid){await this.sources.stopProfile(active.sourceVersion);this.onPlatformEvidence({...evidence,origin:'monitor',profileId:p.profileId});this.state.active=null;this.record('PROFILE_ENDED_STOP',{profileId:p.profileId});return;}
    if(!['STOPPED','FAILED'].includes(source.captureState))return this.view();
    if(source.captureState==='FAILED'&&this.sources.failureReason?.()==='WEB_HANDSHAKE_OR_POLICY_BLOCKED'){const attempt=this.state.attempts[active.profileId];if(attempt)attempt.terminal=true;this.state.active=null;this.record('WEB_HANDSHAKE_OR_POLICY_BLOCKED',{profileId:active.profileId});return this.view();}
    if(p&&!p.autoReconnect){this.record('PROFILE_RECONNECT_DISABLED',{profileId:p.profileId});return;}this.state.active=null;this.save();
   }
-  if(!['STOPPED','FAILED'].includes(source.captureState)){this.state.reason='SOURCE_BUSY';this.save();return this.view();}
-  const candidates=this.profiles.all().filter(p=>p.enabled&&(choice?p.profileId===choice:p.autoStart)&&p.sourceType===source.selectedSource).map(p=>({p,s:this.monitor.view(p.profileId)})).filter(({p,s})=>s.confirmedState==='LIVE'&&s.queryState==='LIVE'&&s.profileVersion===p.version&&s.roomId&&s.anchorUid&&Date.now()-Date.parse(s.checkedAt)<p.pollMs*2&&this.state.suppressed[p.profileId]!==signalKey(p,s));
+  const adoptExisting=source.selectedSource==='LiveHookSource'&&source.captureState==='CONNECTED'&&this.profiles.all().some(p=>this.sources.adoptable?.(p));
+  if(!['STOPPED','FAILED'].includes(source.captureState)&&!adoptExisting){this.state.reason='SOURCE_BUSY';this.save();return this.view();}
+  const candidates=this.profiles.all().filter(p=>p.enabled&&(choice?p.profileId===choice:p.autoStart)&&p.sourceType===source.selectedSource).map(p=>({p,s:this.sources.hookEvidence?.(p)||this.monitor.view(p.profileId)})).filter(({p,s})=>s.confirmedState==='LIVE'&&s.queryState==='LIVE'&&s.profileVersion===p.version&&s.roomId&&s.anchorUid&&Date.now()-Date.parse(s.checkedAt)<p.pollMs*2&&this.state.suppressed[p.profileId]!==signalKey(p,s));
   candidates.sort((a,b)=>b.p.priority-a.p.priority);
   if(!candidates.length){this.state.reason='NO_MATCHING_READY_PROFILE';this.save();return this.view();}
   if(!choice&&candidates.length>1&&candidates[0].p.priority===candidates[1].p.priority){this.record('PROFILE_SELECTION_REQUIRED',{profileIds:candidates.filter(x=>x.p.priority===candidates[0].p.priority).map(x=>x.p.profileId)});return this.view();}

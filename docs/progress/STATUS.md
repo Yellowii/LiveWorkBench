@@ -321,3 +321,13 @@ C交付：capture/browser/browser-source、auth/login-vault/dpapi.ps1、setup-br
 C新回归先失败后通过：媒体策略、当前用户实际DPAPI opt-in/过滤/重启解密/清除/磁盘无明文、同录制重复控制RAW保留，以及实际Edge网络WebSocket→RAW→官方Chat事件与媒体请求阻断。最初routeWebSocket模拟没有原生网络事件；改实际回环WS后定位到ERR_BLOCKED_BY_LOCAL_NETWORK_ACCESS_CHECKS，只有自有临时测试上下文grantPermissions，正式路径未授予内网权限/未修改系统。测试target是合成页面，全部HTTP由fixture拦截；不是抖音身份/签名/登录实机验收。最终全套/GUI结果在提交时补记。
 
 C完成验证：全套86/86、配置/调度/登录保存开关/状态GUI与既有160条历史/RAW/Proto/Replay均浏览器错误0；独立C#构建沿用A结果（此阶段未改C#）。setup:browser四原文件哈希及v3适配生成核验成功，公开扫描151文件0发现。临时测试浏览器/网关已退出；没有启动长期18783或操作真实平台/伴侣。浏览器传输/DPAPI合成验证通过，真实账号/平台SDK/长期恢复与Direct动态签名仍待。
+
+C已推送3b8d83981bf80837c57bc2cee74b4f8c0e5a9d2e，远程main一致。
+
+D交付：targets/hook-target-matcher、Daemon/SourceController/Coordinator协同，以及Runtime在RAW/Proto之后的匹配门禁。伴侣HTTP owner→RAW引用的身份依据，实际匹配WSS数据确认HookReady；不匹配/冲突仍保留RAW与Proto，但不自动选场。既有匹配流可以调度接管，Hook路径没有bridge.start或WebClient启动。进程退出/重启/观察失败不下播，新连接重新观察且同sessionId连续。GUI经hook/status展示匹配结果；RAW-first/官方Parser/Replay隔离仍维持。
+
+D补正式observePlatformEvidence命令：仅明确可信monitor END且匹配已存在live身份/房间，结束原场次并记录独立监控事件，不伪造官方Parser结果或RAW。修复监控适配器抛异常未产生UNKNOWN诊断、协调关闭后迟到事件可再排队的问题。4项新增回归先失败后通过，包含不匹配保留、HTTP创建不Ready、真实合成Proto帧匹配/既有流接管/进程退出同场恢复/Control结束、owner冲突与监控END来源/范围/幂等/推流仍UNKNOWN。此处均合成输入，未接真实伴侣流。
+
+D最终验证/公开核查/推送在完成时补记。待实机：明确测试目标的真实身份/页面形态、浏览器官方SDK鉴权/签名/长期恢复、真实伴侣HTTP/WSS/重启连续性；纯UID及实际roomId映射、直接WSS参数发现仍缺可靠实现，按UNKNOWN/不可用报告而不伪造。A—D是安全实现与合成验证，并不等于附件最终生产验收全部通过。
+
+D完成验证：独立C#构建退出0，全套90/90（.local/monitor-d-tests.log）；配置/监控/调度/登录设置/Hook匹配GUI、160条历史/RAW/Proto/Replay GUI、日志筛选与受认证脱敏实际导出，三组浏览器错误均0。Parser六原文件哈希核对6/6且created=0；三参考仓库git状态干净。公开扫描154文件0发现。限定端口复查18780/18781/18782 PID仍为50636/8868/46464，旧8827/8888仍18644；18783/18827无监听。没有绕过旧长期启动拒绝，当前长期18782仍旧后端、新面板按能力禁用；新代码已在临时自有网关通过测试但未长期部署。

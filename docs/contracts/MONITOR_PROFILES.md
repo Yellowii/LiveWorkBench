@@ -29,3 +29,11 @@ RAW边界为browser-websocket-network-event、connectionMode=browser、ackBounda
 LoginVault位于私有data/auth，仅当前用户Windows DPAPI密文。仅persistLogin=true且明确authSave、官方账号确认AUTHENTICATED后保存过滤的Douyin状态；普通启用/自动连接不保存。authRef为内部引用；默认profileId分隔凭据。状态文件存在不能证明登录有效，独立UNKNOWN；有效性来自官方self API，界面不返回账号资料/密文/明文。关闭删除临时浏览器上下文；清除保存状态也停止对应本项目会话。未操作日常浏览器。
 
 Profile actions新增authCheck/authSave/authClear/login。保存/清除/可见登录窗口要求expectedVersion。login是用户明确命令，要求人工选中WebSource及空闲资源；不自动切源。它可以在尚未确定roomId时只提供账号登录页面，拒绝该未知房间弹幕接入。自动监听始终headless，只有此命令可见。只有构建与合成验收，真实平台SDK/鉴权/恢复仍待。
+
+## LiveHook配置协同增量 D
+
+HookTargetMatcher使用已提交RAW的成功伴侣HTTP room/create owner作为主播身份证据；聊天user是观众，不能当主播。证据在私有库持久化并链接RAW；同room换owner标冲突，拒绝猜测。根据typed目标或经确认的web_rid映射匹配enabled LiveHook配置；未匹配时RAW/业务payload/解析尝试保留，但不建立或选中业务场次。HTTP创建只留房间/平台状态，pushState UNKNOWN。已有未结束同room身份依据可用于重启关联，新的流仍要重新观察。
+
+仅本次录制/来源epoch、实际匹配伴侣WSS解码数据、当前代理与伴侣观察均就绪时Daemon标HOOK_READY；端口绑定/进程启动/HTTP创建单独不够。进程退出、重启、观察失败撤销HookReady，不能结束场次。SourceController.startProfile的Hook分支仅接管现有匹配流，不启动代理、不建WebClient、不改环境；调度允许此类既有资源接管。GET /hook/status新增profileMatch，WS hook.match.updated仅语义改变时推送。
+
+已有明确HTTP/Control结束仍由SessionManager裁决。可信monitor的已确认ENDED、成功查询、douyin-structured-room来源并与调度拥有的已存在live场次身份/room一致时，Runtime.observePlatformEvidence正式命令记录独立platform-ended证据并结束同一场次；不新建场次，不补推流状态，不伪造官方解析结果/RAW引用。此项追加生命周期输入，事件producer=MonitorCoordinator、origin=monitor、rawRefs=[]、payload.official=null、独立extensions.platformEvidence。重复幂等。普通停止/断线/UNKNOWN仍不下播。此前B采集停止规则保持，新增可信END的场次证据处理。

@@ -50,6 +50,7 @@ export class Runtime extends EventBus {
     const roomId=isCreate?room?.id_str:room?.owner?.own_room?.room_ids_str?.[0];
     if(!roomId)return;
     const anchorUid=room.owner?.id_str||null;
+    if(isCreate)this.captureTargets?.observeHttp(raw,{roomId:String(roomId),anchorUid:anchorUid?String(anchorUid):null,secUid:room.owner?.sec_uid||null,platformLiveState:room.status===2?'LIVE':'UNKNOWN'});
     const known=this.sessions.find(String(roomId),raw.runtimeNamespace);
     const ended=!isCreate&&raw.urlPath?.endsWith('/anchor_finish_info');
     if(!isCreate&&!ended)return;
@@ -63,8 +64,9 @@ export class Runtime extends EventBus {
     this.contexts??=new Map();
     const contextKey=JSON.stringify([raw.mode,raw.runtimeNamespace,raw.sourceType,raw.sourceEpoch,raw.sourceConnectionId||raw.recordingId]);
     const context=this.contexts.get(contextKey),commonRoom=common.room_id&&common.room_id!=='0'?String(common.room_id):null;
-    const roomId=commonRoom||raw.observedRoomId||context?.roomId||null;
-    const anchorUid=raw.anchorUid||context?.anchorUid||null;
+    let roomId=commonRoom||raw.observedRoomId||context?.roomId||null;
+    let anchorUid=raw.anchorUid||context?.anchorUid||null;
+    if(raw.mode==='live'&&raw.sourceType==='LiveHookSource'&&this.captureTargets){const match=this.captureTargets.match(raw,{roomId,anchorUid,businessDecoded:message.status==='decoded'});if(!match.allowed){this.log('HOOK_PROFILE_INPUT_RETAINED',{rawId:raw.rawId,reason:this.captureTargets.view().reason});return;}roomId=match.roomId;anchorUid=match.anchorUid;}
     if(raw.observedRoomId&&common.room_id&&common.room_id!=='0'&&String(common.room_id)!==raw.observedRoomId){this.log('ROOM_CONTEXT_CONFLICT',{rawId:raw.rawId});return;}
     const known=this.sessions.find(roomId,raw.runtimeNamespace);
     const isControlEnd=message.method==='WebcastControlMessage'&&Number(official?.action)===3;
@@ -81,6 +83,7 @@ export class Runtime extends EventBus {
     const session=this.sessions.observe({roomId,anchorUid,mode:raw.mode,namespace:raw.runtimeNamespace,...evidence,ended:Boolean(evidence.ended||associatedEnd),evidenceRef:raw.rawId,observedAt:raw.receivedAt});
     if(session&&session.sessionState!=='ENDED'){this.contexts.set(contextKey,{roomId,anchorUid:session.anchorUid});if(this.contexts.size>1024)this.contexts.delete(this.contexts.keys().next().value);}
     if(session)this.emit('session.updated',session);
+    if(session?.sessionState==='ENDED'&&raw.mode==='live'&&raw.sourceType==='LiveHookSource')this.captureTargets?.ended(raw,roomId,session.anchorUid);
     const msgId=common.msg_id?String(common.msg_id):message.msg_id&&message.msg_id!=='0'?String(message.msg_id):null;
     const key=this.deduplicator.key({namespace:raw.runtimeNamespace,roomId,anchorUid:session?.anchorUid||raw.anchorUid,method:message.method,msgId});
     const {extensions,occurredAt}=parserExtensions({official,raw,message,roomId,commonRoom,isControlEnd,associatedEnd});
@@ -91,6 +94,13 @@ export class Runtime extends EventBus {
     this.metrics.events++;return saved.event;
   }
   interruptCapture(){this.sessions.interrupt();this.log('CAPTURE_INTERRUPTED');}
+  observePlatformEvidence(evidence){
+    if(evidence.confirmedState!=='ENDED'||evidence.queryState!=='ENDED'||evidence.evidence?.source!=='douyin-structured-room')return null;
+    const known=this.sessions.find(evidence.roomId,'live');if(!known||known.mode!=='live'||known.anchorUid!==evidence.anchorUid||this.activeRoom!==evidence.roomId)return null;
+    if(known.sessionState==='ENDED')return known;
+    const reference=`monitor:${evidence.profileId}:${evidence.stateVersion}`,state=this.sessions.observe({roomId:evidence.roomId,anchorUid:evidence.anchorUid,ended:true,evidenceRef:reference,observedAt:evidence.checkedAt});this.activeRoom=null;this.emit('session.updated',state);
+    this.commit({schemaVersion:'1',eventType:'PlatformLiveEndObserved',producer:'MonitorCoordinator',origin:'monitor',mode:'live',runtimeNamespace:'live',streamId:'live',sourceType:this.selectedSource||null,sourceEpoch:this.activeSourceEpoch||null,captureId:null,anchorUid:state.anchorUid,roomId:state.roomId,sessionId:state.sessionId,msgId:null,userId:null,receivedAt:evidence.checkedAt,occurredAt:evidence.checkedAt,rawRefs:[],payload:{official:null,extensions:{lifecycleCandidate:'platform-ended',platformEvidence:{source:evidence.evidence.source,profileId:evidence.profileId,stateVersion:evidence.stateVersion,reference}}}},`monitor-end:${state.sessionId}`,this.store);return state;
+  }
   createReplay(input){return this.replayEngine.create(input);}
   replayView(id){return this.replayEngine.view(id);}
   replayAction(...args){return this.replayEngine.action(...args);}

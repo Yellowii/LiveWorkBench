@@ -6,7 +6,7 @@ export class LiveMonitor extends EventEmitter{
  view(id){const {candidate,...view}=this.profiles.state(id)||{profileId:id,confirmedState:'UNKNOWN',queryState:'UNKNOWN',stateVersion:'0',failures:0,pushState:'UNKNOWN'};return view;}
  list(){return this.profiles.all().map(p=>this.view(p.profileId));}
  check(id){if(this.pending.has(id))return this.pending.get(id);const job=this.detect(id).finally(()=>this.pending.delete(id));this.pending.set(id,job);return job;}
- async detect(id){const profile=this.profiles.get(id),previous=this.profiles.state(id)||this.view(id),evidence=await this.adapter.probe(profile,{signal:this.tasks.get(id)?.controller.signal});if(this.closed)return this.view(id);
+ async detect(id){const profile=this.profiles.get(id),previous=this.profiles.state(id)||this.view(id);let evidence;try{evidence=await this.adapter.probe(profile,{signal:this.tasks.get(id)?.controller.signal});}catch{evidence={state:'UNKNOWN',errorCode:'MONITOR_ADAPTER_FAILED'};}if(this.closed)return this.view(id);
   let current;try{current=this.profiles.get(id);}catch{return previous;}if(current.version!==profile.version)return this.view(id);
   const now=new Date().toISOString();let next={...previous,profileId:id,profileVersion:profile.version,checkedAt:now,queryState:evidence.state,pushState:'UNKNOWN',errorCode:evidence.errorCode||null};let changed=false;
   if(!['LIVE','ENDED'].includes(evidence.state)){next.failures=(previous.failures||0)+1;next.candidate=null;next.confirmationCount=0;}

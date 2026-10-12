@@ -15,6 +15,7 @@ import {GatewaySocketHub} from './gateway-websocket.js';
 import {ProfileStore} from './profiles/profile-store.js';
 import {LiveMonitor} from './monitor/live-monitor.js';
 import {MonitorCoordinator} from './coordinator/monitor-coordinator.js';
+import {HookTargetMatcher} from './targets/hook-target-matcher.js';
 
 const root=path.resolve(path.dirname(fileURLToPath(import.meta.url)),'..');
 const publicDir=path.join(root,'public');
@@ -23,11 +24,13 @@ export async function createGateway({dataDir,port=18780,settings={}}={}){
   const projection=await publicProjection(runtime.dataDir,{allowPrivateDetails:settings.allowPrivateDetails===true}),publicSafe=projection.project;
   const sources=new SourceController(runtime,bridge,settings);
   const profiles=new ProfileStore(runtime.store),monitor=new LiveMonitor(profiles);
+  const hookMatcher=new HookTargetMatcher(profiles);runtime.captureTargets=hookMatcher;sources.hookMatcher=hookMatcher;
   monitor.on('monitor.updated',data=>runtime.emit('monitor.updated',data));
   monitor.on('monitor.event',data=>runtime.log('MONITOR_STATE_CHANGED',{profileId:data.profileId,state:data.state,stateVersion:data.stateVersion}));
   monitor.on('monitor.error',data=>runtime.log(data.code,{profileId:data.profileId}));
-  const coordinator=new MonitorCoordinator({profiles,monitor,sources,log:(code,details)=>runtime.log(code,details)});
+  const coordinator=new MonitorCoordinator({profiles,monitor,sources,onPlatformEvidence:e=>runtime.observePlatformEvidence(e),log:(code,details)=>runtime.log(code,details)});
   coordinator.on('coordinator.updated',data=>runtime.emit('coordinator.updated',data));
+  hookMatcher.on('match.updated',data=>{daemon.targetObserved(data);runtime.emit('hook.match.updated',data);coordinator.changed();});
   const exportsProjection=await publicProjection(runtime.dataDir),logExports=new LogExports(runtime,exportsProjection.project);
   const token=randomUUID();const commands=new Map(),jobs=new Set();let url;
   const ok=(res,data,status=200)=>{res.writeHead(status,{'Content-Type':'application/json; charset=utf-8','Cache-Control':'no-store'});res.end(JSON.stringify({schemaVersion:'1',requestId:randomUUID(),data:publicSafe(data),serverTime:new Date().toISOString()}));};
@@ -57,7 +60,7 @@ export async function createGateway({dataDir,port=18780,settings={}}={}){
         if(p==='/api/v1/capture/gaps')return ok(res,runtime.gaps.page({limit:u.searchParams.get('limit')}));
         if(p==='/api/v1/capabilities')return ok(res,{...sources.capabilities(),features:{profiles:true,monitor:true,eventHighWatermark:true,signedCursors:true,eventSummaries:true,protoTrace:true,rawPaging:true,captureGapTrace:true,reparse:true,replayPhysicalIsolation:true},limits:{eventPage:200,frontCache:500},replay:{implemented:true},r01:{available:Boolean(settings.r01Root),inputFormat:'business-payload'},lan:{enabled:false}});
         if(p==='/api/v1/sources')return ok(res,{...sources.view(),items:['LiveHookSource','WebSource']});
-        if(p==='/api/v1/hook/status')return ok(res,{...bridge.status,daemon:daemon.status});
+        if(p==='/api/v1/hook/status')return ok(res,{...bridge.status,daemon:daemon.status,profileMatch:hookMatcher.view()});
         if(p==='/api/v1/events'){const page=runtime.store.events({limit:u.searchParams.get('limit'),cursor:u.searchParams.get('cursor'),mode:u.searchParams.get('mode'),namespace:u.searchParams.get('namespace'),method:u.searchParams.get('method'),afterSeq:u.searchParams.get('afterSeq')});return ok(res,{...page,items:page.items.map(event=>({...event,payload:{decodeStatus:event.payload?.decodeStatus,official:{content:event.payload?.official?.content||null},extensions:{lifecycleCandidate:event.payload?.extensions?.lifecycleCandidate||null}},detailAvailable:true}))});}
         if(p.startsWith('/api/v1/events/')){const item=runtime.store.event(p.split('/').at(-1));return item?ok(res,item):fail(res,'RESOURCE_NOT_FOUND',404);}
         if(p==='/api/v1/recordings')return ok(res,{items:runtime.store.recordings(),historicalInputs:settings.r01Root?[{inputId:'M0-R01',format:'business-payload',readOnly:true}]:[]});
@@ -120,7 +123,7 @@ export async function createGateway({dataDir,port=18780,settings={}}={}){
   const wss=new WebSocketServer({noServer:true,maxPayload:65536});
   const socketHub=new GatewaySocketHub(wss,runtime,settings.gatewayHeartbeat);
   server.on('upgrade',(req,socket,head)=>{if(req.url!=='/api/v1/ws'||!authorized(req)||(req.headers.origin&&req.headers.origin!==url)){socket.end('HTTP/1.1 403 Forbidden\r\n\r\n');return;}wss.handleUpgrade(req,socket,head,ws=>{wss.emit('connection',ws,req);ws.send(JSON.stringify({channel:'subscription.ready',data:{latestEventSeq:runtime.store.eventHighWatermark(),resume:'GET /events with afterSeq and snapshot cursor',live:true}}));});});
-  for(const channel of ['coordinator.updated','monitor.updated','events.appended','log.appended','session.updated','operation.updated','replay.updated','capture.updated','daemon.updated','source.updated'])runtime.on(channel,data=>socketHub.publish(channel,publicSafe(data)));
+  for(const channel of ['hook.match.updated','coordinator.updated','monitor.updated','events.appended','log.appended','session.updated','operation.updated','replay.updated','capture.updated','daemon.updated','source.updated'])runtime.on(channel,data=>socketHub.publish(channel,publicSafe(data)));
   for(const channel of ['events.appended','log.appended','session.updated','replay.updated'])runtime.replayEngine.ui.on(channel,data=>socketHub.publish(channel,publicSafe(data)));
   try{await new Promise((resolve,reject)=>{server.once('error',reject);server.listen(port,'127.0.0.1',resolve);});}catch(error){await daemon.close();await sources.close();await runtime.close();throw error;}url=`http://127.0.0.1:${server.address().port}`;
   runtime.log('GATEWAY_STARTED');

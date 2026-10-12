@@ -25,7 +25,7 @@ test('resolver separates UID, secUid, web_rid and actual roomId and bounds share
  const resolved=await resolver.resolve({type:'url',value:'https://v.douyin.com/synthetic/'});assert.equal(resolved.web_rid,'123');assert.equal(resolved.roomId,null);
  assert.throws(()=>resolver.classify({type:'url',value:'http://live.douyin.com/123'}),/TARGET_INVALID/);
 });
-test('HTTPS resolver pins public DNS answers and rejects private, redirects and oversized responses',async()=>{
+test('HTTPS resolver rejects private DNS answers and untrusted target domains',async()=>{
  assert.ok(SafeDouyinHttp,'SSRF-safe HTTP adapter required');
  for(const address of ['127.0.0.1','10.2.3.4','192.168.1.1','169.254.169.254','::1','::ffff:127.0.0.1','fc00::1']){
   const http=new SafeDouyinHttp({lookup:async()=>[{address,family:address.includes(':')?6:4}]});await assert.rejects(()=>http.get('https://live.douyin.com/123'),/TARGET_PRIVATE_ADDRESS/);
@@ -47,4 +47,5 @@ test('confirmed monitor transitions persist; failure is unknown, restart does no
  evidence={state:'UNKNOWN',errorCode:'MONITOR_HTTP_FAILED'};await monitor.check(p.profileId);assert.equal(monitor.view(p.profileId).confirmedState,'LIVE');assert.equal(monitor.view(p.profileId).queryState,'UNKNOWN');
  const restored=new LiveMonitor(profiles,{probe:async()=>({...evidence,state:'LIVE',anchorUid:'456',roomId:'9876543210123456789',web_rid:'123'})});restored.on('monitor.event',e=>events.push(e));await restored.check(p.profileId);assert.equal(events.length,1);
  evidence={state:'ENDED',anchorUid:'456',roomId:'9876543210123456789',web_rid:'123'};await monitor.check(p.profileId);await monitor.check(p.profileId);assert.equal(events.length,2);assert.equal(events[1].state,'ENDED');
+ monitor.adapter={probe:async()=>{throw new Error('synthetic private adapter exception');}};await monitor.check(p.profileId);assert.equal(monitor.view(p.profileId).queryState,'UNKNOWN');assert.equal(monitor.view(p.profileId).errorCode,'MONITOR_ADAPTER_FAILED');
 });

@@ -279,3 +279,11 @@ node ./tools/m0/Audit-SelectedSession.mjs $selectedSampleRoot $parserCopy $repor
 工具禁止报告写入样本目录，拒绝逃逸的文件引用；JSONL 流式读，不把全文放入 AI 上下文；`audit` 是选定场次内的全关联/结构统计，`inspect` 是字段相关性，`verify` 只重验 59 条 RAW 与对应旧结果。source 文件均以读方式打开。没有执行旧项目/通知/设备/实时网络。
 
 未覆盖：完整传输 RAW、gzip/HTTP fetch/create/finish、重复包保存与持久 ACK、独立采集源身份/version、字典源文件/version、跨房间/连接/恢复/乱序/连击超时、真实业务会员权益、正式 ReplayEngine 或 SessionManager。已存在一个结束候选，仍缺开播/HTTP/推流及同场恢复证据。**M0 未完成**；下一步先按本 Golden 做独立别名/冲突隔离设计审查，生命周期另补选定真实输入，不为缺失开播而否定当前互动样本的测试价值。
+
+## 2026-10-13 Profile/Monitor迁移增量
+
+聚焦复用：douyin-live-monitor@167aa51 的monitor.py get_live_via_page/get_live_via_api用于输入语义/状态证据参考；未导入ab_sign、通知、房间清单或凭据。新targets/monitor适配器独立、结构化匹配，未知不猜测。真实页面形态与UID映射未验收。
+
+douyinprotobuf@e9e6cec的BrowserLive/AccountMonitor/createLoginContext经tools/setup-browser.mjs四固定哈希准备至忽略的src/parser/browser-vendor，不覆写已有parser/paths.js。本地v3只改准备钩子/目标匹配/RAW后解析与诊断边界；官方页面SDK拥有签名/心跳/ACK。新BrowserSource/媒体策略/DPAPI/login API属第一方；原浏览器资源不因复用获得公开再分发授权。Web直连原live.js保留，v5增加每次连接新参数回调，未补不存在的签名算法。
+
+合成验证位置：tests/monitor、profile-api、coordinator、automatic-source、browser-source、hook-profile、monitor-session.test.js；实际Edge网络事件/回环WS/DPAPI属于受控离线集成，不是平台生产验收。完整状态与剩余项见STATUS第15节。
