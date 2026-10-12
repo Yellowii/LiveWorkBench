@@ -355,3 +355,7 @@ E3/用户追加网络任务：第一方src/network新增ProxyPolicy、NetworkTra
 Profile/网络诊断GUI与160合成事件历史锚点/虚拟滚动/断线补查均浏览器错误0。一次既有verify-workbench附带59Golden复跑通过及GUI/隔离回放检查，未重新审计全量样本，原始数据未复制/上传；Golden不证明业务语义或实时采集正确。公开扫描169文件0发现；只有源码、合成fixture生成器及契约/进度拟提交，临时证书/RAW/SQLite/日志均忽略。代码核查与本地回归状态验证通过；真实平台/官方SDK持续监听尚未通过。
 
 部署前18783采集STOPPED、人工选择LiveHookSource，用户已有一配置保留（monitorEnabled/autoStart均false）。旧8827/8888仍PID18644；18780/18781/18782/18827无监听且未由本任务停止。下一步提交后更新自有18783，核对实际加载commit/配置恢复，再对用户本地登记目标做不触发监听的代理路径诊断。E4孤立RAW/journal/Replay job/协调重启恢复与真实持续验收仍待，不能以代理可达或模拟成功标E完成。
+
+网络功能增量已推送29cc6d7b58e1123073b98ec8b4a725226b29b0af，远程main相同。随后自有18783停止/启动的整条命令被自动审批以blocked by policy拒绝；无更详细原因，整条未执行，未尝试替代启动路径。复查18783仍PID48276/f381be8，旧8827/8888仍PID18644。提供只供用户手动执行的tools/restart-dev-workbench.ps1，核对PID/完整加载commit/STOPPED及Node入口后沿用同数据目录，不把磁盘新界面当新版后端。
+
+无需重启的真实网络只读验证：只从指定本项目SQLite的用户已登记Profile读取目标/超时/网络模式（不读取登录态、Cookie或RAW），新代码独立probe、不写监控/业务状态。2026-10-13北京时间07:43:48，880ms，经现有Windows静态回环HTTP CONNECT代理、代理侧DNS、正常目标TLS验证取得页面成功；localDnsUsed=false、connectionState=connected、网络errorCode=null，RAW/events/sessions计数不变。结构化房间证据仍MONITOR_EVIDENCE_UNAVAILABLE/UNKNOWN；这证明当前代理网络可达，不能证明真实开播、身份映射、官方SDK/WSS捕获或持续恢复。报告只保留脱敏摘要.local/e-network-real-summary.json，页面正文/用户身份未输出/上传。下一步由用户手动更新18783并在GUI选用系统网络/浏览器采集及人工WebSource选择，真实闭环及E4继续待验收。

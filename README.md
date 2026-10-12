@@ -103,3 +103,5 @@ LiveWorkBench/
 references 中源码和官方 API 文档已经存在，但本地存在、静态代码路径、实际运行通过是不同状态。详细证据与下一步见迁移和进度文档。
 
 应用内 networkPolicy 支持 system/direct/custom，监控、目标解析、WSS 与浏览器共享策略。系统模式只读已有静态代理，自定义支持 HTTP/HTTPS CONNECT、SOCKS5 域名请求；直连拒绝 Fake-IP 并固定公共 DNS 地址，不修改系统环境。保存模式和独立诊断见工作台及 [NETWORK_TRANSPORT](docs/contracts/NETWORK_TRANSPORT.md)。
+
+已有18783宿主需要更新时，用户可手动运行 `powershell -NoProfile -File tools/restart-dev-workbench.ps1 -ExpectedPid <界面PID> -ExpectedCommit <界面完整Commit>`。脚本先核对实际加载版本、PID、Node入口和采集STOPPED，再停止该自有宿主、沿用同数据目录于当前终端启动；状态变化时拒绝操作。它不由应用自动执行，不停止其他端口或修改系统环境。TLS模拟测试另需Python3及cryptography，可通过LW_PYTHON指定可执行路径；临时证书不进入系统信任。
