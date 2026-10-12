@@ -202,3 +202,7 @@ taskId：`CORE-VERTICAL-01`；owner：当前主协调对话。按用户最新指
 验证：5项新增回归先全部失败，修复后全套26/26通过；真实59 Golden再次经 GUI/API 完成59检查、0失败，浏览器错误0。场次测试的 Windows SQLite 清理顺序已修正，不把清理锁冲突误报为功能成功。仍未执行真实 HTTP 开闭播/WSS 环境验证，证据Refs窗口之外的完整 Evidence 索引及匿名主播补全后的历史去重迁移尚待补齐。
 
 首个公开基线 `230301cdd95b01ce93edb5503ab91309b06b6337` 已推送并核对 origin/main；独立干净检出完成 npm依赖、六文件哈希准备、NuGet自动还原、C#编译（6项既有警告）和21项测试。未操作18780/18781进程或真实伴侣。本轮用户授权覆盖串行 main 提交，无并行 worktree/对话。
+
+默认脱敏增量：新增 `src/public-projection.js`、`tests/privacy.test.js`，Gateway REST/WS 统一使用投影，GUI 明示官方结果为脱敏投影。每个本地数据域保存独立32字节私钥，对房间/用户/消息标识做稳定 HMAC 别名；昵称/正文及未知原生字符串/字节字段默认隐藏，原生 Parser 与 RAW/事件库字节不改。凭据、物理路径始终剔除，局部受控查看须本地私有配置 allowPrivateDetails=true，不能经API启用。
+
+验证：REST/WS 泄露回归及未知原生字符串回归先失败，再修复通过；全套29/29，GUI真实59 Golden/59检查/0失败、浏览器错误0。未把脱敏投影作为原生结果哈希。下一段接人工单源控制与 WebSource；当前无授权TLS证书/WebSource配置，真实连接尚未尝试。

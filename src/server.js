@@ -8,16 +8,13 @@ import {Runtime} from './runtime.js';
 import {CaptureBridge} from './capture-bridge.js';
 import {runHistorical} from './historical-source.js';
 import {LiveHookDaemon} from './live-hook-daemon.js';
+import {publicProjection} from './public-projection.js';
 
 const root=path.resolve(path.dirname(fileURLToPath(import.meta.url)),'..');
 const publicDir=path.join(root,'public');
-const publicSafe=value=>{
-  if(Array.isArray(value))return value.map(publicSafe);
-  if(value&&typeof value==='object')return Object.fromEntries(Object.entries(value).filter(([key])=>!/(cookie|token|password|secret|credential|authorization|filePath|payload_base64|urlList)/i.test(key)).map(([k,v])=>[k,publicSafe(v)]));
-  return value;
-};
 export async function createGateway({dataDir,port=18780,settings={}}={}){
   const runtime=await Runtime.open({dataDir:dataDir||path.join(root,'data')}),bridge=new CaptureBridge(runtime),daemon=new LiveHookDaemon(runtime,bridge);await daemon.start();
+  const projection=await publicProjection(runtime.dataDir,{allowPrivateDetails:settings.allowPrivateDetails===true}),publicSafe=projection.project;
   const token=randomUUID();const commands=new Map(),jobs=new Set();let url;
   const ok=(res,data,status=200)=>{res.writeHead(status,{'Content-Type':'application/json; charset=utf-8','Cache-Control':'no-store'});res.end(JSON.stringify({schemaVersion:'1',requestId:randomUUID(),data:publicSafe(data),serverTime:new Date().toISOString()}));};
   const fail=(res,code,status=400)=>{res.writeHead(status,{'Content-Type':'application/json','Cache-Control':'no-store'});res.end(JSON.stringify({schemaVersion:'1',error:{code,message:code,retryable:false}}));};
@@ -38,7 +35,7 @@ export async function createGateway({dataDir,port=18780,settings={}}={}){
       if(req.headers.origin&&req.headers.origin!==url)return fail(res,'FORBIDDEN',403);
       const p=u.pathname;
       if(req.method==='GET'){
-        if(p==='/api/v1/system/status')return ok(res,{backendReady:true,selectedSource:'LiveHookSource',capture:bridge.status,daemon:daemon.status,sessions:runtime.store.sessions(),metrics:runtime.metrics,liveEnvironmentAuthorized:Boolean(settings.certificatePath)});
+        if(p==='/api/v1/system/status')return ok(res,{backendReady:true,selectedSource:'LiveHookSource',capture:bridge.status,daemon:daemon.status,sessions:runtime.store.sessions(),metrics:runtime.metrics,privacy:{mode:projection.mode,projectionVersion:projection.version},liveEnvironmentAuthorized:Boolean(settings.certificatePath)});
         if(p==='/api/v1/health')return ok(res,{status:'ok',storage:'sqlite-wal-full',parser:'official'});
         if(p==='/api/v1/capabilities')return ok(res,{liveHook:{implemented:true,available:Boolean(settings.certificatePath),reason:settings.certificatePath?null:'TLS_CERTIFICATE_REQUIRED'},webSource:{implemented:false,available:false},replay:{implemented:true},r01:{available:Boolean(settings.r01Root),inputFormat:'business-payload'},lan:{enabled:false}});
         if(p==='/api/v1/hook/status')return ok(res,{...bridge.status,daemon:daemon.status});

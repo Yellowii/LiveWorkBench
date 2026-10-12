@@ -208,3 +208,7 @@ R01 是历史业务载荷，不是完整传输录制。实现前需给历史输�
 Golden/全量检查面板通过后端 operation 显示实际验证结果；实现前明确其任务 kind、报告 DTO 和失败定位契约。通用 operation 状态与日志查询保持复用，后端不得声称尚未执行的 59/59。历史分页只读已持久化派生事件，不能每翻页重新跑 14,588 条解析。
 
 首版仅本机，不提前开放 LAN 或接入真实通知/OBS/Stream Dock。后端允许的日志/指标/任务执行边界与认证约束保持有效。
+
+### 本机公开投影（2026-10-12 实现）
+
+REST/WS 默认返回 redacted 投影，system/status.privacy 记录 mode/projectionVersion。房间/用户/消息标识为数据域内稳定HMAC别名，原生字符串/字节字段只披露必要数值/结构；事件自身不透明ID和RAW引用保留。原生 Parser 输出和RAW仍保存在本地，官方结果投影不能作为原生结果哈希。受控本地诊断可在私有 settings 中显式设置 allowPrivateDetails=true；此模式仍不返回凭据和物理路径。该设置不经API开放，不代表LAN认证/RBAC已经实现。
