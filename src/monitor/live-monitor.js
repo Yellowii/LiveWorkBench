@@ -14,11 +14,11 @@ export class LiveMonitor extends EventEmitter{
    next.failures=0;next.lastSuccessAt=now;next.evidence={source:evidence.source||'unknown',anchorUid:evidence.anchorUid||null,secUid:evidence.secUid||null,roomId:evidence.roomId||null,web_rid:evidence.web_rid||null,pushState:'UNKNOWN'};
    const candidate=JSON.stringify([evidence.state,evidence.roomId,evidence.anchorUid]);next.confirmationCount=previous.candidate===candidate?(previous.confirmationCount||0)+1:1;next.candidate=candidate;
    if(next.confirmationCount>=profile.confirmations&&(previous.confirmedState!==evidence.state||previous.roomId!==evidence.roomId||previous.anchorUid!==evidence.anchorUid)){
-    next={...next,confirmedState:evidence.state,roomId:evidence.roomId||null,anchorUid:evidence.anchorUid||null,web_rid:evidence.web_rid||null,lastTransitionAt:now,stateVersion:String(BigInt(previous.stateVersion||'0')+1n)};changed=true;
+    next={...next,operationId:randomUUID(),confirmedState:evidence.state,roomId:evidence.roomId||null,anchorUid:evidence.anchorUid||null,web_rid:evidence.web_rid||null,lastTransitionAt:now,stateVersion:String(BigInt(previous.stateVersion||'0')+1n)};changed=true;
    }
   }
   next.nextDelayMs=Math.min(3600000,profile.pollMs*2**Math.min(next.failures,6));this.profiles.setState(id,next);this.emit('monitor.updated',this.view(id));
-  if(changed)this.emit('monitor.event',{schemaVersion:'1',operationId:randomUUID(),profileId:id,profileVersion:profile.version,stateVersion:next.stateVersion,state:next.confirmedState,anchorUid:next.anchorUid,roomId:next.roomId,web_rid:next.web_rid,observedAt:now,pushState:'UNKNOWN',evidence:next.evidence});return this.view(id);
+  if(changed)this.emit('monitor.event',{schemaVersion:'1',operationId:next.operationId,profileId:id,profileVersion:profile.version,stateVersion:next.stateVersion,state:next.confirmedState,anchorUid:next.anchorUid,roomId:next.roomId,web_rid:next.web_rid,observedAt:now,pushState:'UNKNOWN',evidence:next.evidence});return this.view(id);
  }
  sync(){if(this.closed)return;const enabled=new Set(this.profiles.all().filter(p=>p.enabled&&p.monitorEnabled).map(p=>p.profileId));for(const [id,task] of this.tasks)if(!enabled.has(id)){clearTimeout(task.timer);task.controller.abort();this.tasks.delete(id);}
   for(const id of enabled)if(!this.tasks.has(id)){const task={controller:new AbortController()};this.tasks.set(id,task);const tick=async()=>{if(this.closed||this.tasks.get(id)!==task)return;try{await this.check(id);}catch{this.emit('monitor.error',{profileId:id,code:'MONITOR_TASK_FAILED'});}if(!this.closed&&this.tasks.get(id)===task){task.timer=setTimeout(tick,this.view(id).nextDelayMs||this.profiles.get(id).pollMs);task.timer.unref();}};task.timer=setTimeout(tick,100);task.timer.unref();}

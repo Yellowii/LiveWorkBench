@@ -37,3 +37,5 @@ HookTargetMatcher使用已提交RAW的成功伴侣HTTP room/create owner作为�
 仅本次录制/来源epoch、实际匹配伴侣WSS解码数据、当前代理与伴侣观察均就绪时Daemon标HOOK_READY；端口绑定/进程启动/HTTP创建单独不够。进程退出、重启、观察失败撤销HookReady，不能结束场次。SourceController.startProfile的Hook分支仅接管现有匹配流，不启动代理、不建WebClient、不改环境；调度允许此类既有资源接管。GET /hook/status新增profileMatch，WS hook.match.updated仅语义改变时推送。
 
 已有明确HTTP/Control结束仍由SessionManager裁决。可信monitor的已确认ENDED、成功查询、douyin-structured-room来源并与调度拥有的已存在live场次身份/room一致时，Runtime.observePlatformEvidence正式命令记录独立platform-ended证据并结束同一场次；不新建场次，不补推流状态，不伪造官方解析结果/RAW引用。此项追加生命周期输入，事件producer=MonitorCoordinator、origin=monitor、rawRefs=[]、payload.official=null、独立extensions.platformEvidence。重复幂等。普通停止/断线/UNKNOWN仍不下播。此前B采集停止规则保持，新增可信END的场次证据处理。
+
+阶段E2：Browser v4收到并持久化二进制网络事件后才报告CONNECTED；仅创建WebSocket不清除有效流等待计时。鉴权/访问/429/验证需求进入需人工操作状态并终止该状态自动重试；浏览器退出与WSS90秒无恢复是有界恢复原因。GET /sources/browser与metrics/modules.browser返回接收/连接/中断/队列/媒体阻断与自有浏览器进程工作集之和，无法读取明确unavailable/null。SDK心跳/控制帧细节未可观察，不以0冒充测量。RAW增加profileId/operationId/monitorOperationId/monitorStateVersion，最终事件通过独立extensions.processingContext关联；不保存URL、Cookie或账号资料到指标/公共日志。

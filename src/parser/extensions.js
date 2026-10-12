@@ -9,6 +9,7 @@ export function parserExtensions({official,raw,message,roomId,commonRoom,isContr
  if(common.create_time&&!validTime)extensions.occurredAtReason='OFFICIAL_TIME_NOT_REPRESENTABLE_AS_SECONDS';
  if(raw.originalSequence)extensions.originalSequence=raw.originalSequence;
  if(raw.indexMsgId)extensions.indexMsgId=raw.indexMsgId;
+ if(raw.profileId||raw.operationId)extensions.processingContext={profileId:raw.profileId||null,operationId:raw.operationId||null,monitorStateVersion:raw.monitorStateVersion||null,monitorOperationId:raw.monitorOperationId||null};
  if(message.msg_id)extensions.transportMsgId=String(message.msg_id);
  if(isControlEnd)extensions.lifecycleCandidate=associatedEnd?'platform-ended':'unassociated-platform-end';
  return {extensions,occurredAt};

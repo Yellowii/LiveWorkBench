@@ -37,7 +37,7 @@ export class SourceController {
     if(this.view().captureState==='FAILED')await this.stopActive();
     this.state.sourceEpoch=String(BigInt(this.state.sourceEpoch)+1n);this.state.stateVersion=String(BigInt(this.state.stateVersion)+1n);this.save();
     this.webMode=config.kind==='browser'?'browser':'direct';this.activeProfileId=profile.profileId;
-    if(config.kind==='browser')await this.browser.start({...config,storageState:await this.vault.load(profile.authRef||profile.profileId),autoReconnect:profile.autoReconnect,sourceEpoch:this.state.sourceEpoch});
+    if(config.kind==='browser')await this.browser.start({...config,profileId:profile.profileId,operationId:evidence.operationId,monitorOperationId:evidence.monitorOperationId,monitorStateVersion:evidence.stateVersion,storageState:await this.vault.load(profile.authRef||profile.profileId),autoReconnect:profile.autoReconnect,sourceEpoch:this.state.sourceEpoch});
     else await this.web.start({...config,autoReconnect:profile.autoReconnect,retryLimit:profile.retryLimit,refreshConnection:async()=>{if(!stillCurrent())throw new Error('STATE_CONFLICT');return this.connectionResolver.resolve(profile,evidence);},sourceEpoch:this.state.sourceEpoch});this.save();return this.view();
   });this.queue=task;return task;}
   stopProfile(expectedVersion){return this.action({action:'stop',expectedVersion});}

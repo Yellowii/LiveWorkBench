@@ -339,3 +339,7 @@ D完成验证：独立C#构建退出0，全套90/90（.local/monitor-d-tests.log
 E1新增src/instance.js单数据域SQLite进程租约：第二个活宿主拒绝、正常退出释放，崩溃宿主PID已不存在时新进程可原子接管；活PID复用或权限未知保守拒绝。system/status增加加载时instanceId/commit/dirty/codeFingerprint/startedAt与实际Profiles/Monitor/Coordinator状态；GUI展示实例与加载后端commit，避免静态新页面冒充新版后端。Runtime初始化失败释放租约。
 
 E1验证：2项新增回归先失败后通过，租约/实例API与Replay物理隔离针对回归、Profile GUI进行核查；Parser六原文件6/6、Web v5/Browser v3固定准备核验、C#独立构建退出0。本次启动前18783空闲且data/pipeline-20261013不存在；18780/18781/18782本轮检查已无监听（未由本任务停止），旧8827/8888仍PID18644。长期启动结果在后续段记录，不把临时GUI网关当部署。
+
+E1已推送f381be85a198d1fd907400b35c867c58cc9c168e。用户本轮明确授权后一次启动成功，18783/PID48276、instanceId c8aebdc5-59dd-49d9-bbc8-2270134eb8e6，加载f381be8/dirty=false，初始Profiles0/采集STOPPED/默认LiveHookSource。旧监听服务未操作；没有审批拒绝或绕过。用户随后在本地GUI登记目标，AI只读取脱敏配置状态/错误码，不读取其账号与真实RAW。
+
+E2交付开发：浏览器异常区分退出/鉴权访问/429/验证需求，策略失败熔断不自动循环；WSS恢复90秒界限，SDK先处理原连接恢复。Browser v4只有已提交接收RAW后才报告CONNECTED，网络连接创建不冒充有效捕获。Browser实例CDP枚举自有进程→Windows工作集之和、真实接收/重连/队列/媒体阻断统计（共享页重复计入，不是独占内存）；GET sources/browser与GUI。monitor操作ID→调度ID→RAW/Proto/event独立extensions关联，不改变官方输出。针对7项Browser/自动连接回归通过，含实际Edge回环网络及内存读取、HTTP429无敏感响应、真实链路关联；配置/指标GUI浏览器错误0。真实平台尚未通过。

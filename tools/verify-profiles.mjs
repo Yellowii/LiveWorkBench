@@ -19,6 +19,7 @@ try{
  await page.locator('#persistLogin').check();await page.locator('#authOptIn').click();await page.waitForFunction(()=>document.getElementById('profileState').textContent.includes('"persistLogin": true'));
  await page.locator('#authCheck').click();await page.waitForFunction(()=>document.getElementById('authState').textContent.includes('"validity": "UNKNOWN"'));assert.equal(app.profiles.all()[0].persistLogin,true);
  await page.locator('#hookMatchReload').click();await page.waitForFunction(()=>document.getElementById('hookMatch').textContent.includes('profileMatch'));assert.equal(app.bridge.status.hookReady,false);
+ await page.locator('#browserStatsReload').click();await page.waitForFunction(()=>document.getElementById('browserStats').textContent.includes('"rawBeforeAck": false'));
  assert.equal(app.profiles.all()[0].target.value,'123');assert.equal(app.sources.view().selectedSource,'LiveHookSource');
  await page.locator('#profileDelete').click();await page.waitForFunction(()=>document.getElementById('profileSelect').options.length===1);
  assert.deepEqual(errors,[]);console.log(JSON.stringify({profileCRUD:true,monitorConfirmed:true,inputWriteOnly:true,manualSourcePreserved:true,browserErrors:0}));

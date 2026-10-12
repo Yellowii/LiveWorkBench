@@ -20,7 +20,10 @@ replaceOnce('            .then(() => {\n              if (g !== this.generation)
 replaceOnce('                const packet = decodePacket(this.p, event.payload);',`                const packet = await this.options.rawCommit(Buffer.from(event.payload), receivedAt, connection);`);
 replaceOnce('            this.emit("failure", {\n              stage: "browser-queue",','            this.options.captureRejected?.(Buffer.from(event.payload));\n            this.emit("failure", {\n              stage: "browser-queue",');
 replaceOnce('                  stage: "browser-decode",','                  stage: "browser-pipeline",');
+replaceOnce('        this.update("connected", {','        this.update("connecting", {');
+replaceOnce('        clearTimeout(this.wait);','        // Connection creation alone does not prove usable captured traffic.');
+replaceOnce('                packet.received_at = new Date().toISOString();','                clearTimeout(this.wait);\n                if (this.status.state !== "connected") this.update("connected");\n                packet.received_at = new Date().toISOString();');
 replaceOnce('          if (g === this.generation)\n            this.update("waiting", {','          if (g === this.generation && this.options.autoReconnect === false) { void this.stop(); return; }\n          if (g === this.generation)\n            this.update("waiting", {');
-const output='// Local browser RAW adaptation v3; fixed upstream e9e6cec; SDK ACK remains outside recorder control.\n'+text,target=path.join(vendor,'browser-raw-first-v3.js');let existing;try{existing=await fs.readFile(target,'utf8');}catch(e){if(e.code!=='ENOENT')throw e;}
+const output='// Local browser RAW adaptation v4; fixed upstream e9e6cec; SDK ACK remains outside recorder control.\n'+text,target=path.join(vendor,'browser-raw-first-v4.js');let existing;try{existing=await fs.readFile(target,'utf8');}catch(e){if(e.code!=='ENOENT')throw e;}
 if(existing&&existing!==output)throw new Error('BROWSER_ADAPTATION_CHANGED');if(!existing)await fs.writeFile(target,output,{flag:'wx'});
-console.log(JSON.stringify({verified:manifest.length,patchVersion:'browser-raw-first-v3',sha256:createHash('sha256').update(output).digest('hex')}));
+console.log(JSON.stringify({verified:manifest.length,patchVersion:'browser-raw-first-v4',sha256:createHash('sha256').update(output).digest('hex')}));
