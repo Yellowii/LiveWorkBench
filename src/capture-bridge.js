@@ -31,7 +31,7 @@ export class CaptureBridge {
       if(message.kind==='diagnostic'){this.runtime.log(message.code);this.rejectReady?.(new Error(message.code));return;}
       if(message.kind==='raw'){
         try{
-          const raw=await this.runtime.ingest({bytes:Buffer.from(message.payloadBase64,'base64'),format:message.format,receivedAt:message.receivedAt,urlPath:message.urlPath,httpStatus:message.httpStatus,processName:message.processName,captureId:this.captureId,recordingId:this.captureId,sourceType:'LiveHookSource',sourceEpoch:this.sourceEpoch,mode:this.mode,runtimeNamespace:this.mode==='live'?'live':`test:${this.captureId}`,deferTransport:['frame','response'].includes(message.format)},commit=>{this.pending.set(message.id,commit);this.send({kind:'ack',id:message.id,ok:true});});
+          const raw=await this.runtime.ingest({bytes:Buffer.from(message.payloadBase64,'base64'),format:message.format,byteBoundary:message.format==='frame'?'reassembled-websocket-message':'proxy-http-response-body',receivedAt:message.receivedAt,urlPath:message.urlPath,httpStatus:message.httpStatus,processName:message.processName,captureId:this.captureId,recordingId:this.captureId,sourceType:'LiveHookSource',sourceEpoch:this.sourceEpoch,mode:this.mode,runtimeNamespace:this.mode==='live'?'live':`test:${this.captureId}`,deferTransport:['frame','response'].includes(message.format)},commit=>{this.pending.set(message.id,commit);this.send({kind:'ack',id:message.id,ok:true});});
           if(raw.format==='http-json')this.pending.delete(message.id);
         }catch{this.send({kind:'ack',id:message.id,ok:false});this.runtime.log('RAW_PERSIST_FAILED');}
       }

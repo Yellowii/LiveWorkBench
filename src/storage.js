@@ -3,6 +3,7 @@ import path from 'node:path';
 import {DatabaseSync} from 'node:sqlite';
 import {randomUUID,createHash} from 'node:crypto';
 import {CursorCodec,decimalSequence} from './cursor.js';
+import {logRecord} from './log-record.js';
 
 export class Store {
   constructor(dir){
@@ -50,8 +51,17 @@ export class Store {
   event(id){const row=this.bigStatement('SELECT json,seq FROM events WHERE id=?').get(id);return row?{...JSON.parse(row.json),eventSeq:String(row.seq)}:null;}
   sessions(){return this.db.prepare('SELECT json FROM sessions').all().map(x=>JSON.parse(x.json));}
   saveSession(key,state){this.db.prepare('INSERT INTO sessions VALUES(?,?,?) ON CONFLICT(key) DO UPDATE SET json=excluded.json').run(state.sessionId,key,JSON.stringify(state));}
-  log(code,details={}){const log={at:new Date().toISOString(),code,...details};this.db.prepare('INSERT INTO logs(json) VALUES(?)').run(JSON.stringify(log));return log;}
-  logs(){return this.db.prepare('SELECT json FROM logs ORDER BY seq DESC LIMIT 100').all().map(x=>JSON.parse(x.json));}
+  log(code,details={}){const log=logRecord(code,details);const result=this.bigStatement('INSERT INTO logs(json) VALUES(?)').run(JSON.stringify(log));return {...log,logSeq:String(result.lastInsertRowid)};}
+  logPage({module,level,code,operationId,limit=100,cursor}={}){
+    const filters={kind:'logs',module:module||null,level:level||null,code:code||null,operationId:operationId||null};
+    limit=Math.max(1,Math.min(10000,Math.floor(Number(limit)||100)));let before=null,snapshot=String(this.bigStatement('SELECT coalesce(max(seq),0) AS n FROM logs').get().n);
+    if(cursor){const decoded=this.cursors.decode(cursor,filters);before=decoded.before;snapshot=decoded.snapshot;}
+    const where=['seq<=?'],args=[BigInt(snapshot)];if(before!==null){where.push('seq<?');args.push(BigInt(before));}
+    for(const field of ['module','level','code','operationId'])if(filters[field]){where.push(`json_extract(json,'$.${field}')=?`);args.push(filters[field]);}
+    const rows=this.bigStatement(`SELECT json,seq FROM logs WHERE ${where.join(' AND ')} ORDER BY seq DESC LIMIT ?`).all(...args,limit+1),hasMore=rows.length>limit;rows.length=Math.min(rows.length,limit);
+    return {items:rows.map(row=>({...JSON.parse(row.json),logSeq:String(row.seq)})),hasMore,snapshot,nextCursor:hasMore?this.cursors.encode({filters,before:String(rows.at(-1).seq),snapshot}):null};
+  }
+  logs(){return this.logPage().items;}
   countRaw(){return this.db.prepare('SELECT count(*) AS n FROM raw').get().n;}
   countEvents(){return this.db.prepare('SELECT count(*) AS n FROM events').get().n;}
   close(){if(!this.closed){this.closed=true;this.db.close();}}

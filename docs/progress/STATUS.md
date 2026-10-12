@@ -28,9 +28,9 @@
 | EventBus/EventStore | Node 增量总线 + SQLite 事件库已实现 | 跨重启去重、快照游标、域隔离 | 正式消费者/outbox/独立业务出口 |
 | ReplayEngine | 播放/暂停/单步/停止/跳转重建已实现 | API 并发版本与 GUI 单步/seek | 检查点、按采集时间调度；当前固定间隔倍速 |
 | Gateway/开发 GUI | 首个可运行子集与浏览器测试通过 | tools/verify-workbench.mjs；API 认证测试 | 完整 API/RBAC/LAN/WS 高水位恢复 |
-| LogService | 持久基础诊断与 WS/GUI 可查 | SQLite logs/运行测试 | 过滤、导出、完整 trace 模型 |
+| LogService | 结构化/过滤/签名分页/受认证脱敏导出及GUI通过 | tests/observability；verify-observability | 旧日志结构迁移、完整trace模型/保留预算 |
 | MetricsService | 解析/去重/事件/捕获计数、本进程 RSS 已实现 | metrics/modules、processes | 整机/GPU/历史 provider 未实现 |
-| 弹幕无限回滚 | 持久化快照分页、WS 增量、最多500行浏览已实现 | 插入后快照稳定、GUI 加载更早 | 虚拟滚动/精确断线高水位补查 |
+| 弹幕无限回滚 | 签名快照分页、可见行/500缓存、上翻锚点、断线补查已实现 | history测试；160条GUI恢复 | 长时间/大于500缺口、保留期/多设备压力 |
 | ExternalIntegration/业务 | 后续预留 | 核心 B3/公共契约边界 | 不纳入当前 P0 实现完成率 |
 
 ## 3. 里程碑与依赖
@@ -222,3 +222,9 @@ GUI按时间从旧到新展示，向上自动续页，最多500缓存且仅渲�
 验证：新增篡改/高水位/超JS安全整数回归先失败，修复后全套41/41；GUI真实59 Golden/59检查/0失败；160条合成事件浏览器用例确认可见DOM有界、历史锚点不移动、79条断线消息补查，浏览器错误0。SQLite setReadBigInts 返回void的误用已在验证中修正，不保留失败实现。私人RAW和官方Parser未修改。
 
 伴侣环境：用户明确允许尝试启动后自动审批拒绝该启动动作，仅返回blocked by policy，无具体规则；未改用其他启动方式。用户随后手动启动，观察到12个伴侣进程，工作台 companionRunning=true、RESTART_REQUIRED、capture STOPPED、HookReady=false。当前只验证进程观察，不是TLS/真实直播验收；证书/系统代理/安装文件未改。
+
+日志/指标/回放完整性增量：新增 log-record.js/log-export.js/tests/observability.test.js/tools/verify-observability.mjs；日志带module/level/logSeq，凭据在写日志前剔除。GET /logs支持module/level/code/operationId/签名页；异步 POST /logs/exports及受认证下载导出JSONL，最多10000、15分钟句柄，即使local-private界面也强制脱敏，落地文件仅在忽略的data。GUI筛选、继续页和实际下载验证通过，阅读旧日志时周期刷新不覆盖。记录RAW提交/解析处理链单调时钟墙耗时、错误次数及实际队列；模块CPU无归因时明确unavailable/null，不用耗时伪造CPU。原生/传输MsgId分别保留，C#边界明确是代理HTTP主体或重组WS消息。Replay每次读取检查SHA256，变化则失败/留诊断/不发布，不改原字节；只有合成临时测试文件被测试用例改动。
+
+验证：4项新增行为先失败、后通过；全套45/45、C#构建退出0、真实59 Golden/59检查/0失败；日志筛选/认证脱敏下载、160消息历史GUI均浏览器错误0。并发全套+两个浏览器测试曾出现一次capture.test.js进程级退出（没有具体栈，43项中42通过）；单独采集5/5、随后全套45/45、再次相同并发负载45/45均通过，原因未复现定位，保留为稳定性待观察，不能据此宣布M3/实机采集稳定性通过。日志在.local保留，不上传。
+
+运行部署只停止本对话创建的18782/PID49192（事先确认监听归属与node名称），不停止18780/18781、旧8827/8888或用户伴侣；新版继续同一独立数据域。完整P0仍未完成：真实TLS/伴侣路由与长时间恢复、真实Web鉴权/重连、同room复用/异常核对、崩溃孤立RAW恢复、业务/设备执行出口尚待。下一步是具体授权范围下的LiveHook环境准备及实机回归，不反复审计R01。

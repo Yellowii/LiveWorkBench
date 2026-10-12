@@ -10,6 +10,7 @@ import {runHistorical} from './historical-source.js';
 import {LiveHookDaemon} from './live-hook-daemon.js';
 import {publicProjection} from './public-projection.js';
 import {SourceController} from './source-controller.js';
+import {LogExports} from './log-export.js';
 
 const root=path.resolve(path.dirname(fileURLToPath(import.meta.url)),'..');
 const publicDir=path.join(root,'public');
@@ -17,6 +18,7 @@ export async function createGateway({dataDir,port=18780,settings={}}={}){
   const runtime=await Runtime.open({dataDir:dataDir||path.join(root,'data')}),bridge=new CaptureBridge(runtime),daemon=new LiveHookDaemon(runtime,bridge);await daemon.start();
   const projection=await publicProjection(runtime.dataDir,{allowPrivateDetails:settings.allowPrivateDetails===true}),publicSafe=projection.project;
   const sources=new SourceController(runtime,bridge,settings);
+  const exportsProjection=await publicProjection(runtime.dataDir),logExports=new LogExports(runtime,exportsProjection.project);
   const token=randomUUID();const commands=new Map(),jobs=new Set();let url;
   const ok=(res,data,status=200)=>{res.writeHead(status,{'Content-Type':'application/json; charset=utf-8','Cache-Control':'no-store'});res.end(JSON.stringify({schemaVersion:'1',requestId:randomUUID(),data:publicSafe(data),serverTime:new Date().toISOString()}));};
   const fail=(res,code,status=400)=>{res.writeHead(status,{'Content-Type':'application/json','Cache-Control':'no-store'});res.end(JSON.stringify({schemaVersion:'1',error:{code,message:code,retryable:false}}));};
@@ -47,8 +49,9 @@ export async function createGateway({dataDir,port=18780,settings={}}={}){
         if(p==='/api/v1/recordings')return ok(res,{items:runtime.store.recordings(),historicalInputs:settings.r01Root?[{inputId:'M0-R01',format:'business-payload',readOnly:true}]:[]});
         if(/^\/api\/v1\/recordings\/[^/]+\/raw\/[^/]+$/.test(p)){const raw=runtime.store.raw(decodeURIComponent(p.split('/')[6]));return raw&&raw.recordingId===decodeURIComponent(p.split('/')[4])?ok(res,raw):fail(res,'RESOURCE_NOT_FOUND',404);}
         if(p==='/api/v1/sessions')return ok(res,{items:runtime.store.sessions()});
-        if(p==='/api/v1/logs')return ok(res,{items:runtime.store.logs()});
-        if(p==='/api/v1/metrics/modules')return ok(res,{...runtime.metrics,capture:bridge.stats});
+        if(p==='/api/v1/logs')return ok(res,runtime.store.logPage({module:u.searchParams.get('module'),level:u.searchParams.get('level'),code:u.searchParams.get('code'),operationId:u.searchParams.get('operationId'),cursor:u.searchParams.get('cursor'),limit:Math.min(200,Number(u.searchParams.get('limit'))||100)}));
+        if(p.startsWith('/api/v1/logs/exports/')){const bytes=await logExports.read(p.split('/').at(-1));res.writeHead(200,{'Content-Type':'application/x-ndjson; charset=utf-8','Content-Disposition':'attachment; filename="liveworkbench-logs.jsonl"','Cache-Control':'no-store'});res.end(bytes);return;}
+        if(p==='/api/v1/metrics/modules')return ok(res,{...runtime.metrics,timings:runtime.metrics.timings||{},timingProvider:'performance.now wall duration',queues:{awaitingTransport:bridge.pending.size,webDecode:sources.web.client?.pending??0,websocketClients:wss.clients.size},moduleCpu:{available:false,value:null,reason:'MODULE_ATTRIBUTION_NOT_IMPLEMENTED'},capture:bridge.stats});
         if(p==='/api/v1/metrics/processes')return ok(res,{pid:process.pid,memoryBytes:process.memoryUsage().rss});
         if(p==='/api/v1/metrics/system'||p==='/api/v1/metrics/history')return ok(res,{available:false,reason:'PROVIDER_NOT_IMPLEMENTED'});
         if(p.startsWith('/api/v1/operations/'))return ok(res,runtime.operations.get(p.split('/').at(-1))||null);
@@ -67,6 +70,8 @@ export async function createGateway({dataDir,port=18780,settings={}}={}){
       let result,status=200;
       if(p==='/api/v1/capture/actions'){
         result=await sources.action(body);
+      }else if(p==='/api/v1/logs/exports'){
+        if(body.format&&body.format!=='jsonl')throw new Error('CAPABILITY_UNAVAILABLE');result=operation('logs.export',()=>logExports.create(body.filters||{}));status=202;
       }else if(p==='/api/v1/development/r01-runs'){
         result=operation(body.goldenOnly?'golden':'r01',op=>runHistorical(runtime,settings,{goldenOnly:Boolean(body.goldenOnly)},op));status=202;
       }else if(p==='/api/v1/replays'){result=await runtime.createReplay(body);}
@@ -76,7 +81,7 @@ export async function createGateway({dataDir,port=18780,settings={}}={}){
       }else if(p.match(/^\/api\/v1\/operations\/[^/]+\/actions$/)){const op=runtime.operations.get(p.split('/')[4]);if(!op)throw new Error('RESOURCE_NOT_FOUND');op.cancelled=true;result=op;}
       else throw new Error('RESOURCE_NOT_FOUND');
       command.result=structuredClone(result);command.status=status;ok(res,result,status);
-    }catch(e){const code=['CURSOR_MISMATCH','CURSOR_EXPIRED','SOURCE_BUSY','RESOURCE_NOT_FOUND','TLS_CERTIFICATE_REQUIRED','STATE_CONFLICT','CAPABILITY_UNAVAILABLE','WEB_TARGET_NOT_CONFIGURED','WEB_SOURCE_NOT_PREPARED','WEB_TARGET_INVALID','WEB_SOURCE_START_FAILED'].includes(e.message)?e.message:'INTERNAL_ERROR';const status=code==='RESOURCE_NOT_FOUND'?404:code==='CURSOR_EXPIRED'?410:code==='CAPABILITY_UNAVAILABLE'?501:['SOURCE_BUSY','STATE_CONFLICT','TLS_CERTIFICATE_REQUIRED','WEB_TARGET_NOT_CONFIGURED','WEB_SOURCE_NOT_PREPARED'].includes(code)?409:400;if(command)command.error={code,status};fail(res,code,status);}finally{if(command){command.finished=true;command.release();}}
+    }catch(e){const code=['CURSOR_MISMATCH','CURSOR_EXPIRED','SOURCE_BUSY','RESOURCE_NOT_FOUND','TLS_CERTIFICATE_REQUIRED','STATE_CONFLICT','CAPABILITY_UNAVAILABLE','WEB_TARGET_NOT_CONFIGURED','WEB_SOURCE_NOT_PREPARED','WEB_TARGET_INVALID','WEB_SOURCE_START_FAILED','RAW_HASH_MISMATCH'].includes(e.message)?e.message:'INTERNAL_ERROR';const status=code==='RESOURCE_NOT_FOUND'?404:code==='CURSOR_EXPIRED'?410:code==='CAPABILITY_UNAVAILABLE'?501:['SOURCE_BUSY','STATE_CONFLICT','TLS_CERTIFICATE_REQUIRED','WEB_TARGET_NOT_CONFIGURED','WEB_SOURCE_NOT_PREPARED','RAW_HASH_MISMATCH'].includes(code)?409:400;if(command)command.error={code,status};fail(res,code,status);}finally{if(command){command.finished=true;command.release();}}
   });
   const wss=new WebSocketServer({noServer:true,maxPayload:65536});
   server.on('upgrade',(req,socket,head)=>{if(req.url!=='/api/v1/ws'||!authorized(req)||(req.headers.origin&&req.headers.origin!==url)){socket.end('HTTP/1.1 403 Forbidden\r\n\r\n');return;}wss.handleUpgrade(req,socket,head,ws=>{wss.emit('connection',ws,req);ws.send(JSON.stringify({channel:'subscription.ready',data:{latestEventSeq:runtime.store.eventHighWatermark(),resume:'GET /events with afterSeq and snapshot cursor',live:true}}));});});

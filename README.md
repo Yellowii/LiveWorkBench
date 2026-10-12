@@ -19,7 +19,7 @@ npm start
 
 打开 <http://127.0.0.1:18780>。提供持久化消息分页、官方结果脱敏投影/独立增强/RAW 引用、日志与基础指标、隔离回放的播放/暂停/单步/跳转，以及伴侣进程/启动顺序/退出重启提示。可人工选择 LiveHookSource/WebSource，再独立启动；切换停止旧来源并保留场次，不自动故障切换。真实连接、完整 daemon 恢复、通知与业务消费者仍待相应验证。
 
-本次已启动的更新实例是 <http://127.0.0.1:18781>，使用独立 `data/daemon-increment`。旧18780实例保留。可用 LW_PORT/LW_DATA_DIR 配置独立实例，避免覆盖已有进程。
+本轮持续开发实例为 <http://127.0.0.1:18782>，使用独立 `data/continuous-20261012`。旧18780/18781实例保留。可用 LW_PORT/LW_DATA_DIR 配置独立实例，避免覆盖已有进程。
 
 已授权历史样本路径仅登记在忽略的 `.local/settings.json`：`{"r01Root":"用户已授权的单个 R01 目录"}`。界面可运行 59 Golden 或载入完整 R01，原数据只读且不复制；历史 payload 不冒充新采集的完整 HTTP/WSS RAW。浏览器验收命令为 `node tools/verify-workbench.mjs`，需要本机 Edge；结果在忽略的 `artifacts/`。
 

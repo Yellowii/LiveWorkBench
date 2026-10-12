@@ -218,3 +218,11 @@ REST/WS 默认返回 redacted 投影，system/status.privacy 记录 mode/project
 GET /events增加 afterSeq 十进制字符串（仅seq>afterSeq）；limit默认50/最多200。快照/页边界字符串精确支持SQLite有符号64位序号。nextCursor现为HMAC签名、24小时有效、绑定kind/过滤/afterSeq/快照，篡改或条件不匹配CURSOR_MISMATCH，过期CURSOR_EXPIRED/410；旧无签名游标必须重新查询。WS subscription.ready.data.latestEventSeq提供已持久化高水位，断线缺口通过正式查询补查。
 
 事件列表是摘要，GET /events/{id}提供单条脱敏结果；GET /recordings/{recordingId}/raw/{rawId}新增RAW元数据查询，校验所属关系，只返回大小/hash/来源/时刻/边界/不透明引用等投影，不提供原始字节或路径。GUI向上续页、可见行渲染和500条缓存；跟随重连补查最新500条，历史阅读不被强制回底。
+
+### 当前日志/指标/回放完整性子集（2026-10-12）
+
+GET /logs支持module/level/code/operationId、limit默认100/最多200及签名cursor。新日志记录module/level/logSeq，凭据键在写入前移除；旧记录未自动回填分类。POST /logs/exports支持filters/format=jsonl，202 operation完成给exportId/rows/truncated/expiresAt，GET /logs/exports/{id}为同会话认证下载；导出始终用redacted投影，最多10000条，句柄15分钟，文件路径不返回。保存文件保留策略尚待。
+
+metrics/modules增加timings与queues：performance.now测RAW提交/解析处理链墙耗时（不是CPU），count/errors/totalMs/maxMs/lastMs；awaitingTransport/webDecode/websocketClients是实际采样队列/连接数。moduleCpu未测量时available=false/value=null。
+
+Replay读取SHA256不符返回RAW_HASH_MISMATCH/409并标failed，不生成该输入回放事件；已有RAW不改。当前仍固定间隔倍速，检查点/物理独立库待后续。

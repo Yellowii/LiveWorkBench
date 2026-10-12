@@ -1,7 +1,7 @@
 import fs from 'node:fs/promises';
 import path from 'node:path';
 import {EventEmitter} from 'node:events';
-import {randomUUID} from 'node:crypto';
+import {randomUUID,createHash} from 'node:crypto';
 import {Store,RawRecorder} from './storage.js';
 import {OfficialParser} from './parser/index.js';
 import {SessionManager} from './session-manager.js';
@@ -9,18 +9,20 @@ import {SessionManager} from './session-manager.js';
 export class Runtime extends EventEmitter {
   static async open({dataDir}={}){const r=new Runtime();r.dataDir=path.resolve(dataDir||'data');await fs.mkdir(r.dataDir,{recursive:true});r.store=new Store(r.dataDir);r.recorder=new RawRecorder(path.join(r.dataDir,'raw'),r.store);r.parser=await OfficialParser.open();r.sessions=new SessionManager(r.store);r.replays=new Map();r.operations=new Map();r.metrics={inputs:0,decoded:0,unknown:0,failed:0,duplicates:0,events:0};const current=r.store.sessions().filter(s=>s.mode==='live'&&s.sessionState!=='ENDED');r.activeRoom=current.length===1?current[0].roomId:null;if(current.length>1)r.log('SESSION_SELECTION_REQUIRES_RECONCILIATION');return r;}
   log(code,details={}){const log=this.store.log(code,details);this.emit('log.appended',log);}
+  timing(stage,started,error=false){this.metrics.timings??={};const value=this.metrics.timings[stage]??={count:0,errors:0,totalMs:0,maxMs:0};const duration=performance.now()-started;value.count++;value.errors+=error?1:0;value.totalMs+=duration;value.maxMs=Math.max(value.maxMs,duration);value.lastMs=duration;}
   async ingest(input,ack){
-    const raw=await this.recorder.append(input);this.metrics.inputs++;if(ack)await ack(raw);
+    const started=performance.now();let raw;try{raw=await this.recorder.append(input);}finally{this.timing('rawCommit',started,!raw);}this.metrics.inputs++;if(ack)await ack(raw);
     if(input.deferTransport)return raw;
     await this.process(raw,input.bytes);return raw;
   }
   async process(raw,bytes,transport){
+    if(raw.mode==='live'&&this.activeSourceEpoch&&(raw.sourceEpoch!==this.activeSourceEpoch||raw.sourceType!==this.selectedSource)){this.log('STALE_SOURCE_RAW_RETAINED',{rawId:raw.rawId});return;}
+    const started=performance.now();let error=false;
     try{
-      if(raw.mode==='live'&&this.activeSourceEpoch&&(raw.sourceEpoch!==this.activeSourceEpoch||raw.sourceType!==this.selectedSource)){this.log('STALE_SOURCE_RAW_RETAINED',{rawId:raw.rawId});return;}
       if(raw.format==='http-json')return this.httpEvidence(raw,bytes);
       const messages=transport?this.parser.decodeTransport(transport):this.parser.decode({...raw,bytes});
-      for(const message of messages)this.publish(raw,message);
-    }catch{this.metrics.failed++;this.log('PARSE_FAILED',{rawId:raw.rawId});this.publish(raw,{method:'ParseFailed',status:'error'});}
+      for(const message of messages){if(message.status==='error')error=true;this.publish(raw,message);}
+    }catch{error=true;this.log('PARSE_FAILED',{rawId:raw.rawId});this.publish(raw,{method:'ParseFailed',status:'error'});}finally{this.timing('parse',started,error);}
   }
   httpEvidence(raw,bytes){
     let data;try{data=JSON.parse(bytes.toString('utf8'),(_key,value,context)=>typeof value==='number'&&!Number.isSafeInteger(value)&&/^-?\d+$/.test(context?.source||'')?context.source:value);}catch{this.metrics.failed++;this.log('HTTP_PARSE_FAILED',{rawId:raw.rawId});return;}
@@ -71,11 +73,12 @@ export class Runtime extends EventEmitter {
     if(common.create_time&&!validTime)extensions.occurredAtReason='OFFICIAL_TIME_NOT_REPRESENTABLE_AS_SECONDS';
     if(raw.originalSequence)extensions.originalSequence=raw.originalSequence;
     if(raw.indexMsgId)extensions.indexMsgId=raw.indexMsgId;
+    if(message.msg_id)extensions.transportMsgId=String(message.msg_id);
     if(isControlEnd)extensions.lifecycleCandidate=associatedEnd?'platform-ended':'unassociated-platform-end';
     const event={schemaVersion:'1',eventType:message.method,producer:'OfficialParser',origin:raw.format==='http-json'?'derived':'platform',mode:raw.mode,runtimeNamespace:raw.runtimeNamespace,streamId:raw.runtimeNamespace,sourceType:raw.sourceType,sourceEpoch:raw.sourceEpoch,captureId:raw.recordingId,anchorUid:session?.anchorUid||null,roomId,sessionId:session?.sessionId||null,msgId,userId:official?.user?.id_str||official?.user?.id||null,receivedAt:raw.receivedAt,occurredAt,rawRefs:[raw.rawId],payload:{decodeStatus:message.status,official,extensions}};
     if(raw.mode==='live'&&roomId===this.activeRoom&&(extensions.lifecycleCandidate==='platform-ended'||message.method==='PlatformLiveEndObserved'))this.activeRoom=null;
     const saved=this.store.addEvent(event,key);if(saved.duplicate){this.metrics.duplicates++;return;}
-    if(message.status==='decoded')this.metrics.decoded++;else if(message.status==='unknown')this.metrics.unknown++;
+    if(message.status==='decoded')this.metrics.decoded++;else if(message.status==='unknown')this.metrics.unknown++;else if(message.status==='error')this.metrics.failed++;
     this.metrics.events++;this.emit('events.appended',saved.event);
   }
   interruptCapture(){this.sessions.interrupt();this.log('CAPTURE_INTERRUPTED');}
@@ -104,7 +107,7 @@ export class Runtime extends EventEmitter {
     else throw new Error('INVALID_ARGUMENT');
     r.stateVersion=String(Number(r.stateVersion)+1);const view=this.replayView(id);this.emit('replay.updated',view);return view;
   }
-  async replayStep(r){if(r.position>=r.total){r.status='finished';return;}const original=r.items[r.position];const bytes=await fs.readFile(original.filePath);await this.process({...original,mode:'replay',runtimeNamespace:r.runtimeNamespace},bytes);r.position++;}
+  async replayStep(r){if(r.position>=r.total){r.status='finished';return;}const original=r.items[r.position];const bytes=await fs.readFile(original.filePath);if(createHash('sha256').update(bytes).digest('hex')!==original.contentHash){r.status='failed';r.stateVersion=String(BigInt(r.stateVersion)+1n);this.log('REPLAY_RAW_HASH_MISMATCH',{rawId:original.rawId,replayId:r.replayId});this.emit('replay.updated',this.replayView(r.replayId));throw new Error('RAW_HASH_MISMATCH');}await this.process({...original,mode:'replay',runtimeNamespace:r.runtimeNamespace},bytes);r.position++;}
   play(r){const generation=r.generation;r.timer=setTimeout(async()=>{if(this.closed||r.status!=='playing'||generation!==r.generation)return;r.inFlight=this.replayStep(r);try{await r.inFlight;if(r.position>=r.total)r.status='finished';this.emit('replay.updated',this.replayView(r.replayId));if(!this.closed&&generation===r.generation&&r.status==='playing')this.play(r);}catch{r.status='failed';this.log('REPLAY_FAILED',{replayId:r.replayId});}finally{r.inFlight=null;}},Math.max(1,100/Math.max(0.1,Number(r.speed)||1)));}
   async close(){if(this.closed)return;this.closed=true;for(const r of this.replays.values()){r.generation++;clearTimeout(r.timer);}await Promise.allSettled([...this.replays.values()].flatMap(r=>[r.actions,r.inFlight].filter(Boolean)));this.store.close();}
 }
