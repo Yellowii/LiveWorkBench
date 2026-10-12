@@ -313,3 +313,11 @@ B交付：coordinator/monitor-coordinator、capture/websource/connection-resolve
 B新验证先失败后通过：4项调度/参数回归、1项实际本机WSS自动连接→RAW→官方Parser/未知检测保持/确认END停止、1项参数刷新失效停止，现有重连心跳/ACK测试复用。真实动态签名获取仍未实现（上游仅接受签名URL）；默认显示WEB_DYNAMIC_PARAMETERS_UNAVAILABLE，不能声称纯ID直连生产可用。浏览器开关允许的路径继续C。最终全套/GUI/构建结果在提交时追加。
 
 B完成验证：全套82/82；Profile/调度GUI与既有160事件历史/RAW/Proto/Replay GUI均浏览器错误0，C#保持A独立成功构建（本增量未改C#）。v5固定源/输出哈希准备命令成功。未启动长期实例、未连接真实平台或伴侣。调度实现通过合成验收，真实直接自动连接仍有上述参数缺口。
+
+B已推送413d22d4ecb9cbb9ade4eacb135ad2fe7b112d5c，远程main一致。
+
+C交付：capture/browser/browser-source、auth/login-vault/dpapi.ps1、setup-browser固定上游四文件/独立v3适配、SourceController浏览器选择、官方账号确认与DPAPI凭据入口、GUI手动登录/保存/清除。媒体阻断保留SDK/状态/认证；不主动复制签名URL或创建额外连接。原第一方paths.js与上游参考未改；第一次准备检测同名hash冲突后改用独立browser-vendor目录，不覆盖。SDK ACK不可控，RAW/状态明确rawBeforeAck=false，不冒充严格ACK屏障或完整TCP/FIN捕获。
+
+C新回归先失败后通过：媒体策略、当前用户实际DPAPI opt-in/过滤/重启解密/清除/磁盘无明文、同录制重复控制RAW保留，以及实际Edge网络WebSocket→RAW→官方Chat事件与媒体请求阻断。最初routeWebSocket模拟没有原生网络事件；改实际回环WS后定位到ERR_BLOCKED_BY_LOCAL_NETWORK_ACCESS_CHECKS，只有自有临时测试上下文grantPermissions，正式路径未授予内网权限/未修改系统。测试target是合成页面，全部HTTP由fixture拦截；不是抖音身份/签名/登录实机验收。最终全套/GUI结果在提交时补记。
+
+C完成验证：全套86/86、配置/调度/登录保存开关/状态GUI与既有160条历史/RAW/Proto/Replay均浏览器错误0；独立C#构建沿用A结果（此阶段未改C#）。setup:browser四原文件哈希及v3适配生成核验成功，公开扫描151文件0发现。临时测试浏览器/网关已退出；没有启动长期18783或操作真实平台/伴侣。浏览器传输/DPAPI合成验证通过，真实账号/平台SDK/长期恢复与Direct动态签名仍待。

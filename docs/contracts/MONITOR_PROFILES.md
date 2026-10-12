@@ -19,3 +19,13 @@ MonitorCoordinator订阅monitor.updated/Event后的已确认状态，串行选�
 GET /coordinator返回脱敏状态与最近100操作。Profile actions新增start/stop。SourceController.startProfile是内部串行入口，不能在REST传入WSS/Cookie；同一控制队列复查来源、版本、房间占用。WebConnectionResolver只接受新鲜且匹配身份/room的受控provider参数；公开上游没有动态签名获取，默认直连返回WEB_DYNAMIC_PARAMETERS_UNAVAILABLE。显式browser或browserFallback才产生官方页面目标；浏览器未准备时BROWSER_NOT_PREPARED。
 
 WebSource本地v5适配每次连接/重连调用参数刷新，失败停止且不重用旧URL；生产原15秒心跳/指数抖动/403与429策略停止保留。用户autoReconnect/retryLimit传入原客户端。不修改Parser、上游live.js、既有v4或references。
+
+## 浏览器与凭据增量 C
+
+BrowserSource复用固定上游BrowserLive/AccountMonitor/createLoginContext，独立临时Chromium会话，只捕获匹配本次room_id的Douyin WebCast WSS，不主动建第二条上游连接。可选媒体/图片/字体阻断；任何模式均禁止媒体类型/流后缀/已知拉流主机，并阻止HTMLMediaElement.play。保留SDK脚本、弹幕WSS、房间状态与账号接口。官方SDK负责签名/心跳/ACK/连接恢复，工程不自动刷新或无限重启浏览器。
+
+RAW边界为browser-websocket-network-event、connectionMode=browser、ackBoundary=official-sdk-uncontrolled、状态rawBeforeAck=false；只是浏览器网络事件可观察字节，无TCP/TLS或所有控制/FIN承诺。提交后才使用本项目解包Parser；SDK ACK可能早于提交。超大/队列拒绝留hash/大小缺口。来源仍WebSource。业务未知/重复/失败保留。
+
+LoginVault位于私有data/auth，仅当前用户Windows DPAPI密文。仅persistLogin=true且明确authSave、官方账号确认AUTHENTICATED后保存过滤的Douyin状态；普通启用/自动连接不保存。authRef为内部引用；默认profileId分隔凭据。状态文件存在不能证明登录有效，独立UNKNOWN；有效性来自官方self API，界面不返回账号资料/密文/明文。关闭删除临时浏览器上下文；清除保存状态也停止对应本项目会话。未操作日常浏览器。
+
+Profile actions新增authCheck/authSave/authClear/login。保存/清除/可见登录窗口要求expectedVersion。login是用户明确命令，要求人工选中WebSource及空闲资源；不自动切源。它可以在尚未确定roomId时只提供账号登录页面，拒绝该未知房间弹幕接入。自动监听始终headless，只有此命令可见。只有构建与合成验收，真实平台SDK/鉴权/恢复仍待。

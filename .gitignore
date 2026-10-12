@@ -59,3 +59,4 @@
 /src/parser/vendor/
 /src/parser/live.js
 /src/parser/live-raw-first*.js
+/src/parser/browser-vendor/

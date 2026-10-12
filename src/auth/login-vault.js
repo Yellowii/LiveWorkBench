@@ -1,0 +1,18 @@
+import fs from 'node:fs/promises';
+import path from 'node:path';
+import {spawn} from 'node:child_process';
+import {fileURLToPath} from 'node:url';
+import {randomUUID} from 'node:crypto';
+const douyin=host=>host==='douyin.com'||host.endsWith('.douyin.com');
+export function filterState(state){if(!state||!Array.isArray(state.cookies)||!Array.isArray(state.origins))throw new Error('AUTH_STATE_INVALID');return {cookies:state.cookies.filter(c=>typeof c.domain==='string'&&douyin(c.domain.replace(/^\./,''))&&typeof c.name==='string'&&typeof c.value==='string'&&(c.expires===-1||c.expires>Date.now()/1000)),origins:state.origins.filter(o=>{try{const u=new URL(o.origin);return u.protocol==='https:'&&douyin(u.hostname)&&!u.port&&Array.isArray(o.localStorage);}catch{return false;}})};}
+async function protect(action,bytes){if(process.platform!=='win32')throw new Error('AUTH_PROTECTION_UNAVAILABLE');return new Promise((resolve,reject)=>{const child=spawn('powershell.exe',['-NoProfile','-NonInteractive','-File',fileURLToPath(new URL('./dpapi.ps1',import.meta.url))],{windowsHide:true,stdio:['pipe','pipe','pipe']});const chunks=[];let size=0;const timer=setTimeout(()=>child.kill(),10000);child.stdout.on('data',b=>{size+=b.length;if(size>4*1024*1024)child.kill();else chunks.push(b);});child.stderr.resume();child.on('error',()=>{clearTimeout(timer);reject(new Error('AUTH_PROTECTION_FAILED'));});child.on('close',code=>{clearTimeout(timer);if(code!==0)reject(new Error('AUTH_PROTECTION_FAILED'));else resolve(Buffer.from(Buffer.concat(chunks).toString('utf8').trim(),'base64'));});child.stdin.on('error',()=>{});child.stdin.end(JSON.stringify({action,data:bytes.toString('base64')}));});}
+export class LoginVault{
+ constructor(dataDir){this.directory=path.join(dataDir,'auth');this.queue=Promise.resolve();}
+ file(id){if(!/^[a-zA-Z0-9-]{1,64}$/.test(id))throw new Error('AUTH_REF_INVALID');return path.join(this.directory,id+'.vault');}
+ serial(fn){const job=this.queue.catch(()=>{}).then(fn);this.queue=job;return job;}
+ save(id,state,optIn){return this.serial(async()=>{if(optIn!==true)throw new Error('AUTH_PERSIST_NOT_ENABLED');const value={version:1,savedAt:new Date().toISOString(),storageState:filterState(state)},plain=Buffer.from(JSON.stringify(value));if(plain.length>1024*1024)throw new Error('AUTH_STATE_TOO_LARGE');const encrypted=await protect('protect',plain);plain.fill(0);await fs.mkdir(this.directory,{recursive:true});const target=this.file(id),temp=target+'.'+randomUUID()+'.tmp';try{const handle=await fs.open(temp,'wx',0o600);try{await handle.writeFile(encrypted);await handle.sync();}finally{await handle.close();}await fs.rename(temp,target);}finally{await fs.rm(temp,{force:true});}return {saved:true,protection:'Windows-DPAPI-CurrentUser'};});}
+ async read(id){try{const encrypted=await fs.readFile(this.file(id));if(encrypted.length>2*1024*1024)throw new Error('AUTH_STATE_TOO_LARGE');const plain=await protect('unprotect',encrypted);try{return JSON.parse(plain.toString('utf8'));}finally{plain.fill(0);}}catch(error){if(error.code==='ENOENT')return null;throw new Error('AUTH_STATE_UNAVAILABLE');}}
+ async load(id){const saved=await this.read(id);return saved?filterState(saved.storageState):null;}
+ async status(id){const saved=await this.read(id);return {configured:Boolean(saved),savedAt:saved?.savedAt||null,protection:'Windows-DPAPI-CurrentUser',validity:'UNKNOWN',reason:'Official account check required; saved state alone is not authentication evidence'};}
+ clear(id){return this.serial(async()=>{await fs.rm(this.file(id),{force:true});return {cleared:true,validity:'UNKNOWN'};});}
+}

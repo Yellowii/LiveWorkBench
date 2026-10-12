@@ -12,6 +12,7 @@ Windows 本地直播工作台。默认 LiveHookSource，WebSource 由人工选�
 npm ci
 npm run setup:parser -- --fetch
 npm run setup:websource -- --fetch
+npm run setup:browser -- --fetch
 npm run build:capture
 npm test
 npm start
@@ -44,6 +45,8 @@ npm start
 ## 权威入口
 
 新增监听Profile与开播监控：经工作台保存ID/URL、来源及策略，身份输入只写，查询显示脱敏结果；已启用配置在后端启动时恢复监控，但不自动切源。纯数字应指定类型。当前真实身份映射与平台页面需要实测；不能确定则显示UNKNOWN。接口及增量范围见 [MONITOR_PROFILES](docs/contracts/MONITOR_PROFILES.md) 与STATUS第15节。
+
+Web配置可显式选择浏览器或允许兜底，使用独立临时Edge/Chrome会话和官方页面SDK，经浏览器网络事件保存RAW并进入同一解析链。SDK ACK不受RAW提交控制，该模式不承诺严格RAW-before-ACK。默认禁止直播媒体播放/下载；登录态仅启用并主动保存后以当前用户DPAPI保护。直连动态签名参数尚缺可靠公开发现实现，显示不可用并遵守所选兜底策略。可见登录窗口只由“打开独立登录窗口”命令启动；现有伴侣和日常浏览器不操作。
 
 WebSource 的 WSS URL/Cookie/User-Agent 只登记在 `.local/settings.json` 的 `webSource` 对象；可选 `roomId` 是平台实际 roomId，不能拿网页短房号代替。配置不经公共 API 传入或返回。默认目标仅接受 douyin.com 下标准443端口WSS，回连/心跳/ACK复用固定上游实现，RAW提交前不会解码或ACK。入站二进制WebSocket消息为采集范围；队列上限触发显式缺口诊断，不能宣称保存了TCP/所有控制帧。
 
