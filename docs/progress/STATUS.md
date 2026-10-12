@@ -196,3 +196,9 @@ taskId：`CORE-VERTICAL-01`；owner：当前主协调对话。按用户最新指
 验证：原工程 C# 构建退出0；20/20 测试；GUI 实际59 Golden/59检查/0失败、浏览器错误0。新增准备入口测试先失败再通过；六文件从固定上游重新下载到临时目录，全部哈希通过，当前已有六文件核验通过且未覆盖。公开扫描无发现。后续阶段优先修复 SessionManager 的重复证据/场次连续性，再补 API 隐私和运行观察；真实代理/证书/伴侣操作仍须用户具体授权。
 
 本阶段不代表真实伴侣或 P0 整体验证通过。历史证据文档在本机保留，公开链接可能指向被排除的本地证据。
+
+场次连续性增量：`src/session-manager.js`、`src/runtime.js` 和 `tests/session-continuity.test.js`。重复 HTTP create/Control end 不再增加场次状态版本或重复生命周期事件；RAW 仍逐条保留。补 first/lastObservedAt 和最近100个 RAW evidenceRefs；采集中断版本只在变化时递增。重启从唯一未结束 live 场次恢复选中 room，同场恢复保留 sessionId。未知房间结束响应仅留 RAW/诊断；已结束房间的迟到 create 不抢占新房间，同 RoomId 复用继续要求人工核对。HTTP 业务码必须明确成功，超安全整数保留十进制原文；推流状态仍 UNKNOWN。
+
+验证：5项新增回归先全部失败，修复后全套26/26通过；真实59 Golden再次经 GUI/API 完成59检查、0失败，浏览器错误0。场次测试的 Windows SQLite 清理顺序已修正，不把清理锁冲突误报为功能成功。仍未执行真实 HTTP 开闭播/WSS 环境验证，证据Refs窗口之外的完整 Evidence 索引及匿名主播补全后的历史去重迁移尚待补齐。
+
+首个公开基线 `230301cdd95b01ce93edb5503ab91309b06b6337` 已推送并核对 origin/main；独立干净检出完成 npm依赖、六文件哈希准备、NuGet自动还原、C#编译（6项既有警告）和21项测试。未操作18780/18781进程或真实伴侣。本轮用户授权覆盖串行 main 提交，无并行 worktree/对话。

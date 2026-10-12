@@ -135,3 +135,7 @@ LogRecord 包含 logId、时间、级别、模块、消息代码、脱敏文案�
 MetricSample 包含 sampledAt、scope/system/process/module、name、value/null、unit、availability、reason、source；操作系统实测与应用计数/耗时标明 provider。GPU/显存不支持时 null，不推测；模块 CPU/GPU 无独立测量时 unavailable。
 
 契约兼容性：增加可选字段可维持 v1；删除/改类型/语义需新版本或明确兼容迁移。schemaVersion 与 Parser/patch/rule/API 版本各自保留。公共变更先给输入输出例、影响模块和验证方案，经统一审查再落地。
+
+### 场次连续性实现补充（2026-10-12）
+
+SessionManager 的 stateVersion 仅反映语义状态/身份变化；重复证据更新 lastObservedAt 和最近100个不透明 evidenceRefs，完整原始输入仍由 RAW 保留。唯一未结束 live 场次可恢复选中 room；多候选仅提示核对。未关联结束响应不能生成已结束场次，已结束房间迟到 create 不抢占新场；同 RoomId 复用须独立核对。HTTP status_code 必须明确为0，status=2 仅标平台在播观察，不证明实际推流。匿名主播补全后已有 dedup 键的迁移尚未实现，不能宣称所有上下文补全场景去重已通过。
