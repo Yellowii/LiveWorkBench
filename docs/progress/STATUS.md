@@ -343,3 +343,15 @@ E1验证：2项新增回归先失败后通过，租约/实例API与Replay物理�
 E1已推送f381be85a198d1fd907400b35c867c58cc9c168e。用户本轮明确授权后一次启动成功，18783/PID48276、instanceId c8aebdc5-59dd-49d9-bbc8-2270134eb8e6，加载f381be8/dirty=false，初始Profiles0/采集STOPPED/默认LiveHookSource。旧监听服务未操作；没有审批拒绝或绕过。用户随后在本地GUI登记目标，AI只读取脱敏配置状态/错误码，不读取其账号与真实RAW。
 
 E2交付开发：浏览器异常区分退出/鉴权访问/429/验证需求，策略失败熔断不自动循环；WSS恢复90秒界限，SDK先处理原连接恢复。Browser v4只有已提交接收RAW后才报告CONNECTED，网络连接创建不冒充有效捕获。Browser实例CDP枚举自有进程→Windows工作集之和、真实接收/重连/队列/媒体阻断统计（共享页重复计入，不是独占内存）；GET sources/browser与GUI。monitor操作ID→调度ID→RAW/Proto/event独立extensions关联，不改变官方输出。针对7项Browser/自动连接回归通过，含实际Edge回环网络及内存读取、HTTP429无敏感响应、真实链路关联；配置/指标GUI浏览器错误0。真实平台尚未通过。
+
+E2已推送ed82dc867428046ef39be912d7fc3950df544c97；其完成时18783仍加载f381be8，明确区分已提交源码与已部署后端。
+
+E3/用户追加网络任务：第一方src/network新增ProxyPolicy、NetworkTransport、只读WinINET助手、域名/地址策略和自有浏览器直连CONNECT隧道。Profile networkPolicy缺省system，与采集connectionMode独立；TargetResolver/Monitor/直接WSS/浏览器/登录窗口统一使用。system/custom目标DNS交给对应HTTP CONNECT/SOCKS5代理，不将本机198.18/15映射作为目标公共地址；direct继续拒绝Fake-IP/内网，固定全部已验证公共DNS答案中的本次地址并保持TLS域名/链验证。不读取Clash私有文件、不改Clash/DNS/系统代理/TUN/CA/伴侣/旧服务，不全局放宽地址策略。PAC/带凭据代理本版本明确不支持，不静默直连兜底。
+
+新版Web v6与Browser v5仅加入请求策略注入；官方六解析原文件/上游live.js与四浏览器资源hash保持。既有心跳/ACK/RAW屏障、Browser rawBeforeAck=false、去重/场次/Replay/自动调度规则未修改。目标解析补明确missingConditions、嵌套roomInfo.room及所有已指定身份约束同时匹配；仅结构化证据，无法确认仍UNKNOWN。网络诊断GUI/API分别展示mode、DNS委托/公共验证、实际route/connectionState/TLS/error；networkCheck为独立探测，不推进Monitor/Coordinator。自定义地址只写且跨重启保存。
+
+验证：全套**101/101自动化通过**（.local/e-network-tests.log）；Parser6/6、Web v6及Browser v5准备固定hash核验；C#本增量无变更，沿用E1独立成功构建。真实回环HTTP CONNECT/SOCKS5/HTTPS/WSS加模拟198.18与198.19，目标DNS调用0、TLS主机名错误拒绝、direct/混合DNS/浏览器CONNECT拒绝Fake-IP，正式WebSource及Edge→合成RAW/业务事件/媒体阻断均通过。首次扩展测试因模拟代理未处理浏览器后台CONNECT及遗漏连接清理而等待；修正拒绝无关请求并按所有权清理。另修测试RAW先提交而事件尚未完成的等待条件，不把RAW行已出现当整个业务链完成。
+
+Profile/网络诊断GUI与160合成事件历史锚点/虚拟滚动/断线补查均浏览器错误0。一次既有verify-workbench附带59Golden复跑通过及GUI/隔离回放检查，未重新审计全量样本，原始数据未复制/上传；Golden不证明业务语义或实时采集正确。公开扫描169文件0发现；只有源码、合成fixture生成器及契约/进度拟提交，临时证书/RAW/SQLite/日志均忽略。代码核查与本地回归状态验证通过；真实平台/官方SDK持续监听尚未通过。
+
+部署前18783采集STOPPED、人工选择LiveHookSource，用户已有一配置保留（monitorEnabled/autoStart均false）。旧8827/8888仍PID18644；18780/18781/18782/18827无监听且未由本任务停止。下一步提交后更新自有18783，核对实际加载commit/配置恢复，再对用户本地登记目标做不触发监听的代理路径诊断。E4孤立RAW/journal/Replay job/协调重启恢复与真实持续验收仍待，不能以代理可达或模拟成功标E完成。

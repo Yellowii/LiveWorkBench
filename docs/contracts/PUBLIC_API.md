@@ -223,6 +223,8 @@ Golden/全量检查面板通过后端 operation 显示实际验证结果；实�
 
 阶段E的system/status新增instance加载标识（instanceId、commit、dirty、codeFingerprint、startedAt、pid、nodeVersion）及profiles/monitor/coordinator实际状态。版本在宿主启动时采样，不随磁盘Git变化改写；不同数据域可以运行不同宿主，同一数据域只允许一个活宿主。DATA_DIRECTORY_BUSY是启动错误，不开放终止其他宿主的API。
 
+Profile网络增量与networkCheck诊断见[NETWORK_TRANSPORT v1](NETWORK_TRANSPORT.md)。返回有效代理路径、DNS委托/验证、连接阶段和稳定错误码；诊断不推进监控或自动监听。凭据与URL不返回，旧配置缺省system；采集connectionMode仍独立且兼容。
+
 REST/WS 默认返回 redacted 投影，system/status.privacy 记录 mode/projectionVersion。房间/用户/消息标识为数据域内稳定HMAC别名，原生字符串/字节字段只披露必要数值/结构；事件自身不透明ID和RAW引用保留。原生 Parser 输出和RAW仍保存在本地，官方结果投影不能作为原生结果哈希。受控本地诊断可在私有 settings 中显式设置 allowPrivateDetails=true；此模式仍不返回凭据和物理路径。该设置不经API开放，不代表LAN认证/RBAC已经实现。
 
 ### 当前历史/追踪子集（2026-10-12）

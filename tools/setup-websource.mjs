@@ -42,9 +42,15 @@ replaceOnce('  connect(g) {\n    if (g !== this.generation) return;',`  async co
         return;
       }
     }`);
-const output=`// Local WebSource adaptation v5; upstream ${sourceHash}; official Parser unchanged.\n${text}`;
-const target=path.join(root,'src/parser/live-raw-first-v5.js');
+replaceOnce('    const ws = (this.ws = new WebSocket(this.config.url, {',`    let networkOptions = {};
+    try { networkOptions = await this.options.networkOptions?.(this.config.url) || {}; }
+    catch { if (g !== this.generation) return; this.update("blocked", { reason: "NETWORK_POLICY_FAILED" }); this.emit("failure", { stage: "network", error: "NETWORK_POLICY_FAILED" }); return; }
+    if (g !== this.generation) return;
+    const ws = (this.ws = new WebSocket(this.config.url, {
+      ...networkOptions,`);
+const output=`// Local WebSource adaptation v6; upstream ${sourceHash}; official Parser unchanged.\n${text}`;
+const target=path.join(root,'src/parser/live-raw-first-v6.js');
 let existing;try{existing=await fs.readFile(target,'utf8');}catch(e){if(e.code!=='ENOENT')throw e;}
 if(existing&&existing!==output)throw new Error('WEB_ADAPTATION_CHANGED');
 if(!existing)await fs.writeFile(target,output,{flag:'wx'});
-console.log(JSON.stringify({sourceHash,patchVersion:'raw-first-v5',sha256:createHash('sha256').update(output).digest('hex')}));
+console.log(JSON.stringify({sourceHash,patchVersion:'raw-first-v6',sha256:createHash('sha256').update(output).digest('hex')}));

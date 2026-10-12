@@ -28,7 +28,7 @@ test('resolver separates UID, secUid, web_rid and actual roomId and bounds share
 test('HTTPS resolver rejects private DNS answers and untrusted target domains',async()=>{
  assert.ok(SafeDouyinHttp,'SSRF-safe HTTP adapter required');
  for(const address of ['127.0.0.1','10.2.3.4','192.168.1.1','169.254.169.254','::1','::ffff:127.0.0.1','fc00::1']){
-  const http=new SafeDouyinHttp({lookup:async()=>[{address,family:address.includes(':')?6:4}]});await assert.rejects(()=>http.get('https://live.douyin.com/123'),/TARGET_PRIVATE_ADDRESS/);
+  const http=new SafeDouyinHttp({lookup:async()=>[{address,family:address.includes(':')?6:4}]});await assert.rejects(()=>http.get('https://live.douyin.com/123',{networkPolicy:{mode:'direct'}}),/TARGET_PRIVATE_ADDRESS/);
  }
  await assert.rejects(()=>new SafeDouyinHttp().get('https://live.douyin.com.evil.test/123'),/TARGET_INVALID/);
 });

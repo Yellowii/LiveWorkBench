@@ -8,7 +8,7 @@ export class LiveMonitor extends EventEmitter{
  check(id){if(this.pending.has(id))return this.pending.get(id);const job=this.detect(id).finally(()=>this.pending.delete(id));this.pending.set(id,job);return job;}
  async detect(id){const profile=this.profiles.get(id),previous=this.profiles.state(id)||this.view(id);let evidence;try{evidence=await this.adapter.probe(profile,{signal:this.tasks.get(id)?.controller.signal});}catch{evidence={state:'UNKNOWN',errorCode:'MONITOR_ADAPTER_FAILED'};}if(this.closed)return this.view(id);
   let current;try{current=this.profiles.get(id);}catch{return previous;}if(current.version!==profile.version)return this.view(id);
-  const now=new Date().toISOString();let next={...previous,profileId:id,profileVersion:profile.version,checkedAt:now,queryState:evidence.state,pushState:'UNKNOWN',errorCode:evidence.errorCode||null};let changed=false;
+  const now=new Date().toISOString();let next={...previous,profileId:id,profileVersion:profile.version,checkedAt:now,queryState:evidence.state,pushState:'UNKNOWN',errorCode:evidence.errorCode||null,missingConditions:evidence.missingConditions||[],network:evidence.network||null};let changed=false;
   if(!['LIVE','ENDED'].includes(evidence.state)){next.failures=(previous.failures||0)+1;next.candidate=null;next.confirmationCount=0;}
   else{
    next.failures=0;next.lastSuccessAt=now;next.evidence={source:evidence.source||'unknown',anchorUid:evidence.anchorUid||null,secUid:evidence.secUid||null,roomId:evidence.roomId||null,web_rid:evidence.web_rid||null,pushState:'UNKNOWN'};

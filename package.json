@@ -18,7 +18,9 @@
   "dependencies": {
     "acorn": "8.15.0",
     "acorn-walk": "8.3.4",
+    "https-proxy-agent": "7.0.6",
     "protobufjs": "7.5.4",
+    "socks-proxy-agent": "8.0.5",
     "ws": "8.18.3"
   },
   "devDependencies": {

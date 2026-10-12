@@ -1,0 +1,38 @@
+import test from 'node:test';
+import assert from 'node:assert/strict';
+import fs from 'node:fs/promises';
+import os from 'node:os';
+import path from 'node:path';
+import http from 'node:http';
+import https from 'node:https';
+import net from 'node:net';
+import {execFileSync} from 'node:child_process';
+import {WebSocketServer} from 'ws';
+import WebSocket from 'ws';
+import {SafeDouyinHttp} from '../src/targets/safe-http.js';
+import {NetworkTransport} from '../src/network/transport.js';
+import {ProxyPolicy} from '../src/network/proxy-policy.js';
+import {Runtime} from '../src/runtime.js';
+import {BrowserSource} from '../src/capture/browser/browser-source.js';
+import {WebSource} from '../src/web-source.js';
+import {X509Certificate,createHash} from 'node:crypto';
+test('simulated Fake-IP with actual HTTP CONNECT and SOCKS5 performs remote DNS, TLS and WSS',{timeout:30000},async t=>{
+ const dir=await fs.mkdtemp(path.join(os.tmpdir(),'lw-network-proxy-'));execFileSync(process.env.LW_PYTHON||'D:/Dev/Python312/python.exe',['tests/fixtures/create-network-cert.py',dir],{windowsHide:true});const ca=await fs.readFile(path.join(dir,'ca.pem'));
+ let packet=Buffer.from([1,2,3]);const upstream=https.createServer({cert:await fs.readFile(path.join(dir,'server.pem')),key:await fs.readFile(path.join(dir,'server-key.pem'))},(_req,res)=>{res.writeHead(200,{'Content-Type':'text/html'});res.end('<script id="RENDER_DATA" type="application/json">{"room":{"id_str":"100","web_rid":"123","status":2,"owner":{"id_str":"200"}}}</script><script>window.fixtureWs=new WebSocket("wss://live.douyin.com/webcast/im/push/?room_id=100");fetch("/video.flv").catch(()=>{})</script>');});const wss=new WebSocketServer({server:upstream});wss.on('connection',ws=>ws.send(packet));
+ await new Promise(resolve=>upstream.listen(0,'127.0.0.1',resolve));const endpoints=[];let connects=0,domains=0,dnsCalls=0;let source,browser,runtime;
+ const pipe=(client,head)=>{const remote=net.connect(upstream.address().port,'127.0.0.1');endpoints.push(client,remote);remote.on('error',()=>client.destroy());client.on('error',()=>remote.destroy());client.once('close',()=>remote.destroy());remote.once('connect',()=>{if(head.length)remote.write(head);client.pipe(remote);remote.pipe(client);});};
+ const proxy=http.createServer();proxy.on('connect',(req,socket,head)=>{if(!['live.douyin.com','www.douyin.com'].includes(req.url.split(':')[0])){socket.end('HTTP/1.1 403 Forbidden\r\nContent-Length: 0\r\n\r\n');return;}connects++;socket.write('HTTP/1.1 200 Connection Established\r\n\r\n');pipe(socket,head);});await new Promise(resolve=>proxy.listen(0,'127.0.0.1',resolve));
+ const socks=net.createServer(socket=>{let buffer=Buffer.alloc(0),phase=0;const read=chunk=>{buffer=Buffer.concat([buffer,chunk]);if(phase===0&&buffer.length>=3){assert.equal(buffer[0],5);const n=2+buffer[1];if(buffer.length<n)return;buffer=buffer.subarray(n);socket.write(Buffer.from([5,0]));phase=1;}if(phase===1&&buffer.length>=5){assert.equal(buffer[3],3,'SOCKS target must be a domain, never local Fake-IP');const n=7+buffer[4];if(buffer.length<n)return;const host=buffer.subarray(5,5+buffer[4]).toString();assert.ok(['live.douyin.com','webcast5-ws-web-hl.douyin.com'].includes(host));domains++;socket.off('data',read);const remaining=buffer.subarray(n);socket.write(Buffer.from([5,0,0,1,127,0,0,1,0,0]));pipe(socket,remaining);}};socket.on('data',read);});await new Promise(resolve=>socks.listen(0,'127.0.0.1',resolve));
+ for(const server of [upstream,proxy,socks])server.on('connection',socket=>endpoints.push(socket));
+ t.after(async()=>{await browser?.stop();await source?.stop();await runtime?.close();for(const socket of endpoints)socket.destroy();for(const ws of wss.clients)ws.terminate();await new Promise(resolve=>wss.close(resolve));await Promise.all([upstream,proxy,socks].map(server=>new Promise(resolve=>server.close(resolve))));await fs.rm(dir,{recursive:true,force:true});});
+ const transport=new NetworkTransport({allowLocalTest:true,mode:'test',tlsCa:ca,proxyPolicy:new ProxyPolicy({systemReader:async()=>({enabled:true,server:'127.0.0.1:'+proxy.address().port})}),lookup:async()=>{dnsCalls++;return [{address:'198.18.0.12',family:4}];}}),reader=new SafeDouyinHttp({transport});
+ const system=await reader.get('https://live.douyin.com/123',{networkPolicy:{mode:'system'}});assert.ok(system.text.includes('room'));assert.equal(system.network.dns,'delegated-to-proxy');
+ const policy={mode:'custom',proxyUrl:'socks5://127.0.0.1:'+socks.address().port};const response=await reader.get('https://live.douyin.com/123',{networkPolicy:policy});assert.ok(response.text.includes('room'));assert.equal(dnsCalls,0);
+ const connection=await transport.options('wss://webcast5-ws-web-hl.douyin.com/webcast/im/push/',policy),ws=new WebSocket('wss://webcast5-ws-web-hl.douyin.com/webcast/im/push/',connection.request);const bytes=await new Promise((resolve,reject)=>{ws.once('message',resolve);ws.once('error',reject);});assert.deepEqual(bytes,Buffer.from([1,2,3]));ws.terminate();
+ await assert.rejects(()=>reader.get('https://www.douyin.com/123',{networkPolicy:{mode:'system'}}),/NETWORK_TLS_VERIFICATION_FAILED/);
+ await assert.rejects(()=>reader.get('https://live.douyin.com/123',{networkPolicy:{mode:'direct'}}),/TARGET_PRIVATE_ADDRESS/);assert.equal(dnsCalls,1);assert.equal(connects,2);assert.equal(domains,2);
+ t.diagnostic('HTTP/SOCKS/TLS boundary complete');runtime=await Runtime.open({dataDir:path.join(dir,'runtime')});const encode=(name,value)=>{const type=runtime.parser.native.root.lookupType('webcast.im.'+name);return type.encode(type.fromObject(value)).finish();};packet=encode('PushFrame',{payload:encode('Response',{messages:[{method:'WebcastChatMessage',payload:encode('ChatMessage',{common:{room_id:'100',msg_id:'81'},content:'synthetic proxy source'}),msg_id:'81'}]})});
+ source=new WebSource(runtime,{mode:'test',networkTransport:transport});await source.start({url:'wss://webcast5-ws-web-hl.douyin.com/webcast/im/push/',networkPolicy:policy});let deadline=Date.now()+5000;while(runtime.store.countEvents()<1&&Date.now()<deadline)await new Promise(resolve=>setTimeout(resolve,20));assert.equal(runtime.store.countEvents(),1,JSON.stringify({state:source.status.captureState,reason:source.status.reason,raw:runtime.store.countRaw()}));await source.stop();t.diagnostic('Formal WebSource proxy capture complete');
+ const {BrowserLive}=await import('../src/parser/browser-vendor/browser-raw-first-v5.js'),spki=createHash('sha256').update(new X509Certificate(await fs.readFile(path.join(dir,'server.pem'))).publicKey.export({type:'spki',format:'der'})).digest('base64');class Client extends BrowserLive{async start(config){return super.start({...config,networkLaunch:{...config.networkLaunch,args:['--ignore-certificate-errors-spki-list='+spki]}});}}
+ browser=new BrowserSource(runtime,{mode:'test',clientFactory:Client});await browser.start({roomUrl:'https://live.douyin.com/123',roomId:'100',anchorUid:'200',networkPolicy:{mode:'custom',proxyUrl:'http://127.0.0.1:'+proxy.address().port}});deadline=Date.now()+6000;while(browser.status.captureState!=='CONNECTED'&&Date.now()<deadline)await new Promise(resolve=>setTimeout(resolve,20));assert.equal(runtime.store.countRaw(),2);assert.equal(browser.status.captureState,'CONNECTED');assert.equal(browser.metrics().network.route,'http-connect-proxy');assert.ok(browser.metrics().blockedMediaRequests>=1);assert.equal(dnsCalls,1);
+});

@@ -4,10 +4,10 @@ export class TargetResolver{
  constructor({http=new SafeDouyinHttp()}={}){this.http=http;}
  classify({type='auto',value}={}){
   if(typeof value!=='string'||!value.trim()||value.length>2048)throw new Error('TARGET_INVALID');value=value.trim();
-  const result={status:'PENDING_MAPPING',anchorUid:null,secUid:null,web_rid:null,roomId:null};
+  const result={status:'PENDING_MAPPING',anchorUid:null,secUid:null,web_rid:null,roomId:null,missingConditions:['platform-room-and-owner-evidence']};
   if(type==='auto'){type=value.startsWith('https://')?'url':/^MS4wLjAB[A-Za-z0-9_-]+$/.test(value)?'secUid':'ambiguous';}
-  if(type==='ambiguous')return {...result,status:'PENDING_TYPE'};
-  if(['anchorUid','web_rid','roomId'].includes(type)){if(!numeric(value))throw new Error('TARGET_INVALID');return {...result,[type]:value,status:type==='web_rid'?'RESOLVED_PAGE':'PENDING_MAPPING'};}
+  if(type==='ambiguous')return {...result,status:'PENDING_TYPE',missingConditions:['explicit-id-type']};
+  if(['anchorUid','web_rid','roomId'].includes(type)){if(!numeric(value))throw new Error('TARGET_INVALID');return {...result,[type]:value,status:type==='web_rid'?'RESOLVED_PAGE':'PENDING_MAPPING',missingConditions:type==='web_rid'?result.missingConditions:['stable-page-mapping']};}
   if(type==='secUid'){if(!/^[A-Za-z0-9_-]{12,256}$/.test(value))throw new Error('TARGET_INVALID');return {...result,secUid:value};}
   if(type!=='url')throw new Error('TARGET_INVALID');const u=trustedUrl(value);
   if(u.hostname==='live.douyin.com'&&/^\/\d+\/?$/.test(u.pathname))return {...result,web_rid:u.pathname.split('/')[1],status:'RESOLVED_PAGE'};

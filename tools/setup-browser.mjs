@@ -10,6 +10,8 @@ await prepareParser({sourceDir:path.join(root,'references/douyinprotobuf/protobu
 let text=(await fs.readFile(path.join(vendor,'browser.js'),'utf8')).replaceAll('\r\n','\n');
 function replaceOnce(before,after){if(text.split(before).length!==2)throw new Error('BROWSER_PATCH_SOURCE_CHANGED');text=text.replace(before,after);}
 replaceOnce('from "./decode.js"','from "../decode.js"');
+replaceOnce('async start({ roomUrl, cookie = "", storageState, headless = true })','async start({ roomUrl, cookie = "", storageState, headless = true, networkLaunch = {} })');
+replaceOnce('chromium.launch({ executablePath, headless })','chromium.launch({ executablePath, headless, ...networkLaunch })');
 replaceOnce('  constructor(p) {','  constructor(p, options = {}) {');replaceOnce('    this.p = p;','    this.p = p;\n    this.options = options;\n    this.connectionSeq = 0;');
 replaceOnce('      if (g !== this.generation) {','      await this.options.prepareContext?.(context);\n      if (g !== this.generation) {');
 replaceOnce('          !url.hostname.endsWith(".douyin.com") ||','          (this.options.acceptConnection && !this.options.acceptConnection(url)) ||\n          !url.hostname.endsWith(".douyin.com") ||');
@@ -24,6 +26,6 @@ replaceOnce('        this.update("connected", {','        this.update("connectin
 replaceOnce('        clearTimeout(this.wait);','        // Connection creation alone does not prove usable captured traffic.');
 replaceOnce('                packet.received_at = new Date().toISOString();','                clearTimeout(this.wait);\n                if (this.status.state !== "connected") this.update("connected");\n                packet.received_at = new Date().toISOString();');
 replaceOnce('          if (g === this.generation)\n            this.update("waiting", {','          if (g === this.generation && this.options.autoReconnect === false) { void this.stop(); return; }\n          if (g === this.generation)\n            this.update("waiting", {');
-const output='// Local browser RAW adaptation v4; fixed upstream e9e6cec; SDK ACK remains outside recorder control.\n'+text,target=path.join(vendor,'browser-raw-first-v4.js');let existing;try{existing=await fs.readFile(target,'utf8');}catch(e){if(e.code!=='ENOENT')throw e;}
+const output='// Local browser RAW adaptation v5; fixed upstream e9e6cec; SDK ACK remains outside recorder control.\n'+text,target=path.join(vendor,'browser-raw-first-v5.js');let existing;try{existing=await fs.readFile(target,'utf8');}catch(e){if(e.code!=='ENOENT')throw e;}
 if(existing&&existing!==output)throw new Error('BROWSER_ADAPTATION_CHANGED');if(!existing)await fs.writeFile(target,output,{flag:'wx'});
-console.log(JSON.stringify({verified:manifest.length,patchVersion:'browser-raw-first-v4',sha256:createHash('sha256').update(output).digest('hex')}));
+console.log(JSON.stringify({verified:manifest.length,patchVersion:'browser-raw-first-v5',sha256:createHash('sha256').update(output).digest('hex')}));

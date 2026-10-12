@@ -21,3 +21,14 @@ test('profile API authenticates, masks input, rejects stale edits and exposes mo
  assert.equal(app.sources.view().selectedSource,'LiveHookSource');
  assert.equal((await post('profiles/'+p.profileId+'/actions',{action:'delete',expectedVersion:'2'})).status,200);
 });
+test('network policy persists privately, diagnostics do not advance monitoring, and invalid proxies do not save',async t=>{
+ const dir=await fs.mkdtemp(path.join(os.tmpdir(),'lw-network-profile-'));let app=await createGateway({dataDir:dir,port:0});t.after(async()=>{await app.close();await fs.rm(dir,{recursive:true,force:true});});
+ let cookie=(await fetch(app.url)).headers.get('set-cookie').split(';')[0];const post=async body=>{const response=await fetch(app.url+'/api/v1/profiles'+(body.id?'/'+body.id+'/actions':''),{method:'POST',headers:{Cookie:cookie,Origin:app.url,'Content-Type':'application/json'},body:JSON.stringify({commandId:crypto.randomUUID(),...body})});return {status:response.status,...await response.json()};};
+ const created=await post({profile:{target:{type:'web_rid',value:'123'}}}),id=created.data.profileId;assert.equal(created.data.networkPolicy.mode,'system');
+ const updated=await post({id,action:'update',expectedVersion:'1',patch:{networkPolicy:{mode:'custom',proxyUrl:'socks5://127.0.0.1:1080'}}});assert.equal(updated.status,200);assert.equal(updated.data.networkPolicy.proxyConfigured,true);assert.ok(!JSON.stringify(updated).includes('1080'));
+ const before=app.monitor.view(id);app.monitor.adapter={probe:async()=>({state:'LIVE',roomId:'100',anchorUid:'200',network:{mode:'custom',dns:'delegated-to-proxy',route:'socks5-proxy',connectionState:'connected'}})};
+ const diagnostic=await post({id,action:'networkCheck'});assert.equal(diagnostic.data.monitorStateUnchanged,true);assert.equal(diagnostic.data.network.route,'socks5-proxy');assert.deepEqual(app.monitor.view(id),before);assert.equal(app.sources.view().captureState,'STOPPED');
+ const invalid=await post({id,action:'update',expectedVersion:'2',patch:{networkPolicy:{mode:'custom',proxyUrl:'http://synthetic:secret@127.0.0.1:8080'}}});assert.equal(invalid.error.code,'NETWORK_PROXY_AUTH_UNSUPPORTED');assert.equal(app.profiles.get(id).version,'2');
+ await app.close();app=await createGateway({dataDir:dir,port:0});cookie=(await fetch(app.url)).headers.get('set-cookie').split(';')[0];assert.equal(app.profiles.get(id).networkPolicy.proxyUrl,'socks5h://127.0.0.1:1080');
+ const preserved=await post({id,action:'update',expectedVersion:'2',patch:{networkPolicy:{mode:'custom'}}});assert.equal(preserved.status,200);assert.equal(app.profiles.get(id).networkPolicy.proxyUrl,'socks5h://127.0.0.1:1080');
+});

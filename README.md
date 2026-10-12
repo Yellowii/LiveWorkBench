@@ -28,7 +28,7 @@ npm start
 
 2026-10-13已补实际C#回环HTTPS/分片WSS的文件CA测试、环境前后核对与不写安装文件的私有备份；[分阶段记录与复查命令](docs/reviews/2026-10-13-livehook-stage1.md)。真实伴侣接入/恢复仍待单独授权。默认exe被只读观察进程占用时可用 build:capture 的 -OutputDirectory 构建到本项目独立目录，并用 LW_CAPTURE_EXE 选择该构建，不必停止旧工作台。
 
-当前RAW分层增量：独立RawRecorder/TransportUnpacker/ProtoIndex、业务Parser/扩展、去重/总线/事件存储、历史查询、Replay、日志/指标与Gateway连接健康。每条业务payload可定位/查看解析尝试/重新解析，未知、重复、失败输入保留；RAW控制/传输失败可经录制分页检查。Replay有独立SQLite/总线及只读父RAW，查询读模型维持原API分页兼容。新版可在空闲18783及本项目独立data/pipeline-20261013启动；本轮自动启动被工具审批拒绝，未绕过或停止现有实例，当前运行的18782仍为旧后端。采集默认停止。接口和限制见 [PROCESSING_PIPELINE](docs/contracts/PROCESSING_PIPELINE.md) 与 [STATUS第14节](docs/progress/STATUS.md#14-raw解包解析分层持续增量2026-10-13)。
+当前RAW分层增量：独立RawRecorder/TransportUnpacker/ProtoIndex、业务Parser/扩展、去重/总线/事件存储、历史查询、Replay、日志/指标与Gateway连接健康。每条业务payload可定位/查看解析尝试/重新解析，未知、重复、失败输入保留；RAW控制/传输失败可经录制分页检查。Replay有独立SQLite/总线及只读父RAW，查询读模型维持原API分页兼容。阶段E已在18783及本项目独立data/pipeline-20261013启动；界面显示后端实际加载版本，后续代码提交不会自动更新活进程。旧服务保留，部署和真实平台验收分别记录。采集默认停止。接口和限制见 [PROCESSING_PIPELINE](docs/contracts/PROCESSING_PIPELINE.md) 与 [STATUS第14节](docs/progress/STATUS.md#14-raw解包解析分层持续增量2026-10-13)。
 
 已构建后，在独立终端手动启动新版（不停止旧实例，不改系统代理/证书/伴侣）：
 
@@ -101,3 +101,5 @@ LiveWorkBench/
 下一段工程接入为真实 LiveHook 客户端路由与启动/重启观察，在用户授权环境后验证完整 HTTP/WSS；继续按契约补 daemon、人工 Source 切换及消费者，R01 只作为回归输入，不重复审计。现有场次、RAW 优先及回放隔离规则保持。
 
 references 中源码和官方 API 文档已经存在，但本地存在、静态代码路径、实际运行通过是不同状态。详细证据与下一步见迁移和进度文档。
+
+应用内 networkPolicy 支持 system/direct/custom，监控、目标解析、WSS 与浏览器共享策略。系统模式只读已有静态代理，自定义支持 HTTP/HTTPS CONNECT、SOCKS5 域名请求；直连拒绝 Fake-IP 并固定公共 DNS 地址，不修改系统环境。保存模式和独立诊断见工作台及 [NETWORK_TRANSPORT](docs/contracts/NETWORK_TRANSPORT.md)。

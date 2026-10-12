@@ -4,7 +4,7 @@
 
 ProfileStore仅通过repository.getState/setState持久化普通配置。目标输入为typed string：auto/url/anchorUid/secUid/web_rid/roomId，数字auto返回PENDING_TYPE，不推断身份。profileId/版本十进制字符串；启用与自动监听默认false。最多100配置，周期至少10秒，超时最多30秒。凭据仅不透明authRef，禁止凭据内容进入Profile。
 
-TargetResolver.classify/resolve分开；只允许固定Douyin HTTPS域、公共DNS且连接固定DNS结果、4次跳转、整体超时与2MiB主体。不请求媒体，不执行页面脚本。UID/实际roomId无可靠网页映射返回TARGET_MAPPING_REQUIRED；不将其当作web_rid。页面只认与目标匹配的结构化room/status/owner证据；推荐位/单个流URL不推断开播。当前确认status=2在播、status=4结束，其余UNKNOWN；语义待真实目标核验。
+TargetResolver.classify/resolve分开；只允许固定Douyin HTTPS域、4次跳转、整体超时与2MiB主体。网络采用[NETWORK_TRANSPORT v1](NETWORK_TRANSPORT.md)：system/custom代理侧解析；direct仅公共DNS并固定连接地址。不请求媒体，不执行页面脚本。UID/实际roomId无可靠网页映射返回TARGET_MAPPING_REQUIRED；不将其当作web_rid。页面只认与目标匹配的结构化room/status/owner证据；推荐位/单个流URL不推断开播。当前确认status=2在播、status=4结束，其余UNKNOWN；语义待真实目标核验。
 
 LiveMonitor.probe输入Profile，输出state/evidence；监控连接不采集弹幕。连续confirmations次相同状态/房间/身份才发MonitorEvent。UNKNOWN/HTTP错误重置候选、保留已确认状态及最后成功时间，并指数退避；不能触发停止。持久化确认版本/最后转换时间，重启同场不重复转换。pushState始终UNKNOWN。MonitorEvent含profileId/profileVersion/stateVersion/operationId/anchorUid/roomId/来源时间；不直接调用SessionManager或创建业务场次。
 
