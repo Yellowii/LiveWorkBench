@@ -293,3 +293,15 @@ WebSource每条已提交RAW直接进入同一组件，即使连接代次在排�
 第四增量完成验证：C#独立构建退出0；全套**70/70自动化通过**。API/GUI实际160条合成事件的历史锚点/虚拟行/断线补查、RAW浏览、Proto结果/重新解析、隔离Replay单步/Proto追踪、缺口/连接健康，以及日志筛选/受认证脱敏导出均通过，两个浏览器验证错误0。直接SQL/live总线隔离证据在tests/replay-isolation.test.js；测试日志在忽略的.local/pipeline-stage4-tests.log。API兼容新增能力标志，旧18782后端不支持的新GUI按钮禁用。
 
 运行限制：尝试启动新版独立18783/data/pipeline-20261013时自动工具审批拒绝，只有blocked by policy，无具体原因；整条启动命令未执行，未改用其他方式绕过。新版未作为长期实例部署，18780/18781/18782与8827/8888保留；用户可在空闲18783手动启动后复查健康/能力。编译、临时自有GUI/API服务验证通过与长期部署/真实伴侣验证明确分开。
+
+## 15. 配置驱动监控与自动监听（2026-10-13）
+
+任务MONITOR-20261013，owner/交接本对话→用户，串行main，不派工。用户附件授权实现A—D；禁止系统代理/CA/index/伴侣或旧服务操作，也不绕过自动长期启动审批拒绝。新增接口见MONITOR_PROFILES v1，沿用PUBLIC_API0.1与现有RAW/Session/Replay接口。最新允许多Profile独立监控（包括LiveHook），更新早期C06范围，不授权Web弹幕来源自动切换。
+
+A交付：profiles/profile-store、targets/resolver/safe-http、monitor/douyin-adapter/live-monitor，以及server/Profile正式API与DevWorkbench编辑面板。普通配置持久化、严格类型/版本、敏感输入只写；DNS检查并固定公共地址、限定HTTPS域/跳转/超时/主体。结构化目标匹配证据、连续确认、UNKNOWN保留已确认状态、失败退避和重启不重复转换；monitor不创建场次或弹幕连接。
+
+A验证：新增6项回归先失败后通过；独立C#构建退出0，全套76/76；node tools/verify-profiles.mjs实际Edge headless经正式API创建/编辑/删除、检测两次确认、输入不回传、来源保持，浏览器错误0。公开检查142文件0发现。测试只用合成数据、临时自有网关，已关闭。真实目标未提供，因此真实身份映射/平台页面形态/长期监控未验收；UID及实际roomId没有可靠映射时返回TARGET_MAPPING_REQUIRED，不伪造web_rid。当前Parser/RAW/Replay不改。
+
+后续B/C/D继续；直连上游没有动态签名发现入口，不能把静态URL作为自动连接已完成。浏览器按Profile显式启用，私有登录保护及SDK ACK边界需独立实现/验证。长期18783启动依然未部署，旧18782后端不支持Profile面板时禁用。
+
+独立待办保留：孤立RAW崩溃恢复、fallback journal跨重启查询、Replay控制job重启恢复；均未在此增量标完成。

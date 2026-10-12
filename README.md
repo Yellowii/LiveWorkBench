@@ -43,6 +43,8 @@ npm start
 
 ## 权威入口
 
+新增监听Profile与开播监控：经工作台保存ID/URL、来源及策略，身份输入只写，查询显示脱敏结果；已启用配置在后端启动时恢复监控，但不自动切源。纯数字应指定类型。当前真实身份映射与平台页面需要实测；不能确定则显示UNKNOWN。接口及增量范围见 [MONITOR_PROFILES](docs/contracts/MONITOR_PROFILES.md) 与STATUS第15节。
+
 WebSource 的 WSS URL/Cookie/User-Agent 只登记在 `.local/settings.json` 的 `webSource` 对象；可选 `roomId` 是平台实际 roomId，不能拿网页短房号代替。配置不经公共 API 传入或返回。默认目标仅接受 douyin.com 下标准443端口WSS，回连/心跳/ACK复用固定上游实现，RAW提交前不会解码或ACK。入站二进制WebSocket消息为采集范围；队列上限触发显式缺口诊断，不能宣称保存了TCP/所有控制帧。
 
 公开仓库不包含真实 RAW、R01 Golden 定位清单、历史证据及运行数据；原本地文件保留。官方解析器与协议资源因再分发授权未确认，也不进入 Git；准备命令从固定上游版本下载六个文件并验证哈希。已有本地参考源码时可使用 `npm run setup:parser -- --source <protobuf-live 目录>`。真实样本回归需要在受控本机单独登记样本及本地 Golden 清单，公开自动化测试仅使用合成输入。

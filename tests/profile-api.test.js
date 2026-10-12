@@ -1,0 +1,21 @@
+import test from 'node:test';
+import assert from 'node:assert/strict';
+import fs from 'node:fs/promises';
+import os from 'node:os';
+import path from 'node:path';
+import {createGateway} from '../src/server.js';
+test('profile API authenticates, masks input, rejects stale edits and exposes monitor evidence',async t=>{
+ const dir=await fs.mkdtemp(path.join(os.tmpdir(),'lw-profile-api-')),app=await createGateway({dataDir:dir,port:0});t.after(async()=>{await app.close();await fs.rm(dir,{recursive:true,force:true});});
+ const cookie=(await fetch(app.url)).headers.get('set-cookie').split(';')[0],headers={Cookie:cookie,Origin:app.url,'Content-Type':'application/json'};
+ const post=(p,body,h=headers)=>fetch(app.url+'/api/v1/'+p,{method:'POST',headers:h,body:JSON.stringify({commandId:crypto.randomUUID(),...body})});
+ assert.equal((await post('profiles',{profile:{target:{type:'web_rid',value:'123'}}},{})).status,403);
+ const response=await post('profiles',{profile:{name:'synthetic profile',target:{type:'web_rid',value:'123'}}});assert.equal(response.status,200);
+ const p=(await response.json()).data;assert.ok(p.profileId);assert.equal(p.target.value,undefined);
+ const edited=await post('profiles/'+p.profileId+'/actions',{action:'update',expectedVersion:'1',patch:{enabled:true}});assert.equal(edited.status,200);
+ assert.equal((await post('profiles/'+p.profileId+'/actions',{action:'update',expectedVersion:'1',patch:{enabled:false}})).status,409);
+ app.monitor.adapter={probe:async()=>({state:'LIVE',anchorUid:'456',roomId:'9876543210123456789',web_rid:'123',source:'synthetic'})};
+ await post('profiles/'+p.profileId+'/actions',{action:'check'});await post('profiles/'+p.profileId+'/actions',{action:'check'});
+ const view=await (await fetch(app.url+'/api/v1/profiles',{headers})).json();assert.equal(view.data.items[0].monitor.confirmedState,'LIVE');assert.match(view.data.items[0].monitor.roomId,/^room:/);assert.ok(!JSON.stringify(view).includes('9876543210123456789'));
+ assert.equal(app.sources.view().selectedSource,'LiveHookSource');
+ assert.equal((await post('profiles/'+p.profileId+'/actions',{action:'delete',expectedVersion:'2'})).status,200);
+});
