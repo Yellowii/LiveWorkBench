@@ -3,8 +3,55 @@ let rows=[],cursor=null,namespace=null,operation=null,replay=null,unread=0,sourc
 async function api(route,body){const response=await fetch('/api/v1/'+route,{method:body?'POST':'GET',headers:body?{'Content-Type':'application/json'}:{},body:body?JSON.stringify({commandId:crypto.randomUUID(),...body}):undefined});const result=await response.json();if(!response.ok)throw new Error(result.error?.code||'REQUEST_FAILED');return result.data;}
 const notice=text=>{$('notice').textContent=text;};
 function showDaemon(state){const messages={RESTART_REQUIRED:'伴侣已先启动。采集代理就绪后，请在你允许的时段手动重启伴侣。',AWAITING_CAPTURE:'伴侣未运行。请先准备并启动采集代理，再启动伴侣。',WAITING_COMPANION:'采集代理已就绪，等待你手动启动伴侣。',AWAITING_ROUTE_PROBE:'伴侣启动顺序符合要求；客户端路由与实际捕获尚待验证。',UNKNOWN:'进程观察暂不可用，不能判断启动顺序。'};$('daemonNote').textContent=messages[state?.state]||'正在只读观察进程';$('daemon').textContent=pretty(state);}
-function showRows(){const tbody=$('messages');tbody.replaceChildren();for(const event of rows){const tr=document.createElement('tr');const official=event.payload?.official;const values=[`${event.eventSeq} / ${event.mode}`,event.eventType,event.msgId||'—',`${event.payload?.decodeStatus} · ${official?.content||official?.display_text?.default_pattern||''}`];for(const value of values){const td=document.createElement('td');td.textContent=value;tr.append(td);}tr.onclick=()=>{$('detail').textContent=pretty(event);};tbody.append(tr);}}
-async function events(older=false){const query=new URLSearchParams({limit:'50'});if($('mode').value)query.set('mode',$('mode').value);if($('method').value)query.set('method',$('method').value);if(namespace)query.set('namespace',namespace);if(older&&cursor)query.set('cursor',cursor);const result=await api('events?'+query);cursor=result.nextCursor;const existing=new Set(older?rows.map(x=>x.eventId):[]);rows=older?rows:[];for(const event of result.items)if(!existing.has(event.eventId)){rows.push(event);existing.add(event.eventId);}rows=rows.slice(-500);showRows();$('older').disabled=!cursor;}
+const ROW_HEIGHT=40;
+let loadingHistory=false,everConnected=false;
+function historyQuery(){const query=new URLSearchParams();if($('mode').value)query.set('mode',$('mode').value);if($('method').value)query.set('method',$('method').value);if(namespace)query.set('namespace',namespace);return query;}
+async function detail(event){
+  const full=await api('events/'+encodeURIComponent(event.eventId)),rawMetadata=[];
+  for(const rawId of (full.rawRefs||[]).slice(0,10))try{rawMetadata.push(await api(`recordings/${encodeURIComponent(full.captureId)}/raw/${encodeURIComponent(rawId)}`));}catch{}
+  $('detail').textContent=pretty({...full,rawMetadata});
+}
+function showRows(){
+  const tbody=$('messages'),scroller=$('messageScroll');tbody.replaceChildren();tbody.dataset.cachedCount=String(rows.length);
+  const display=[...rows].reverse(),targetTop=$('follow').checked?Math.max(0,rows.length*ROW_HEIGHT-(scroller.clientHeight||430)+40):scroller.scrollTop;
+  const start=Math.max(0,Math.floor(targetTop/ROW_HEIGHT)-4),end=Math.min(rows.length,start+Math.ceil((scroller.clientHeight||420)/ROW_HEIGHT)+8);
+  const spacer=height=>{const tr=document.createElement('tr'),td=document.createElement('td');td.colSpan=4;td.style.height=height+'px';td.style.padding='0';td.style.border='0';tr.append(td);tbody.append(tr);};
+  spacer(start*ROW_HEIGHT);
+  for(const event of display.slice(start,end)){
+    const tr=document.createElement('tr');tr.className='message-row';tr.dataset.eventId=event.eventId;
+    const values=[`${event.eventSeq} / ${event.mode}`,event.eventType,event.msgId||'—',`${event.payload?.decodeStatus} · ${event.payload?.official?.content||''}`];
+    for(const value of values){const td=document.createElement('td');td.textContent=value;tr.append(td);}
+    tr.onclick=()=>detail(event).catch(e=>notice(e.message));tbody.append(tr);
+  }
+  spacer((rows.length-end)*ROW_HEIGHT);
+  if($('follow').checked)scroller.scrollTop=scroller.scrollHeight-scroller.clientHeight;
+}
+async function events(older=false){
+  if(loadingHistory)return;loadingHistory=true;
+  const scroller=$('messageScroll'),index=Math.floor(scroller.scrollTop/ROW_HEIGHT),anchor=older?[...rows].reverse()[index]?.eventId:null,offset=scroller.scrollTop%ROW_HEIGHT;
+  try{
+    const query=historyQuery();query.set('limit','50');if(older&&cursor)query.set('cursor',cursor);
+    const result=await api('events?'+query);cursor=result.nextCursor;
+    const existing=new Set(older?rows.map(x=>x.eventId):[]);rows=older?rows:[];
+    for(const event of result.items)if(!existing.has(event.eventId)){rows.push(event);existing.add(event.eventId);}
+    rows=older?rows.slice(-500):rows.slice(0,500);
+    if(anchor){const nextIndex=[...rows].reverse().findIndex(x=>x.eventId===anchor);if(nextIndex>=0)scroller.scrollTop=nextIndex*ROW_HEIGHT+offset;}else if(!older)scroller.scrollTop=0;
+    showRows();$('older').disabled=!cursor;
+  }finally{loadingHistory=false;}
+}
+async function recoverLatest(){
+  if(loadingHistory)return;loadingHistory=true;
+  try{
+    let next=null;const recovered=[];
+    do {const query=historyQuery();query.set('limit',String(Math.min(200,500-recovered.length)));if(next)query.set('cursor',next);const page=await api('events?'+query);recovered.push(...page.items);next=page.nextCursor;}while(next&&recovered.length<500);
+    rows=recovered;cursor=next;$('messageScroll').scrollTop=0;showRows();$('older').disabled=!cursor;notice('断线期间的消息已从持久化事件库补查，缓存最多500条');
+  }finally{loadingHistory=false;}
+}
+$('messageScroll').onscroll=()=>{
+  const distance=$('messageScroll').scrollHeight-$('messageScroll').scrollTop-$('messageScroll').clientHeight;if(distance>ROW_HEIGHT*2)$('follow').checked=false;
+  showRows();const scroller=$('messageScroll');
+  if(!loadingHistory&&cursor&&!$('follow').checked&&scroller.scrollTop<100)events(true).catch(e=>notice(e.message));
+};
 async function refresh(){const status=await api('system/status');sourceState=status.sourceControl;if(!sourceSelectionDirty)$('sourceSelect').value=status.selectedSource;showDaemon(status.daemon);$('status').textContent=`后台就绪 · 来源 ${status.selectedSource} · 采集 ${status.capture.captureState} · HookReady ${status.capture.hookReady} · 场次 ${status.sessions.length}`;const cap=await api('capabilities');const selectedCapability=status.selectedSource==='WebSource'?cap.webSource:cap.liveHook;$('captureStart').disabled=!selectedCapability.available;$('captureNote').textContent=status.selectedSource==='WebSource'?(cap.webSource.available?'网页连接由你手动启动；独立心跳、ACK 与 RAW 优先持久化。':'WebSource 需要本机私有目标/凭据配置和固定版本连接模块。当前未连接。'):cap.liveHook.available?'将启动独立本机代理；客户端路由与伴侣重启由你手动操作。不会修改系统代理或安装文件。':'真实采集待配置已授权证书和独立测试客户端。当前不会操作已有直播伴侣、系统代理或证书。';$('golden').disabled=$('r01').disabled=!cap.r01.available;$('metrics').textContent=pretty(await api('metrics/modules'));$('logs').textContent=pretty((await api('logs')).items);const selected=$('recording').value;const records=(await api('recordings')).items;$('recording').replaceChildren(...records.map(r=>{const option=document.createElement('option');option.value=r.recordingId;option.textContent=`${r.recordingId.slice(0,35)} · ${r.records} 输入`;return option;}));if(records.some(r=>r.recordingId===selected))$('recording').value=selected;}
 async function startR01(goldenOnly){operation=await api('development/r01-runs',{goldenOnly});$('operation').textContent=pretty(operation);notice('真实后端任务已开始');}
 function bind(id,fn){$(id).onclick=()=>Promise.resolve().then(fn).catch(e=>notice(e.message));}
@@ -14,6 +61,6 @@ bind('captureStart',()=>api('capture/actions',{action:'start',expectedVersion:so
 bind('reload',()=>{namespace=null;return events();});bind('older',()=>{$('follow').checked=false;return events(true);});bind('latest',()=>{unread=0;$('unread').textContent='';$('follow').checked=true;return events();});
 bind('createReplay',async()=>{replay=await api('replays',{recordingId:$('recording').value});namespace=replay.runtimeNamespace;$('mode').value='replay';$('replay').textContent=pretty(replay);await events();});
 document.querySelectorAll('[data-action]').forEach(button=>{button.onclick=async()=>{try{if(!replay)throw new Error('请先创建回放');replay=await api(`replays/${replay.replayId}/actions`,{action:button.dataset.action,expectedVersion:replay.stateVersion,speed:Number($('speed').value),target:Number($('position').value)});namespace=replay.runtimeNamespace;$('replay').textContent=pretty(replay);await events();}catch(e){notice(e.message);}};});
-function socket(){const ws=new WebSocket(`${location.protocol==='https:'?'wss':'ws'}://${location.host}/api/v1/ws`);ws.onopen=()=>{$('connection').textContent='实时增量已连接';if($('follow').checked)events().catch(e=>notice(e.message));else notice('已重连；当前历史位置保留，返回最新可补齐消息');};ws.onclose=()=>{$('connection').textContent='连接中断，历史仍可查询';setTimeout(socket,1500);};ws.onmessage=message=>{const {channel,data}=JSON.parse(message.data);if(channel==='daemon.updated')showDaemon(data);if(channel==='source.updated'){sourceState=data;refresh().catch(e=>notice(e.message));}if(channel==='events.appended'){if(($('mode').value&&data.mode!==$('mode').value)||(namespace&&data.runtimeNamespace!==namespace)||($('method').value&&data.eventType!==$('method').value))return;if($('follow').checked){if(!rows.some(r=>r.eventId===data.eventId))rows.unshift(data);rows=rows.slice(0,500);showRows();}else{$('unread').textContent=`${++unread} 条新消息`;}}if(channel==='operation.updated'&&data.operationId===operation?.operationId){operation=data;$('operation').textContent=pretty(data);if(data.status==='complete'){namespace=data.result?.runtimeNamespace;$('mode').value='replay';events().catch(e=>notice(e.message));refresh().catch(e=>notice(e.message));}}if(channel==='replay.updated'&&data.replayId===replay?.replayId){replay=data;namespace=data.runtimeNamespace;$('replay').textContent=pretty(data);}};}
+function socket(){const ws=new WebSocket(`${location.protocol==='https:'?'wss':'ws'}://${location.host}/api/v1/ws`);ws.onopen=()=>{$('connection').textContent='实时增量已连接';if($('follow').checked)(everConnected?recoverLatest():events()).catch(e=>notice(e.message));else notice('已重连；当前历史位置保留，返回最新可补齐消息');everConnected=true;};ws.onclose=()=>{$('connection').textContent='连接中断，历史仍可查询';setTimeout(socket,1500);};ws.onmessage=message=>{const {channel,data}=JSON.parse(message.data);if(channel==='daemon.updated')showDaemon(data);if(channel==='source.updated'){sourceState=data;refresh().catch(e=>notice(e.message));}if(channel==='events.appended'){if(($('mode').value&&data.mode!==$('mode').value)||(namespace&&data.runtimeNamespace!==namespace)||($('method').value&&data.eventType!==$('method').value))return;if($('follow').checked){if(!rows.some(r=>r.eventId===data.eventId))rows.unshift(data);rows=rows.slice(0,500);showRows();}else{$('unread').textContent=`${++unread} 条新消息`;}}if(channel==='operation.updated'&&data.operationId===operation?.operationId){operation=data;$('operation').textContent=pretty(data);if(data.status==='complete'){namespace=data.result?.runtimeNamespace;$('mode').value='replay';events().catch(e=>notice(e.message));refresh().catch(e=>notice(e.message));}}if(channel==='replay.updated'&&data.replayId===replay?.replayId){replay=data;namespace=data.runtimeNamespace;$('replay').textContent=pretty(data);}};}
 await refresh().catch(e=>notice(e.message));await events().catch(e=>notice(e.message));socket();setInterval(()=>refresh().catch(e=>notice(e.message)),3000);
 

@@ -45,3 +45,13 @@ test('formal capture switch is manual, versioned, authenticated and preserves se
  const stale=await fetch(app.url+'/api/v1/capture/actions',{method:'POST',headers,body:JSON.stringify({commandId:'stale-switch',expectedVersion:source.stateVersion,action:'switch',sourceType:'LiveHookSource'})});assert.equal(stale.status,409);
  const status=(await (await fetch(app.url+'/api/v1/system/status',{headers})).json()).data;assert.equal(status.selectedSource,'WebSource');
 });
+
+test('message trace returns bounded RAW metadata only for the matching recording',async t=>{
+ const dir=await fs.mkdtemp(path.join(os.tmpdir(),'lw-trace-api-')),app=await createGateway({dataDir:dir,port:0});
+ t.after(async()=>{await app.close();await fs.rm(dir,{recursive:true,force:true});});
+ const raw=await app.runtime.ingest({bytes:Buffer.from([255]),format:'business-payload',method:'Unknown',recordingId:'synthetic-recording'});
+ const cookie=(await fetch(app.url)).headers.get('set-cookie').split(';')[0],headers={Cookie:cookie};
+ const response=await fetch(`${app.url}/api/v1/recordings/synthetic-recording/raw/${raw.rawId}`,{headers});assert.equal(response.status,200);
+ const data=(await response.json()).data;assert.equal(data.size,1);assert.equal(data.contentHash.length,64);assert.equal(data.filePath,undefined);assert.equal(data.bytes,undefined);
+ const wrong=await fetch(`${app.url}/api/v1/recordings/other/raw/${raw.rawId}`,{headers});assert.equal(wrong.status,404);
+});

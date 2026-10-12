@@ -25,12 +25,13 @@ try{
   const operation=JSON.parse(await page.locator('#operation').textContent());
   assert.equal(operation.result.processed,59);assert.equal(operation.result.checks,59);assert.equal(operation.result.failures,0);
   if(app){assert.equal(app.runtime.metrics.decoded,59);assert.equal(app.runtime.metrics.failed,0);}
-  await wait(()=>document.querySelectorAll('#messages tr').length===50);
-  await page.locator('#messages tr').first().click();
+  await wait(()=>Number(document.getElementById('messages').dataset.cachedCount)===50);
+  await page.locator('#messages tr[data-event-id]').first().click();
+  await wait(()=>document.getElementById('detail').textContent.includes('\"eventId\"'));
   const detail=JSON.parse(await page.locator('#detail').textContent());
   assert.equal(detail.mode,'replay');assert.ok(detail.rawRefs.length);assert.ok(detail.payload.official);
   await page.locator('#older').click();
-  await wait(()=>document.querySelectorAll('#messages tr').length>50);
+  await wait(()=>Number(document.getElementById('messages').dataset.cachedCount)>50);
   assert.equal(await page.locator('#follow').isChecked(),false);
   await page.locator('#createReplay').click();
   await wait(()=>document.getElementById('replay').textContent.includes('"replayId"'));

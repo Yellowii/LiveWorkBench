@@ -212,3 +212,9 @@ Golden/全量检查面板通过后端 operation 显示实际验证结果；实�
 ### 本机公开投影（2026-10-12 实现）
 
 REST/WS 默认返回 redacted 投影，system/status.privacy 记录 mode/projectionVersion。房间/用户/消息标识为数据域内稳定HMAC别名，原生字符串/字节字段只披露必要数值/结构；事件自身不透明ID和RAW引用保留。原生 Parser 输出和RAW仍保存在本地，官方结果投影不能作为原生结果哈希。受控本地诊断可在私有 settings 中显式设置 allowPrivateDetails=true；此模式仍不返回凭据和物理路径。该设置不经API开放，不代表LAN认证/RBAC已经实现。
+
+### 当前历史/追踪子集（2026-10-12）
+
+GET /events增加 afterSeq 十进制字符串（仅seq>afterSeq）；limit默认50/最多200。快照/页边界字符串精确支持SQLite有符号64位序号。nextCursor现为HMAC签名、24小时有效、绑定kind/过滤/afterSeq/快照，篡改或条件不匹配CURSOR_MISMATCH，过期CURSOR_EXPIRED/410；旧无签名游标必须重新查询。WS subscription.ready.data.latestEventSeq提供已持久化高水位，断线缺口通过正式查询补查。
+
+事件列表是摘要，GET /events/{id}提供单条脱敏结果；GET /recordings/{recordingId}/raw/{rawId}新增RAW元数据查询，校验所属关系，只返回大小/hash/来源/时刻/边界/不透明引用等投影，不提供原始字节或路径。GUI向上续页、可见行渲染和500条缓存；跟随重连补查最新500条，历史阅读不被强制回底。

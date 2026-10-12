@@ -214,3 +214,11 @@ WebSource/人工单源增量：新增 `src/web-source.js`、`source-controller.j
 去重补全：Session先验证主播/房间身份，EventStore再按namespace/room/method/msgId查既有事件，兼容旧dedup键，避免匿名主播补全后重复计数。缺room不强制去重；旧source/epoch输入仍先留RAW再拒绝当前发布。仅同namespace/source/epoch/connection或capture已留证据的上下文可补缺room；原生缺字段默认0仍原样保留，补全来源写独立extensions，不用可变全局房间给历史归属。
 
 验证：37/37自动化；C#构建退出0；GUI实际59 Golden/59检查/0失败、浏览器错误0，并验证人工双向切换、刷新不切回、未配置时启动禁用；受控Web连接确认RAW提交前received和ACK均0，提交后才解析/ACK。新增失败用例均按缺失行为复现后修复；原生room默认0的断言按已固定Parser事实修正。真实伴侣/TLS、真实Web凭据/长时间重连仍未执行，无外部副作用。
+
+历史/消息追踪增量：新增 `src/cursor.js`、`tests/history.test.js` 和 `tools/verify-history.mjs`；Store使用BigInt读取/写入事件顺序，快照/序号跨JSON始终精确字符串。游标用数据域独立密钥HMAC签名、绑定过滤/快照/afterSeq，24小时过期；旧无签名游标需重新查询。GET /events 支持 afterSeq 缺口查询，WS ready 提供 latestEventSeq，列表返回摘要，单条详情再取完整脱敏投影及只含元数据的RAW引用；RAW详情校验 recording所属且不返回字节/物理路径。
+
+GUI按时间从旧到新展示，向上自动续页，最多500缓存且仅渲染可见行/缓冲；上翻停止跟随，追加仅提示新消息，跟随状态重连从稳定历史分页补查最新500；历史阅读状态重连保持位置并提示补查。此处不承诺前端内存保留无限消息，超缓存历史继续经签名页查询。
+
+验证：新增篡改/高水位/超JS安全整数回归先失败，修复后全套41/41；GUI真实59 Golden/59检查/0失败；160条合成事件浏览器用例确认可见DOM有界、历史锚点不移动、79条断线消息补查，浏览器错误0。SQLite setReadBigInts 返回void的误用已在验证中修正，不保留失败实现。私人RAW和官方Parser未修改。
+
+伴侣环境：用户明确允许尝试启动后自动审批拒绝该启动动作，仅返回blocked by policy，无具体规则；未改用其他启动方式。用户随后手动启动，观察到12个伴侣进程，工作台 companionRunning=true、RESTART_REQUIRED、capture STOPPED、HookReady=false。当前只验证进程观察，不是TLS/真实直播验收；证书/系统代理/安装文件未改。

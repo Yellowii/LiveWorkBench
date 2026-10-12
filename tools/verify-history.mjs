@@ -1,0 +1,28 @@
+import fs from 'node:fs/promises';
+import os from 'node:os';
+import path from 'node:path';
+import assert from 'node:assert/strict';
+import {chromium} from 'playwright-core';
+import {createGateway} from '../src/server.js';
+const dir=await fs.mkdtemp(path.join(os.tmpdir(),'lw-history-ui-'));
+const app=await createGateway({dataDir:dir,port:0});
+const browser=await chromium.launch({executablePath:process.env.LW_BROWSER||'C:/Program Files (x86)/Microsoft/Edge/Application/msedge.exe',headless:true});
+const page=await browser.newPage({viewport:{width:1365,height:1000}}),errors=[];
+page.on('pageerror',e=>errors.push(e.message));
+const append=async n=>{const type=app.runtime.parser.native.root.lookupType('webcast.im.ChatMessage');await app.runtime.ingest({bytes:type.encode(type.fromObject({common:{room_id:'100',msg_id:String(n)},content:'synthetic history'})).finish(),format:'business-payload',method:'WebcastChatMessage'});};
+try{
+ for(let n=1;n<=80;n++)await append(n);
+ await page.goto(app.url);await page.waitForFunction(()=>document.querySelectorAll('#messages tr').length>0);
+ assert.ok(await page.locator('#messages tr').count()<=32,'Only visible rows and a small buffer may be rendered');
+ await page.locator('#older').click();await page.waitForFunction(()=>Number(document.getElementById('messages').dataset.cachedCount)>50);
+ const anchor=await page.locator('#messages tr[data-event-id]').first().getAttribute('data-event-id');
+ await append(81);await page.waitForFunction(()=>document.getElementById('unread').textContent.includes('新消息'));
+ assert.equal(await page.locator('#messages tr[data-event-id]').first().getAttribute('data-event-id'),anchor);
+ await page.locator('#latest').click();
+ for(const ws of app.wss.clients)ws.terminate();
+ for(let n=82;n<=160;n++)await append(n);
+ await page.waitForFunction(()=>document.getElementById('connection').textContent==='实时增量已连接');
+ await page.waitForFunction(()=>Number(document.getElementById('messages').dataset.cachedCount)>=150);
+ assert.ok(await page.locator('#messages tr').count()<=32);
+ assert.deepEqual(errors,[]);console.log(JSON.stringify({syntheticEvents:160,virtualRows:true,historyAnchorPreserved:true,reconnectGapRecovered:true,browserErrors:0}));
+}finally{await browser.close();await app.close();await fs.rm(dir,{recursive:true,force:true});}

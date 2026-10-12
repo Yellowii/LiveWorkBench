@@ -2,9 +2,11 @@ import fs from 'node:fs/promises';
 import path from 'node:path';
 import {DatabaseSync} from 'node:sqlite';
 import {randomUUID,createHash} from 'node:crypto';
+import {CursorCodec,decimalSequence} from './cursor.js';
 
 export class Store {
   constructor(dir){
+    this.cursors=new CursorCodec(dir);
     this.db=new DatabaseSync(path.join(dir,'workbench.sqlite'));this.closed=false;
     this.db.exec(`PRAGMA journal_mode=WAL; PRAGMA synchronous=FULL;
       CREATE TABLE IF NOT EXISTS raw(id TEXT PRIMARY KEY,recording TEXT,seq INTEGER,metadata TEXT,file TEXT);
@@ -15,6 +17,7 @@ export class Store {
       CREATE TABLE IF NOT EXISTS logs(seq INTEGER PRIMARY KEY AUTOINCREMENT,json TEXT);`);
     this.db.exec('CREATE TABLE IF NOT EXISTS runtime_state(key TEXT PRIMARY KEY,json TEXT); CREATE INDEX IF NOT EXISTS event_identity ON events(namespace,method,json_extract(json,\'$.roomId\'),json_extract(json,\'$.msgId\'));');
   }
+  bigStatement(sql){const statement=this.db.prepare(sql);statement.setReadBigInts(true);return statement;}
   getState(key){const row=this.db.prepare('SELECT json FROM runtime_state WHERE key=?').get(key);return row?JSON.parse(row.json):null;}
   setState(key,value){this.db.prepare('INSERT INTO runtime_state VALUES(?,?) ON CONFLICT(key) DO UPDATE SET json=excluded.json').run(key,JSON.stringify(value));}
   addRaw(meta,filePath){const seq=this.db.prepare('SELECT count(*)+1 AS n FROM raw WHERE recording=?').get(meta.recordingId).n;meta.captureSeq=String(seq);this.db.prepare('INSERT INTO raw VALUES(?,?,?,?,?)').run(meta.rawId,meta.recordingId,seq,JSON.stringify(meta),filePath);return meta;}
@@ -23,25 +26,28 @@ export class Store {
   recordings(){return this.db.prepare('SELECT recording,count(*) AS records FROM raw GROUP BY recording').all().map(x=>({recordingId:x.recording,records:x.records}));}
   addEvent(event,key){
     // Room identity is validated by SessionManager before this lookup; anchor enrichment cannot change identity.
-    const old=key?(this.db.prepare('SELECT json,seq FROM events WHERE dedup=?').get(key)||(event.roomId&&event.msgId?this.db.prepare("SELECT json,seq FROM events WHERE namespace=? AND method=? AND json_extract(json,'$.roomId')=? AND json_extract(json,'$.msgId')=? LIMIT 1").get(event.runtimeNamespace,event.eventType,event.roomId,event.msgId):null)):null;
+    const old=key?(this.bigStatement('SELECT json,seq FROM events WHERE dedup=?').get(key)||(event.roomId&&event.msgId?this.bigStatement("SELECT json,seq FROM events WHERE namespace=? AND method=? AND json_extract(json,'$.roomId')=? AND json_extract(json,'$.msgId')=? LIMIT 1").get(event.runtimeNamespace,event.eventType,event.roomId,event.msgId):null)):null;
     if(old)return {event:{...JSON.parse(old.json),eventSeq:String(old.seq)},duplicate:true};
     event.eventId=key?createHash('sha256').update(key).digest('hex'):randomUUID();event.persistedAt=new Date().toISOString();
-    const result=this.db.prepare('INSERT INTO events(id,dedup,mode,namespace,method,json) VALUES(?,?,?,?,?,?)').run(event.eventId,key,event.mode,event.runtimeNamespace,event.eventType,JSON.stringify(event));
+    const result=this.bigStatement('INSERT INTO events(id,dedup,mode,namespace,method,json) VALUES(?,?,?,?,?,?)').run(event.eventId,key,event.mode,event.runtimeNamespace,event.eventType,JSON.stringify(event));
     event.eventSeq=String(result.lastInsertRowid);return {event,duplicate:false};
   }
-  events({limit=50,cursor,mode,namespace,method}={}){
-    limit=Math.max(1,Math.min(500,Number(limit)||50));let boundary=Number.MAX_SAFE_INTEGER,snapshot;
-    const filters={mode:mode||null,namespace:namespace||null,method:method||null};
-    if(cursor){let c;try{c=JSON.parse(Buffer.from(cursor,'base64url'));}catch{throw new Error('CURSOR_MISMATCH');}if(JSON.stringify(c.filters)!==JSON.stringify(filters))throw new Error('CURSOR_MISMATCH');boundary=c.before;snapshot=c.snapshot;}
-    else snapshot=this.db.prepare('SELECT coalesce(max(seq),0) AS n FROM events').get().n;
-    const where=['seq<=?','seq<?'];const values=[snapshot,boundary];
-    for(const [field,value]of Object.entries(filters))if(value){where.push(`${field}=?`);values.push(value);}
-    const rows=this.db.prepare(`SELECT json,seq FROM events WHERE ${where.join(' AND ')} ORDER BY seq DESC LIMIT ?`).all(...values,limit+1);
+  eventHighWatermark(){return String(this.bigStatement('SELECT coalesce(max(seq),0) AS n FROM events').get().n);}
+  events({limit=50,cursor,mode,namespace,method,afterSeq}={}){
+    limit=Math.max(1,Math.min(200,Math.floor(Number(limit)||50)));let boundary=null,snapshot;
+    const filters={kind:'events',mode:mode||null,namespace:namespace||null,method:method||null,afterSeq:afterSeq===undefined||afterSeq===null?null:decimalSequence(afterSeq)};
+    if(cursor){const c=this.cursors.decode(cursor,filters);boundary=c.before;snapshot=c.snapshot;}
+    else snapshot=this.eventHighWatermark();
+    const where=['seq<=?'];const values=[BigInt(snapshot)];
+    if(boundary!==null){where.push('seq<?');values.push(BigInt(boundary));}
+    if(filters.afterSeq!==null){where.push('seq>?');values.push(BigInt(filters.afterSeq));}
+    for(const field of ['mode','namespace','method'])if(filters[field]){where.push(`${field}=?`);values.push(filters[field]);}
+    const rows=this.bigStatement(`SELECT json,seq FROM events WHERE ${where.join(' AND ')} ORDER BY seq DESC LIMIT ?`).all(...values,limit+1);
     const hasMore=rows.length>limit;rows.length=Math.min(rows.length,limit);
-    const nextCursor=hasMore?Buffer.from(JSON.stringify({filters,before:rows.at(-1).seq,snapshot})).toString('base64url'):null;
+    const nextCursor=hasMore?this.cursors.encode({filters,before:String(rows.at(-1).seq),snapshot}):null;
     return {items:rows.map(x=>({...JSON.parse(x.json),eventSeq:String(x.seq)})),hasMore,nextCursor,snapshot:String(snapshot)};
   }
-  event(id){const row=this.db.prepare('SELECT json,seq FROM events WHERE id=?').get(id);return row?{...JSON.parse(row.json),eventSeq:String(row.seq)}:null;}
+  event(id){const row=this.bigStatement('SELECT json,seq FROM events WHERE id=?').get(id);return row?{...JSON.parse(row.json),eventSeq:String(row.seq)}:null;}
   sessions(){return this.db.prepare('SELECT json FROM sessions').all().map(x=>JSON.parse(x.json));}
   saveSession(key,state){this.db.prepare('INSERT INTO sessions VALUES(?,?,?) ON CONFLICT(key) DO UPDATE SET json=excluded.json').run(state.sessionId,key,JSON.stringify(state));}
   log(code,details={}){const log={at:new Date().toISOString(),code,...details};this.db.prepare('INSERT INTO logs(json) VALUES(?)').run(JSON.stringify(log));return log;}
