@@ -67,3 +67,12 @@ test('anchor completion during a manual source switch does not double-count a me
  await r.ingest({bytes,method:'WebcastChatMessage',format:'business-payload',sourceType:'WebSource',sourceEpoch:controller.view().sourceEpoch,anchorUid:'200'});
  assert.equal(r.store.countRaw(),2);assert.equal(r.store.countEvents(),1);assert.equal(r.store.sessions()[0].sessionId,before);assert.equal(r.store.sessions()[0].anchorUid,'200');
 });
+test('WebSource keeps protocol heartbeat and ACK across a local reconnect without duplicating events',{timeout:12000},async t=>{
+ const r=await setup(t),wss=new WebSocketServer({host:'127.0.0.1',port:0});await new Promise(resolve=>wss.once('listening',resolve));
+ const source=new WebSource(r,{allowLocalTest:true,mode:'test',testOptions:{heartbeatMs:30,minConnectMs:10,testRetryDelayMs:50}});let connects=0,acks=0,heartbeats=0;
+ t.after(async()=>{await source.stop();for(const ws of wss.clients)ws.terminate();await new Promise(resolve=>wss.close(resolve));});
+ const type=r.parser.native.root.lookupType('webcast.im.PushFrame');
+ wss.on('connection',ws=>{const attempt=++connects;ws.on('message',bytes=>{const value=type.decode(bytes);if(value.payload_type==='ack'){acks++;if(attempt===1)ws.terminate();}if(value.payload_type==='hb')heartbeats++;});ws.send(frame(r));if(attempt===2)ws.ping('synthetic');});
+ await source.start({url:`ws://127.0.0.1:${wss.address().port}`,sourceEpoch:'2'});await wait(()=>connects>=2&&acks>=2&&heartbeats>=1&&r.store.countRaw()===2);
+ const inputs=r.store.rawFor(source.captureId);assert.notEqual(inputs[0].sourceConnectionId,inputs[1].sourceConnectionId);assert.equal(r.store.countEvents(),1);assert.ok(source.controlFrames>=1);assert.ok(r.gaps.page().items.some(x=>x.reason==='WEB_CONNECTION_INTERRUPTED'));
+});

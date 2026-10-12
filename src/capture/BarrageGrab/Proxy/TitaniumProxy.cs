@@ -85,7 +85,7 @@ namespace BarrageGrab.Proxy
             //RegisterSystemProxy();
             // Explicitly disable Titanium's default CurrentUser-root trust during Start().
             proxyServer = new ProxyServer(false, false, false);
-            proxyServer.ExceptionFunc = error => { if (LiveWorkbench.CaptureHost.SmokeMode) Console.Error.WriteLine(error); };
+            proxyServer.ExceptionFunc = error => { LiveWorkbench.CaptureHost.CaptureGap("PROXY_TRANSPORT_FAILED");if (LiveWorkbench.CaptureHost.SmokeMode) Console.Error.WriteLine(error); };
 
             proxyServer.ReuseSocket = false;
             proxyServer.EnableConnectionPool = true;
@@ -227,7 +227,7 @@ namespace BarrageGrab.Proxy
                 var bytes = await e.GetResponseBody();
                 var format = uri.Contains(BARRAGE_POOL_PATH) ? "response" : "http-json";
                 await LiveWorkbench.CaptureHost.RecordAsync(bytes, format, processName,
-                    e.HttpClient.Request.RequestUri.AbsolutePath, e.HttpClient.Response.StatusCode);
+                    e.HttpClient.Request.RequestUri.AbsolutePath, e.HttpClient.Response.StatusCode,e.ClientConnectionId.ToString());
             }
             if (e.HttpClient.Response.StatusCode == 101 &&
                 string.Equals(e.HttpClient.Request.Headers.GetFirstHeader("Upgrade")?.Value, "websocket", StringComparison.OrdinalIgnoreCase) &&
@@ -655,8 +655,21 @@ namespace BarrageGrab.Proxy
         }
 
         // First-party fix: preserve fragmented messages across receive callbacks/connection lifetime.
-        private readonly System.Runtime.CompilerServices.ConditionalWeakTable<SessionEventArgs, List<byte>> receiveMessages =
-            new System.Runtime.CompilerServices.ConditionalWeakTable<SessionEventArgs, List<byte>>();
+        private sealed class ReceiveState { public readonly List<byte> Bytes=new List<byte>();public IPEndPoint Remote;public bool Dropping; }
+        private readonly ConcurrentDictionary<string,ReceiveState> receiveMessages = new ConcurrentDictionary<string,ReceiveState>();
+        private System.Threading.Timer connectionObserver;
+        private void SweepConnections(object unused) {
+            if(receiveMessages.IsEmpty)return;
+            try {
+                var active=System.Net.NetworkInformation.IPGlobalProperties.GetIPGlobalProperties().GetActiveTcpConnections();
+                foreach(var pair in receiveMessages) {
+                    var state=pair.Value;
+                    if(active.Any(x=>x.LocalEndPoint.Port==LiveWorkbench.CaptureHost.Port && x.RemoteEndPoint.Equals(state.Remote) && x.State==System.Net.NetworkInformation.TcpState.Established))continue;
+                    lock(state.Bytes){if(state.Bytes.Count>0)LiveWorkbench.CaptureHost.CaptureGap("WS_INCOMPLETE_FRAGMENT",pair.Key,state.Bytes.Count);state.Bytes.Clear();}
+                    ReceiveState ignored;receiveMessages.TryRemove(pair.Key,out ignored);
+                }
+            }catch{LiveWorkbench.CaptureHost.CaptureGap("CAPTURE_CONNECTION_OBSERVATION_FAILED");}
+        }
         //WebSocket 流读取
         private async void WebSocket_DataReceived(object sender, DataEventArgs e)
         {
@@ -666,17 +679,22 @@ namespace BarrageGrab.Proxy
 
             var processid = args.HttpClient.ProcessId.Value;
 
-            var messageData = receiveMessages.GetOrCreateValue(args);
+            var connectionId=args.ClientConnectionId.ToString();
+            var state=receiveMessages.GetOrAdd(connectionId,_=>new ReceiveState {Remote=args.ClientRemoteEndPoint as IPEndPoint});
+            var messageData = state.Bytes;
 
             try
             {
                 lock (messageData) {
                 foreach (var frame in args.WebSocketDecoderReceive.Decode(e.Buffer, e.Offset, e.Count))
                 {
-                    if (frame.OpCode != WebsocketOpCode.Binary && frame.OpCode != WebsocketOpCode.Continuation) continue;
-                    if (frame.OpCode == WebsocketOpCode.Binary) messageData.Clear();
+                    var opcode=(int)frame.OpCode;
+                    if(opcode==8||opcode==9||opcode==10){LiveWorkbench.CaptureHost.ControlFrame(opcode,connectionId);if(opcode==8&&messageData.Count>0){LiveWorkbench.CaptureHost.CaptureGap("WS_INCOMPLETE_FRAGMENT",connectionId,messageData.Count);messageData.Clear();}continue;}
+                    if (frame.OpCode != WebsocketOpCode.Binary && frame.OpCode != WebsocketOpCode.Continuation) {LiveWorkbench.CaptureHost.ControlFrame(opcode,connectionId);continue;}
+                    if (frame.OpCode == WebsocketOpCode.Binary) {if(messageData.Count>0)LiveWorkbench.CaptureHost.CaptureGap("WS_INCOMPLETE_FRAGMENT",connectionId,messageData.Count);messageData.Clear();state.Dropping=false;}
+                    if(state.Dropping)continue;
                     var fragment=frame.Data.ToArray();
-                    if (messageData.Count + fragment.Length > 8*1024*1024) { messageData.Clear(); throw new InvalidOperationException("RAW_TOO_LARGE"); }
+                    if (messageData.Count + fragment.Length > 8*1024*1024) { LiveWorkbench.CaptureHost.CaptureGap("RAW_TOO_LARGE",connectionId,messageData.Count+fragment.Length);messageData.Clear();state.Dropping=true;continue; }
                     messageData.AddRange(fragment);
                     if (frame.IsFinal) {
                         var payload = messageData.ToArray();messageData.Clear();
@@ -685,6 +703,7 @@ namespace BarrageGrab.Proxy
                             ProcessID = processid,
                             HostName = hostname,
                             Payload = payload,
+                            SourceConnectionId=connectionId,
                             ProcessName = base.GetProcessName(processid)
                         });
                     }
@@ -693,6 +712,7 @@ namespace BarrageGrab.Proxy
             }
             catch (Exception ex)
             {
+                LiveWorkbench.CaptureHost.CaptureGap("WS_RECEIVE_FAILED",connectionId,e.Count);
                 Logger.PrintColor("解析某个WebSocket包出错：" + ex.Message);
             }
 
@@ -709,6 +729,9 @@ namespace BarrageGrab.Proxy
         /// </summary>
         override public void Dispose()
         {
+            connectionObserver?.Dispose();
+            foreach(var pair in receiveMessages)lock(pair.Value.Bytes){if(pair.Value.Bytes.Count>0)LiveWorkbench.CaptureHost.CaptureGap("WS_INCOMPLETE_FRAGMENT",pair.Key,pair.Value.Bytes.Count);}
+            receiveMessages.Clear();
             proxyServer.Stop();
             proxyServer.Dispose();
             rootSigningKey?.Dispose();
@@ -724,6 +747,7 @@ namespace BarrageGrab.Proxy
         override public void Start()
         {
             proxyServer.Start(false);
+            connectionObserver=new System.Threading.Timer(SweepConnections,null,250,250);
 
             if (AppSetting.Current.UsedProxy)
             {

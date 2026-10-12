@@ -11,6 +11,7 @@ export class CaptureBridge {
   async start({stdio=false,networkSmoke=false,mode='live',port=18827,certificatePath,certificatePassword,testUpstreamCertificate,sourceEpoch='1'}={}){
     if(this.child||this.starting)throw new Error('SOURCE_BUSY');if((networkSmoke||testUpstreamCertificate)&&mode!=='test')throw new Error('TEST_MODE_REQUIRED');if(testUpstreamCertificate&&!networkSmoke)throw new Error('TEST_MODE_REQUIRED');if(!stdio&&!networkSmoke&&!certificatePath)throw new Error('TLS_CERTIFICATE_REQUIRED');
     this.starting=true;this.cancelStart=false;
+    this.stopping=false;
     try{
     const exe=process.env.LW_CAPTURE_EXE?path.resolve(process.env.LW_CAPTURE_EXE):path.join(root,'src/capture/BarrageGrab/bin/Debug/LiveWorkbench.CaptureHost.exe');await fs.access(exe);
     if(this.cancelStart)throw new Error('CAPTURE_START_CANCELLED');
@@ -24,6 +25,8 @@ export class CaptureBridge {
     this.child.stderr.on('data',()=>{}); // Original diagnostics may contain private URLs; never publish them.
     this.child.on('error',()=>{this.status.captureState='FAILED';this.runtime.log('CAPTURE_PROCESS_FAILED');});
     const ownedChild=this.child;
+    const ownedCaptureId=this.captureId;
+    ownedChild.once('close',()=>{this.queue=this.queue.then(async()=>{if(this.runtime.store.closed)return;for(const [id,raw]of this.pending){if(raw.recordingId!==ownedCaptureId)continue;if(!this.runtime.store.rawTrace(raw.rawId).transport)await this.runtime.process(raw);this.pending.delete(id);}if(!this.stopping)await this.runtime.gaps.record({reason:'CAPTURE_CONNECTION_INTERRUPTED',scope:'unknown-range',recordingId:ownedCaptureId,sourceType:'LiveHookSource'});});});
     this.child.once('exit',()=>{if(this.child!==ownedChild)return;this.child=null;this.rejectReady?.(new Error('CAPTURE_PROCESS_EXITED'));this.status={...this.status,proxyBound:false,hookReady:false,captureState:'STOPPED'};if(!this.runtime.store.closed){this.runtime.interruptCapture();this.runtime.emit('capture.updated',this.status);}});
     const ready=new Promise((resolve,reject)=>{this.resolveReady=resolve;this.rejectReady=reject;});
     this.lines=createInterface({input:this.child.stdout});
@@ -31,9 +34,11 @@ export class CaptureBridge {
       let message;try{message=JSON.parse(line);}catch{return;}
       if(message.kind==='ready'){this.status={...this.status,...message,proxyReadyAt:message.proxyBound?new Date().toISOString():null,captureState:'CONNECTED'};this.resolveReady?.(this.status);this.runtime.emit('capture.updated',this.status);return;}
       if(message.kind==='diagnostic'){this.runtime.log(message.code);this.rejectReady?.(new Error(message.code));return;}
+      if(message.kind==='capture-gap'){await this.runtime.gaps.record({...message,reason:message.code,recordingId:this.captureId,sourceType:'LiveHookSource',sourceEpoch:this.sourceEpoch});this.runtime.log(message.code,{captureId:this.captureId});return;}
+      if(message.kind==='capture-control'){this.stats.controlFrames=(this.stats.controlFrames||0)+1;return;}
       if(message.kind==='raw'){
         try{
-          const raw=await this.runtime.ingest({bytes:Buffer.from(message.payloadBase64,'base64'),format:message.format,byteBoundary:message.format==='frame'?'reassembled-websocket-message':'proxy-http-response-body',receivedAt:message.receivedAt,urlPath:message.urlPath,httpStatus:message.httpStatus,processName:message.processName,captureId:this.captureId,recordingId:this.captureId,sourceType:'LiveHookSource',sourceEpoch:this.sourceEpoch,mode:this.mode,runtimeNamespace:this.mode==='live'?'live':`test:${this.captureId}`,deferTransport:['frame','response'].includes(message.format)},commit=>{this.pending.set(message.id,commit);this.send({kind:'ack',id:message.id,ok:true});});
+          const raw=await this.runtime.ingest({bytes:Buffer.from(message.payloadBase64,'base64'),format:message.format,byteBoundary:message.format==='frame'?'reassembled-websocket-message':'proxy-http-response-body',receivedAt:message.receivedAt,urlPath:message.urlPath,httpStatus:message.httpStatus,processName:message.processName,sourceConnectionId:message.sourceConnectionId||null,captureInputSeq:message.captureInputSeq,captureId:this.captureId,recordingId:this.captureId,sourceType:'LiveHookSource',sourceEpoch:this.sourceEpoch,mode:this.mode,runtimeNamespace:this.mode==='live'?'live':`test:${this.captureId}`,deferTransport:['frame','response'].includes(message.format)},commit=>{this.pending.set(message.id,commit);this.send({kind:'ack',id:message.id,ok:true});});
           if(raw.format==='http-json')this.pending.delete(message.id);
         }catch{this.send({kind:'ack',id:message.id,ok:false});this.runtime.log('RAW_PERSIST_FAILED');}
       }
@@ -50,5 +55,5 @@ export class CaptureBridge {
   }
   send(value){if(this.child?.stdin.writable)this.child.stdin.write(JSON.stringify(value)+'\n');}
   inject(bytes,format='response'){this.send({kind:'inject',format,payloadBase64:Buffer.from(bytes).toString('base64')});}
-  async stop(){this.cancelStart=true;const child=this.child;if(child){this.send({kind:'stop'});await Promise.race([new Promise(resolve=>child.once('exit',resolve)),new Promise(resolve=>setTimeout(resolve,2000))]);if(this.child===child){child.kill();this.child=null;}}await this.queue;this.pending.clear();this.status={...this.status,proxyBound:false,hookReady:false,captureState:'STOPPED'};this.runtime.emit('capture.updated',this.status);}
+  async stop(){this.stopping=true;this.cancelStart=true;const child=this.child;if(child){this.send({kind:'stop'});await Promise.race([new Promise(resolve=>child.once('close',resolve)),new Promise(resolve=>setTimeout(resolve,2000))]);if(this.child===child){child.kill();this.child=null;}}await this.queue;for(const raw of this.pending.values())if(!this.runtime.store.rawTrace(raw.rawId).transport)await this.runtime.process(raw);this.pending.clear();this.status={...this.status,proxyBound:false,hookReady:false,captureState:'STOPPED'};this.runtime.emit('capture.updated',this.status);}
 }

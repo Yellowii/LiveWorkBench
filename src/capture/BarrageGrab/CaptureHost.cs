@@ -18,15 +18,19 @@ namespace LiveWorkbench {
         internal static bool SmokeMode;
         static TextWriter Output;
         static readonly object Gate = new object();
+        static long InputSequence;
+        static int Admissions;
+        internal static void CaptureGap(string code,string connectionId=null,int? size=null) { Emit(new {kind="capture-gap",code,sourceConnectionId=connectionId,size,scope="connection"}); }
+        internal static void ControlFrame(int opcode,string connectionId) { Emit(new {kind="capture-control",opcode,sourceConnectionId=connectionId}); }
         static readonly ConcurrentDictionary<string,TaskCompletionSource<bool>> Pending = new ConcurrentDictionary<string,TaskCompletionSource<bool>>();
         static void Emit(object value) { lock(Gate) { Output.WriteLine(JsonConvert.SerializeObject(value));Output.Flush(); } }
-        public static async Task RecordAsync(byte[] bytes,string format,string process,string urlPath,int? httpStatus) {
-            if(bytes == null || bytes.Length == 0) return;
-            if(bytes.Length > 8*1024*1024) throw new InvalidOperationException("RAW_TOO_LARGE");
-            if(Pending.Count >= 64) throw new InvalidOperationException("CAPTURE_BACKPRESSURE");
+        public static async Task RecordAsync(byte[] bytes,string format,string process,string urlPath,int? httpStatus,string connectionId=null) {
+            if(bytes == null) {CaptureGap("CAPTURE_NULL_INPUT",connectionId);return;}
+            if(bytes.Length > 8*1024*1024) {CaptureGap("RAW_TOO_LARGE",connectionId,bytes.Length);return;}
+            if(System.Threading.Interlocked.Increment(ref Admissions)>64) {System.Threading.Interlocked.Decrement(ref Admissions);CaptureGap("CAPTURE_BACKPRESSURE",connectionId,bytes.Length);return;}
             var id=Guid.NewGuid().ToString();var ack=new TaskCompletionSource<bool>();Pending[id]=ack;
             try {
-                Emit(new {kind="raw",id,format,processName=process,urlPath,httpStatus,receivedAt=DateTime.UtcNow.ToString("o"),payloadBase64=Convert.ToBase64String(bytes)});
+                Emit(new {kind="raw",id,format,processName=process,urlPath,httpStatus,sourceConnectionId=connectionId,captureInputSeq=System.Threading.Interlocked.Increment(ref InputSequence).ToString(),receivedAt=DateTime.UtcNow.ToString("o"),payloadBase64=Convert.ToBase64String(bytes)});
                 if(await Task.WhenAny(ack.Task,Task.Delay(30000))!=ack.Task || !await ack.Task) throw new InvalidOperationException("RAW_ACK_FAILED");
                 // Reuse BarrageGrab protobuf models + gzip after durable RAW ACK.
                 if(format=="frame" || format=="response") {
@@ -34,7 +38,7 @@ namespace LiveWorkbench {
                         Emit(new {kind="transport",id,messages=TransportUnpacker.Unpack(bytes,format)});
                     } catch { Emit(new {kind="transport-fallback",id}); }
                 }
-            } finally { TaskCompletionSource<bool> ignored;Pending.TryRemove(id,out ignored); }
+            } catch {CaptureGap("RAW_ACK_FAILED",connectionId,bytes.Length);throw;} finally { TaskCompletionSource<bool> ignored;Pending.TryRemove(id,out ignored);System.Threading.Interlocked.Decrement(ref Admissions); }
         }
         static async Task ReadCommands() {
             string line;while((line=Console.ReadLine())!=null) {

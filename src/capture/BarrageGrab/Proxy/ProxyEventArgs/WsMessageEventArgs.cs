@@ -12,6 +12,7 @@ namespace BarrageGrab.Proxy.ProxyEventArgs
         /// 消息体
         /// </summary>
         public byte[] Payload { get; set; }
+        public string SourceConnectionId { get; set; }
 
         /// <summary>
         /// 进程ID

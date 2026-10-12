@@ -13,3 +13,9 @@ RAW边界是代理HTTP响应主体、重组WS二进制消息或历史业务paylo
 第二增量：OfficialParser.parseBusiness(ProtoRef, bytes)输出独立status/errorCode/parserVersion/native data，decode兼容适配仍供旧历史回归调用；正式管线不用混合decodePacket。ParserExtensions v1只生成独立extensions/occurredAt。ProtoIndex追加parse attempts，保存origin/namespace/input payloadHash/native结果；手动重新解析不发布业务事件，Replay不能覆盖原live Proto的eventId。
 
 WebSource raw-first-v3增加packetDecoder注入，ACK编码复用固定官方传输契约并与业务解析分开；业务decode实际只执行一次。固定上游live.js仍原SHA256，生成v3 SHA256 e4c89b056af1b3bceb28bfc2dfa27fe7bdb497dab071273b7fc9918e929f4fbb。原v2与官方Parser不覆盖；生成资产保持本地忽略。心跳/重试仍由原LiveClient维持。
+
+第三增量：RawRecorder正式独立文件，默认最多64个待持久化输入；8MiB以上拒绝且记录缺口，空二进制保存零字节RAW再报解包空输入。fsync/SQLite失败或背压无成功ACK。失败记录SQLite FULL，回退private capture-failures.jsonl fsync；磁盘/DB都不可用时只能本地stderr告警/unavailable，不宣称输入已保存。崩溃后孤立RAW索引恢复与回退journal跨重启查询仍待后续实现。
+
+C#完整接收消息带连接ID/输入序号；WS控制帧透明转发并统计，不当业务Proto。FIN前超过上限、被新Binary打断、Close/仅本代理连接的TCP结束或代理停止，都记录不完整/拒绝缺口，不把残片伪造成完整RAW。TCP观察只关联自有代理接受的端点，不判断平台下播；连接观测失败也留诊断。已落盘但C#传输阶段中断的RAW用同一Node解包组件补处理。没有创建上游心跳/ACK。
+
+WebSource v4继续原心跳/ACK/有限重连；仅allowLocalTest支持缩短重试以验证，生产延迟不变。生成SHA256 d952d9992dabe5d215ecedbd2e0cb26b04bd26d88aa768e1d170ff65e1d84903。GatewaySocketHub独立维持前端Ping/Pong和超时清理，控制帧统计与业务RAW分开。中断scope=unknown-range表示不确定范围，不等于已证实丢了N条或零丢包。

@@ -11,6 +11,7 @@ import {LiveHookDaemon} from './live-hook-daemon.js';
 import {publicProjection} from './public-projection.js';
 import {SourceController} from './source-controller.js';
 import {LogExports} from './log-export.js';
+import {GatewaySocketHub} from './gateway-websocket.js';
 
 const root=path.resolve(path.dirname(fileURLToPath(import.meta.url)),'..');
 const publicDir=path.join(root,'public');
@@ -40,7 +41,8 @@ export async function createGateway({dataDir,port=18780,settings={}}={}){
       const p=u.pathname;
       if(req.method==='GET'){
         if(p==='/api/v1/system/status')return ok(res,{backendReady:true,selectedSource:sources.view().selectedSource,sourceControl:sources.view(),capture:sources.view().selectedSource==='WebSource'?sources.web.status:bridge.status,daemon:daemon.status,sessions:runtime.store.sessions(),metrics:runtime.metrics,privacy:{mode:projection.mode,projectionVersion:projection.version},liveEnvironmentAuthorized:Boolean(settings.certificatePath)});
-        if(p==='/api/v1/health')return ok(res,{status:'ok',storage:'sqlite-wal-full',parser:'official'});
+        if(p==='/api/v1/health')return ok(res,{status:'ok',storage:'sqlite-wal-full',parser:'official',gatewayWebsocket:socketHub.view()});
+        if(p==='/api/v1/capture/gaps')return ok(res,runtime.gaps.page({limit:u.searchParams.get('limit')}));
         if(p==='/api/v1/capabilities')return ok(res,{...sources.capabilities(),features:{eventHighWatermark:true,signedCursors:true,eventSummaries:true},limits:{eventPage:200,frontCache:500},replay:{implemented:true},r01:{available:Boolean(settings.r01Root),inputFormat:'business-payload'},lan:{enabled:false}});
         if(p==='/api/v1/sources')return ok(res,{...sources.view(),items:['LiveHookSource','WebSource']});
         if(p==='/api/v1/hook/status')return ok(res,{...bridge.status,daemon:daemon.status});
@@ -52,7 +54,7 @@ export async function createGateway({dataDir,port=18780,settings={}}={}){
         if(p==='/api/v1/sessions')return ok(res,{items:runtime.store.sessions()});
         if(p==='/api/v1/logs')return ok(res,runtime.store.logPage({module:u.searchParams.get('module'),level:u.searchParams.get('level'),code:u.searchParams.get('code'),operationId:u.searchParams.get('operationId'),cursor:u.searchParams.get('cursor'),limit:Math.min(200,Number(u.searchParams.get('limit'))||100)}));
         if(p.startsWith('/api/v1/logs/exports/')){const bytes=await logExports.read(p.split('/').at(-1));res.writeHead(200,{'Content-Type':'application/x-ndjson; charset=utf-8','Content-Disposition':'attachment; filename="liveworkbench-logs.jsonl"','Cache-Control':'no-store'});res.end(bytes);return;}
-        if(p==='/api/v1/metrics/modules')return ok(res,{...runtime.metrics,timings:runtime.metrics.timings||{},timingProvider:'performance.now wall duration',queues:{awaitingTransport:bridge.pending.size,webDecode:sources.web.client?.pending??0,websocketClients:wss.clients.size},moduleCpu:{available:false,value:null,reason:'MODULE_ATTRIBUTION_NOT_IMPLEMENTED'},capture:bridge.stats});
+        if(p==='/api/v1/metrics/modules')return ok(res,{...runtime.metrics,timings:runtime.metrics.timings||{},timingProvider:'performance.now wall duration',queues:{awaitingTransport:bridge.pending.size,webDecode:sources.web.client?.pending??0,websocketClients:wss.clients.size},moduleCpu:{available:false,value:null,reason:'MODULE_ATTRIBUTION_NOT_IMPLEMENTED'},capture:bridge.stats,gatewayWebsocket:socketHub.view(),rawPending:runtime.recorder.pending,webControlFrames:sources.web.controlFrames});
         if(p==='/api/v1/metrics/processes')return ok(res,{pid:process.pid,memoryBytes:process.memoryUsage().rss});
         if(p==='/api/v1/metrics/system'||p==='/api/v1/metrics/history')return ok(res,{available:false,reason:'PROVIDER_NOT_IMPLEMENTED'});
         if(p.startsWith('/api/v1/operations/'))return ok(res,runtime.operations.get(p.split('/').at(-1))||null);
@@ -87,11 +89,12 @@ export async function createGateway({dataDir,port=18780,settings={}}={}){
     }catch(e){const code=['CURSOR_MISMATCH','CURSOR_EXPIRED','SOURCE_BUSY','RESOURCE_NOT_FOUND','TLS_CERTIFICATE_REQUIRED','STATE_CONFLICT','CAPABILITY_UNAVAILABLE','WEB_TARGET_NOT_CONFIGURED','WEB_SOURCE_NOT_PREPARED','WEB_TARGET_INVALID','WEB_SOURCE_START_FAILED','RAW_HASH_MISMATCH'].includes(e.message)?e.message:'INTERNAL_ERROR';const status=code==='RESOURCE_NOT_FOUND'?404:code==='CURSOR_EXPIRED'?410:code==='CAPABILITY_UNAVAILABLE'?501:['SOURCE_BUSY','STATE_CONFLICT','TLS_CERTIFICATE_REQUIRED','WEB_TARGET_NOT_CONFIGURED','WEB_SOURCE_NOT_PREPARED','RAW_HASH_MISMATCH'].includes(code)?409:400;if(command)command.error={code,status};fail(res,code,status);}finally{if(command){command.finished=true;command.release();}}
   });
   const wss=new WebSocketServer({noServer:true,maxPayload:65536});
+  const socketHub=new GatewaySocketHub(wss,runtime,settings.gatewayHeartbeat);
   server.on('upgrade',(req,socket,head)=>{if(req.url!=='/api/v1/ws'||!authorized(req)||(req.headers.origin&&req.headers.origin!==url)){socket.end('HTTP/1.1 403 Forbidden\r\n\r\n');return;}wss.handleUpgrade(req,socket,head,ws=>{wss.emit('connection',ws,req);ws.send(JSON.stringify({channel:'subscription.ready',data:{latestEventSeq:runtime.store.eventHighWatermark(),resume:'GET /events with afterSeq and snapshot cursor',live:true}}));});});
-  for(const channel of ['events.appended','log.appended','session.updated','operation.updated','replay.updated','capture.updated','daemon.updated','source.updated'])runtime.on(channel,data=>{const text=JSON.stringify({schemaVersion:'1',channel,data:publicSafe(data)});for(const client of wss.clients)if(client.readyState===1){if(client.bufferedAmount>1024*1024)client.close(1013,'Persistent history resync required');else client.send(text);}});
+  for(const channel of ['events.appended','log.appended','session.updated','operation.updated','replay.updated','capture.updated','daemon.updated','source.updated'])runtime.on(channel,data=>socketHub.publish(channel,publicSafe(data)));
   try{await new Promise((resolve,reject)=>{server.once('error',reject);server.listen(port,'127.0.0.1',resolve);});}catch(error){await daemon.close();await sources.close();await runtime.close();throw error;}url=`http://127.0.0.1:${server.address().port}`;
   runtime.log('GATEWAY_STARTED');
-  return {runtime,bridge,daemon,sources,url,server,wss,async close(){for(const op of runtime.operations.values())op.cancelled=true;await daemon.close();await sources.close();for(const c of wss.clients)c.terminate();await new Promise(resolve=>server.close(resolve));await Promise.allSettled([...jobs]);await runtime.close();}};
+  return {runtime,bridge,daemon,sources,url,server,wss,socketHub,async close(){for(const op of runtime.operations.values())op.cancelled=true;await daemon.close();await sources.close();socketHub.close();await new Promise(resolve=>server.close(resolve));await Promise.allSettled([...jobs]);await runtime.close();}};
 }
 if(process.argv[1]&&path.resolve(process.argv[1])===fileURLToPath(import.meta.url)){
   let settings={};try{settings=JSON.parse(await fs.readFile(path.join(root,'.local/settings.json'),'utf8'));}catch{}

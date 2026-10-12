@@ -62,6 +62,7 @@ async function startR01(goldenOnly){operation=await api('development/r01-runs',{
 function bind(id,fn){$(id).onclick=()=>Promise.resolve().then(fn).catch(e=>notice(e.message));}
 bind('inspectProto',async()=>{const id=$('protoSelect').value;if(!id)throw new Error('请先选择带业务Proto的消息');$('protoDetail').textContent=pretty(await api('protos/'+encodeURIComponent(id)));});
 bind('reparseProto',async()=>{const id=$('protoSelect').value;if(!id)throw new Error('请先选择业务Proto');const result=await api(`protos/${encodeURIComponent(id)}/actions`,{action:'reparse'});$('protoDetail').textContent=pretty(await api('protos/'+encodeURIComponent(id)));notice(`已追加解析结果：${result.parseStatus}，实时事件与场次保持`);});
+bind('loadGaps',async()=>{$('gaps').textContent=pretty(await api('capture/gaps?limit=100'));$('connectionHealth').textContent=pretty(await api('health'));});
 bind('logReload',()=>{logFollowing=true;return loadLogs();});bind('logOlder',()=>{logFollowing=false;return loadLogs(true);});bind('logExport',exportLogs);
 bind('golden',()=>startR01(true));bind('r01',()=>startR01(false));bind('cancel',()=>operation&&api(`operations/${operation.operationId}/actions`,{action:'stop'}));
 bind('sourceSwitch',async()=>{sourceState=await api('capture/actions',{action:'switch',sourceType:$('sourceSelect').value,expectedVersion:sourceState?.stateVersion});sourceSelectionDirty=false;await refresh();});$('sourceSelect').onchange=()=>{sourceSelectionDirty=true;};

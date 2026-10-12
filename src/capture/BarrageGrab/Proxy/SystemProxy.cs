@@ -76,7 +76,7 @@ namespace BarrageGrab.Proxy
         protected void FireWsEvent(WsMessageEventArgs args)
         {
             if (args.ProcessName != "直播伴侣" && !LiveWorkbench.CaptureHost.SmokeMode) return;
-            LiveWorkbench.CaptureHost.RecordAsync(args.Payload, "frame", args.ProcessName, null, null).GetAwaiter().GetResult();
+            LiveWorkbench.CaptureHost.RecordAsync(args.Payload, "frame", args.ProcessName, null, null,args.SourceConnectionId).GetAwaiter().GetResult();
             OnWebSocketData?.Invoke(this, args);
         }
 

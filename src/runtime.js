@@ -7,20 +7,21 @@ import {OfficialParser} from './parser/index.js';
 import {SessionManager} from './session-manager.js';
 import {TransportUnpacker} from './transport-unpacker.js';
 import {parserExtensions} from './parser/extensions.js';
+import {CaptureGaps} from './capture-gaps.js';
 
 export class Runtime extends EventEmitter {
-  static async open({dataDir}={}){const r=new Runtime();r.dataDir=path.resolve(dataDir||'data');await fs.mkdir(r.dataDir,{recursive:true});r.store=new Store(r.dataDir);r.recorder=new RawRecorder(path.join(r.dataDir,'raw'),r.store);r.parser=await OfficialParser.open();r.unpacker=new TransportUnpacker({native:r.parser.native,index:r.store.protos,payloadDirectory:path.join(r.dataDir,'proto'),readRaw:async(raw,{pathOnly=false}={})=>{const file=r.store.raw(raw.rawId)?.filePath;if(!file)throw new Error('RESOURCE_NOT_FOUND');return pathOnly?file:fs.readFile(file);}});r.sessions=new SessionManager(r.store);r.replays=new Map();r.operations=new Map();r.metrics={inputs:0,decoded:0,unknown:0,failed:0,duplicates:0,events:0};const current=r.store.sessions().filter(s=>s.mode==='live'&&s.sessionState!=='ENDED');r.activeRoom=current.length===1?current[0].roomId:null;if(current.length>1)r.log('SESSION_SELECTION_REQUIRES_RECONCILIATION');return r;}
+  static async open({dataDir}={}){const r=new Runtime();r.dataDir=path.resolve(dataDir||'data');await fs.mkdir(r.dataDir,{recursive:true});r.store=new Store(r.dataDir);r.gaps=new CaptureGaps(r.store.db,r.dataDir);r.recorder=new RawRecorder(path.join(r.dataDir,'raw'),r.store);r.parser=await OfficialParser.open();r.unpacker=new TransportUnpacker({native:r.parser.native,index:r.store.protos,payloadDirectory:path.join(r.dataDir,'proto'),readRaw:async(raw,{pathOnly=false}={})=>{const file=r.store.raw(raw.rawId)?.filePath;if(!file)throw new Error('RESOURCE_NOT_FOUND');return pathOnly?file:fs.readFile(file);}});r.sessions=new SessionManager(r.store);r.replays=new Map();r.operations=new Map();r.metrics={inputs:0,decoded:0,unknown:0,failed:0,duplicates:0,events:0};const current=r.store.sessions().filter(s=>s.mode==='live'&&s.sessionState!=='ENDED');r.activeRoom=current.length===1?current[0].roomId:null;if(current.length>1)r.log('SESSION_SELECTION_REQUIRES_RECONCILIATION');return r;}
   log(code,details={}){const log=this.store.log(code,details);this.emit('log.appended',log);}
   timing(stage,started,error=false){this.metrics.timings??={};const value=this.metrics.timings[stage]??={count:0,errors:0,totalMs:0,maxMs:0};const duration=performance.now()-started;value.count++;value.errors+=error?1:0;value.totalMs+=duration;value.maxMs=Math.max(value.maxMs,duration);value.lastMs=duration;}
   async ingest(input,ack){
-    const started=performance.now();let raw;try{raw=await this.recorder.append(input);}finally{this.timing('rawCommit',started,!raw);}this.metrics.inputs++;if(ack)await ack(raw);
+    const started=performance.now();let raw;try{raw=await this.recorder.append(input);}catch(error){await this.gaps.record({...input,reason:error.message,stage:'raw',size:input.bytes.length,contentHash:createHash('sha256').update(input.bytes).digest('hex')});try{this.log(error.message,{recordingId:input.recordingId});}catch{}throw error;}finally{this.timing('rawCommit',started,!raw);}this.metrics.inputs++;if(ack)await ack(raw);
     if(input.deferTransport)return raw;
     await this.process(raw,input.bytes);return raw;
   }
   async process(raw,bytes,transport){
     const started=performance.now();let error=false;
     try{
-      if(raw.format==='http-json')return this.httpEvidence(raw,bytes);
+      if(raw.format==='http-json'){const persisted=await this.unpacker.readRaw(raw);if(createHash('sha256').update(persisted).digest('hex')!==raw.contentHash)throw new Error('RAW_HASH_MISMATCH');return this.httpEvidence(raw,persisted);}
       const unpacked=await this.unpacker.unpack(raw,{transport});
       if(unpacked.status==='error'){error=true;this.log(unpacked.errorCode,{rawId:raw.rawId,stage:unpacked.stage});this.publish(raw,{method:'ParseFailed',status:'error'});return;}
       for(const indexed of unpacked.messages){

@@ -20,6 +20,8 @@ try{
  await page.locator('#inspectProto').click();await page.waitForFunction(()=>document.getElementById('protoDetail').textContent.includes('attempts'));
  const eventsBefore=app.runtime.store.countEvents();await page.locator('#reparseProto').click();await page.waitForFunction(()=>document.getElementById('notice').textContent.includes('已追加解析结果'));
  assert.equal(app.runtime.store.countEvents(),eventsBefore);
+ await app.runtime.gaps.record({reason:'RAW_BACKPRESSURE',recordingId:'synthetic-ui',sourceType:'LiveHookSource'});
+ await page.locator('#loadGaps').click();await page.waitForFunction(()=>document.getElementById('gaps').textContent.includes('RAW_BACKPRESSURE'));
  await page.locator('#older').click();await page.waitForFunction(()=>Number(document.getElementById('messages').dataset.cachedCount)>50);
  const anchor=await page.locator('#messages tr[data-event-id]').first().getAttribute('data-event-id');
  await append(81);await page.waitForFunction(()=>document.getElementById('unread').textContent.includes('新消息'));

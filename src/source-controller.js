@@ -9,7 +9,7 @@ export class SourceController {
     this.web.on('status',()=>runtime.emit('source.updated',this.view()));
   }
   view(){return {...this.state,captureState:this.state.selectedSource==='WebSource'?this.web.status.captureState:this.bridge.status.captureState};}
-  capabilities(){return {liveHook:{implemented:true,available:Boolean(this.settings.certificatePath),reason:this.settings.certificatePath?null:'TLS_CERTIFICATE_REQUIRED'},webSource:{implemented:true,available:Boolean(this.settings.webSource?.url)&&fs.existsSync(new URL('./parser/live-raw-first-v3.js',import.meta.url)),reason:!this.settings.webSource?.url?'WEB_TARGET_NOT_CONFIGURED':fs.existsSync(new URL('./parser/live-raw-first-v3.js',import.meta.url))?null:'WEB_SOURCE_NOT_PREPARED'}};}
+  capabilities(){return {liveHook:{implemented:true,available:Boolean(this.settings.certificatePath),reason:this.settings.certificatePath?null:'TLS_CERTIFICATE_REQUIRED'},webSource:{implemented:true,available:Boolean(this.settings.webSource?.url)&&fs.existsSync(new URL('./parser/live-raw-first-v4.js',import.meta.url)),reason:!this.settings.webSource?.url?'WEB_TARGET_NOT_CONFIGURED':fs.existsSync(new URL('./parser/live-raw-first-v4.js',import.meta.url))?null:'WEB_SOURCE_NOT_PREPARED'}};}
   save(){this.runtime.store.setState('source-control',this.state);this.runtime.selectedSource=this.state.selectedSource;this.runtime.activeSourceEpoch=this.state.sourceEpoch;this.runtime.emit('source.updated',this.view());}
   action(body){const task=this.queue.catch(()=>{}).then(()=>this.control(body));this.queue=task;return task;}
   async control({action,sourceType,expectedVersion}){

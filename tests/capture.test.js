@@ -28,6 +28,7 @@ test('migrated C# gzip/protobuf path waits for RAW ACK then reaches official Par
   const deadline=Date.now()+10000;while(r.store.countEvents()===0&&Date.now()<deadline)await new Promise(resolve=>setTimeout(resolve,30));
   assert.equal(r.store.countRaw(),1);assert.equal(r.store.countEvents(),1);assert.equal(r.store.events({mode:'test'}).items[0].payload.official.content,'bridge');
   assert.equal(bridge.stats.csharpTransport,1,'C# transport unpacker must be reused, not silently bypassed');
+  assert.ok(r.store.rawFor(bridge.captureId)[0].captureInputSeq);
 });
 
 test('owned loopback proxy captures an HTTP protobuf response without configuring Windows proxy',async t=>{
@@ -61,4 +62,14 @@ for(const fragmented of [false,true])test(`owned proxy captures ${fragmented?'fr
   await new Promise((resolve,reject)=>{const req=request({host:'127.0.0.1',port,path:`http://127.0.0.1:${upstream.address().port}/webcast/im/push/v2/`,headers:{Connection:'Upgrade',Upgrade:'websocket','Sec-WebSocket-Key':'dGhlIHNhbXBsZSBub25jZQ==','Sec-WebSocket-Version':'13'}});req.on('upgrade',(_res,socket)=>{client=socket;socket.on('data',()=>{});resolve();});req.on('response',()=>reject(new Error('WEBSOCKET_UPGRADE_FAILED')));req.on('error',reject);req.setTimeout(10000,()=>req.destroy(new Error('UPGRADE_TIMEOUT')));req.end();});
   const deadline=Date.now()+10000;while(r.store.countEvents()===0&&Date.now()<deadline)await new Promise(resolve=>setTimeout(resolve,30));
   assert.equal(r.store.countRaw(),1);assert.equal(r.store.events({mode:'test'}).items[0]?.payload.official?.content,'websocket-capture');assert.equal(bridge.stats.csharpTransport,1);
+});
+test('LiveHook forwards Ping/Pong and records an interrupted partial message without inventing complete RAW',{timeout:15000},async t=>{
+ const {createServer}=await import('node:http'),{connect,createServer:createTcp}=await import('node:net'),{WebSocket,WebSocketServer}=await import('ws');
+ const dir=await fs.mkdtemp(path.join(os.tmpdir(),'lw-partial-')),r=await Runtime.open({dataDir:dir}),bridge=new CaptureBridge(r),server=createServer(),wss=new WebSocketServer({server});let client,pongs=0;
+ t.after(async()=>{client?.terminate();for(const ws of wss.clients)ws.terminate();await bridge.stop();await new Promise(resolve=>wss.close(resolve));await new Promise(resolve=>server.close(resolve));await r.close();await fs.rm(dir,{recursive:true,force:true});});
+ wss.on('connection',ws=>{ws.on('pong',()=>{pongs++;ws.send(Buffer.from([1,2,3]),{fin:false});setTimeout(()=>client?.terminate(),100);});setTimeout(()=>ws.ping('synthetic'),80);});
+ await new Promise(resolve=>server.listen(0,'127.0.0.1',resolve));const probe=createTcp();await new Promise(resolve=>probe.listen(0,'127.0.0.1',resolve));const port=probe.address().port;await new Promise(resolve=>probe.close(resolve));
+ await bridge.start({networkSmoke:true,mode:'test',port});client=new WebSocket(`ws://127.0.0.1:${server.address().port}/webcast/im/push/v2/`,{createConnection:()=>connect(port,'127.0.0.1')});client.on('error',()=>{});
+ const end=Date.now()+5000;while(!r.gaps.page().items.some(x=>x.reason==='WS_INCOMPLETE_FRAGMENT')&&Date.now()<end)await new Promise(resolve=>setTimeout(resolve,25));
+ assert.equal(pongs,1);assert.ok(bridge.stats.controlFrames>=1);assert.equal(r.store.countRaw(),0);const gap=r.gaps.page().items.find(x=>x.reason==='WS_INCOMPLETE_FRAGMENT');assert.ok(gap);assert.ok(gap.sourceConnectionId);assert.equal(gap.size,3);
 });

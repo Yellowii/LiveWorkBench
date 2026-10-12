@@ -271,3 +271,13 @@ WebSource每条已提交RAW直接进入同一组件，即使连接代次在排�
 第二增量验证：5项新用例先失败后通过，含native与extensions分离、重新解析无副作用、单条损坏隔离、Replay链接、认证/脱敏/幂等API；既有Web测试增加实际业务decode计数=1。GUI160合成事件验证Proto详情/重解析及历史功能，浏览器错误0。完整构建/回归结果与推送在完成时补记；Replay物理库隔离及捕获缺口/连接健康继续下一增量。
 
 第二增量完成验证：C#独立构建退出0、全套**59/59自动化测试**（不是R01 Golden复跑），GUI历史/Proto详情/重新解析浏览器错误0；官方Parser/vendor六文件保持固定哈希，未扫描真实样本。v3准备入口验证上游/生成哈希，不覆盖v2或references。
+
+第二增量已推送3b3abd3b843c13ec2d99ea7fd7c0bfbc7e72b814，远程main相同。
+
+第三增量开发：RawRecorder独立、64项背压/8MiB上限/零字节保存；CaptureGaps保存失败/未知范围中断，SQLite失败回退本地fsync journal，双重失败明确unavailable/stderr。C#记录连接/输入序号、控制帧统计，超大或不完整分片有缺口；只按自有代理连接端点的TCP状态观测，Close/中断/停止不生成下播。GatewaySocketHub独立Ping/Pong/超时/积压管理；GET /capture/gaps、健康计数与GUI查询。WebSource v4仅测试允许短重试，生产原延迟/心跳/ACK维持。
+
+新增可复查验证：RAW失败/背压无成功ACK、空/超大输入、SQLite失败journal；实际本机LiveHook Ping/Pong透传与3字节未结束分片在TCP关闭后留WS_INCOMPLETE_FRAGMENT（不伪造完整RAW）；本机Web两次连接/两个ACK/主动心跳/Ping控制帧/重复事件只一条、不同connectionId；Gateway无Pong客户端超时、正常客户端保持。一次单文件capture-health测试出现file-level退出无具体栈，Windows未见匹配node应用崩溃事件；立即TAP单跑4/4通过，尚无复现定位，不称根因已解决。最终全套及GUI结果在提交时补记，延续既有稳定性观察项。
+
+第三增量完成验证：独立C#构建退出0、**65/65全套自动化通过**；GUI160合成事件/Proto重解析/捕获缺口与连接健康查询/历史补查均通过、浏览器错误0。Node/C#双侧有界接收，C#传输阶段中断可补处理已持久化RAW；实际真实直播、长时间压力与磁盘彻底耗尽场景未执行，不声明零丢包。崩溃孤立RAW及fallback journal跨重启查询仍待后续。
+
+第三增量最终C#代理异常也改为稳定PROXY_TRANSPORT_FAILED缺口，针对实际HTTP/WS/TLS重新验证8/8通过；解析/存储及GUI未再变更。
