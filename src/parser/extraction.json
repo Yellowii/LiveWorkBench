@@ -1,0 +1,32 @@
+[
+  {
+    "source": "references\\douyinprotobuf\\protobuf-live\\src\\parser.js",
+    "target": "src\\parser\\parser.js",
+    "sha256": "006757a1491821de2245a74658868ba41f1ca26852374f5daa6cd14784b2119c"
+  },
+  {
+    "source": "references\\douyinprotobuf\\protobuf-live\\src\\decode.js",
+    "target": "src\\parser\\decode.js",
+    "sha256": "1d0abe4ad7f0908d943a699e39002caa8f40c9fb0436191d9c21bc3c8b1c5d97"
+  },
+  {
+    "source": "references\\douyinprotobuf\\protobuf-live\\src\\wire.js",
+    "target": "src\\parser\\wire.js",
+    "sha256": "da0d9ccbd9e0664704ea17d22d402290f9e2ba844f04b01f986e912508884965"
+  },
+  {
+    "source": "references\\douyinprotobuf\\protobuf-live\\src\\vendor\\live-schema-im.e322bd8a.js",
+    "target": "src\\parser\\vendor\\live-schema-im.e322bd8a.js",
+    "sha256": "232a3d3890052ebe868b4b14aca38918730285adbc0f623c77dc8bdaafbc783b"
+  },
+  {
+    "source": "references\\douyinprotobuf\\protobuf-live\\src\\vendor\\provenance.json",
+    "target": "src\\parser\\vendor\\provenance.json",
+    "sha256": "835ca0c2d02d40af69b00405ef87dc45b1cb395b2d3b2974110cb425818631c1"
+  },
+  {
+    "source": "references\\douyinprotobuf\\protobuf-live\\src\\vendor\\transport-schema-im.63ff9a29.js",
+    "target": "src\\parser\\vendor\\transport-schema-im.63ff9a29.js",
+    "sha256": "11240991fcc7b733ca2349442c0e9523d4a40f978a8c432fa3993f9e2a51d750"
+  }
+]

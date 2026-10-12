@@ -1,0 +1,198 @@
+# 全局进度与任务交接
+
+更新：2026-10-12。此文件是主项目真实状态的唯一台账；架构/契约正文在各自权威文件，不在此重复。
+
+## 1. 当前事实
+
+- 用户确认以本对话原文档为修订来源，迁入 `docs/architecture/CORE_DEVELOPMENT.md`；原输出位置改为指引。
+- 修订前主根只有 `.gitignore` 和 `references/`，Git 分支 main 尚无提交，`.gitignore` 已由用户阶段暂存；主项目没有核心源码。
+- 三个参考 Git 仓库与 Bark/ntfy 本地文档存在；既有 M0/R01 审计保留，不重复开展。最新用户指令取消完整原版验收作为全部开发前置门槛。
+- 已建立正式核心源码、采集宿主、Gateway 与简易 GUI；首增量及运行验证见第11节。其他章节的“未开发”是历史交接状态，不能覆盖第11节当前事实。
+- 上一轮文档修订没有安装/运行；本轮 M0 在主仓库外还原依赖、构建并调用原版离线方法，未启动原版 Main/代理或操作证书/伴侣安装文件，未发送通知，未开发核心功能。
+
+## 2. 状态口径
+
+未开始 → 设计已记录 → 静态已核查 → 开发中 → 实现待验收 → 验证通过。各状态属于不同证据等级，不必每个模块都按同一线性序列；运行通过必须记录实际输入、环境、版本、执行结果与报告位置。
+
+| 模块/工作 | 当前状态 | 证据 | 未完成部分 |
+|---|---|---|---|
+| 架构/协作文档修订 | 已完成文档调整；校验结果见本次交接 | 核心文档、AGENTS、契约、决策 | 不代表代码完成 |
+| references 核查 / M0 | 开发中；静态、构建、合成离线与 R01 业务载荷审计有结果 | SOURCE_MIGRATION 3.1/6.1—6.5、M0/R01 证据 | 原版启动/退出、完整传输 RAW、伴侣恢复未执行；来源/许可全审计未完成 |
+| 源码能力映射 | 首批已提取 | src/capture、src/parser、THIRD_PARTY_NOTICES | 按下一实际需求增量提取 |
+| 技术栈/宿主/IPC | 首增量已实施 | C# Framework + RAW ACK IPC + 官方 Node Parser/SQLite | 完整进程恢复/升级部署 |
+| LiveHook/Web Source | 独立捕获适配受控测试通过；Web 未实现 | HTTP/WS/分片网络测试 | 真实伴侣路由、Hook 安装授权、人工 Web 切换 |
+| RAW Recorder/FileStorage | fsync/SQLite FULL/ACK 及失败阻断通过 | tests/core、capture | 崩溃孤立文件恢复、保留策略/磁盘预算 |
+| Parser/补丁/Dedup/连击 | 官方 Parser/上下文持久去重已接入 | 产品 Golden 59/59；精确 ID/重复/未知测试 | 连击结算、完整补丁版本系统仍未实施 |
+| LiveHookDaemon | 只读进程观察、先后顺序和退出/重启诊断已接入 | C# --observe；daemon 4测试；GUI 实测 | 实际 Hook 就绪探针、自动恢复本项目捕获端/客户端路由验证 |
+| SessionManager | 独立状态轴最小实现与局部测试通过 | create=CREATED、推流 UNKNOWN、中断不结束；结束后释放选房 | 真实 HTTP 语义、漏事件/同 room 复用 |
+| EventBus/EventStore | Node 增量总线 + SQLite 事件库已实现 | 跨重启去重、快照游标、域隔离 | 正式消费者/outbox/独立业务出口 |
+| ReplayEngine | 播放/暂停/单步/停止/跳转重建已实现 | API 并发版本与 GUI 单步/seek | 检查点、按采集时间调度；当前固定间隔倍速 |
+| Gateway/开发 GUI | 首个可运行子集与浏览器测试通过 | tools/verify-workbench.mjs；API 认证测试 | 完整 API/RBAC/LAN/WS 高水位恢复 |
+| LogService | 持久基础诊断与 WS/GUI 可查 | SQLite logs/运行测试 | 过滤、导出、完整 trace 模型 |
+| MetricsService | 解析/去重/事件/捕获计数、本进程 RSS 已实现 | metrics/modules、processes | 整机/GPU/历史 provider 未实现 |
+| 弹幕无限回滚 | 持久化快照分页、WS 增量、最多500行浏览已实现 | 插入后快照稳定、GUI 加载更早 | 虚拟滚动/精确断线高水位补查 |
+| ExternalIntegration/业务 | 后续预留 | 核心 B3/公共契约边界 | 不纳入当前 P0 实现完成率 |
+
+## 3. 里程碑与依赖
+
+| 阶段 | 范围 | 进入/完成门槛 | 当前 |
+|---|---|---|---|
+| M0 | 能力审计及原版运行基线 | 局部源码位置+完整环境/原版运行/真实 RAW 证据 | 开发中；环境/Debug 构建/合成及 R01 业务载荷离线已执行；原版运行/完整传输/恢复门槛未达成 |
+| M1 | 映射、边界、契约与技术栈 | 负责人审核基线差异、复用边界、宿主/桥接、采用契约版本 | 文档草案已记录；下一步先审查 R01 离线适配/验证台范围；整体实时决策未冻结 |
+| M2a-O | 离线最小链与简易验证台 | 真实 Golden→官方解析→隔离事件库→Gateway→GUI | 首增量验证通过，59/59；不代表实时生产验收 |
+| M2a | 最小垂直链与开发 GUI | LiveHook 接入→RAW ACK→官方解析/去重→事件存储→状态/日志→GUI | 源码已运行；受控 HTTP/WS/分片链通过，实际伴侣待授权 |
+| M2b | 独立场次、Web 人工切换、Replay、历史回滚、基础指标 | 模块真实输入与接口验证 | Replay/历史/最小场次/基础指标已接；Web/完整恢复待开发 |
+| M3 | P0 集成与回归 | 迁移 COMPATIBILITY+核心 B18+公共 API 验收通过 | 未执行 |
+| 后续 | 完整性能监控、正式 GUI、通知/设备/业务 | 不挤占 P0；独立规则和契约审查 | 预留 |
+
+下一步继续实际工程：在用户授权具体 TLS 证书与客户端路由/重启范围后接入真实 LiveHook，并补 daemon 观察/恢复及人工 Source 切换。不会重新审计 R01 或等待完整 M0 才写其他核心代码；未获环境授权时可继续开发 Web/事件消费者的可测试部分。
+
+## 4. 当前待确认技术问题
+
+1. 原版 Debug 构建已复现；真实启动/捕获设置/退出恢复仍待验证。实际伴侣 13.0.5 与旧卸载记录 11.9.5 不同，已有弹幕服务和系统代理不能被覆盖。
+2. C# 宿主/IPC 与官方 Node Parser 已接通；剩余为完整 daemon 恢复、启动/部署和异常补偿。
+3. create 的解析结果码与平台码、在播/推流证据语义；漏上下播、同 RoomId 复用策略。
+4. RAW durability、文件/事件库一致性、录制/事件/日志保留策略与敏感信息保存边界。
+5. 去重容量、无 MsgId、连击乱序/结束、跨房间与恢复情况。
+6. SQLite EventStore 与快照分页已接通；剩余跨场语义、游标签名/有效期与 WS 高水位续传。
+7. LAN 认证部署、GPU/显存等实测 provider；未实施能力不得伪报可用。
+
+这些未定项不影响文档交付，但限制下一阶段的自动行为；不能用猜测填补。
+
+## 5. 上一轮文档修订交接（保留）
+
+任务：修订权威核心文档、参考迁移策略、契约及多对话规范；不开发功能。
+
+变更：核心文档从原输出迁入并升 v1.1；主根 README/AGENTS；contracts 两文件；migration/progress/decisions 各一文件；`.gitignore` 保留原 `/references/` 并明确第三方源码/文档/嵌套 Git 的只读说明。
+
+验证结果：8 份第一方 Markdown 的 UTF-8/结构校验通过，19 处本地链接有效；人看版 12 图、全文 13 张 Mermaid 均解析和渲染成功，并抽查数据流与场次图可读性。`git diff --check` 退出码 0；六个 reference/嵌套 Git 路径命中忽略规则，8 份第一方文档均未被忽略；主索引无 references 文件，原 staged `.gitignore` 内容保留。三个参考仓库的 commit 与最初观察一致，工作树均干净。旧输出位置已无竞争性架构正文。以上仅文档/静态核查，不代表功能验收。
+
+未执行：编译、运行基线、实际捕获/HTTP 字段复验、真实 RAW Replay、API/GUI/功能测试。没有开启其他模块对话、派工、stage/commit 或修改 references。
+
+下一任务建议：在独立测试副本建立 BarrageGrab 原版 Windows 基线，记录依赖/代理/Hook 与真实 RAW；完成 create/finish/连击/恢复证据后冻结提取及桥接边界。
+
+## 6. 后续任务交接最小字段
+
+每个模块任务在本文件更新自己的状态，交接保留：taskId、owner/负责对话、允许写路径、依赖契约版本、变更文件、实现证据、实际验证和未执行项、问题、公共契约变更提案、下一步/交接对象。负责人统一更新全局里程碑，不另起一份竞争性总进度表。
+
+## 7. M0 本次交接：原版构建与离线验证（2026-10-12）
+
+- taskId：`M0-20261012`；owner：用户指定的本 M0 负责对话；交接对象：发起此任务的主架构/集成负责对话，未自动发送消息。
+- 状态：**开发中，M0 未完成**。原版启动/退出、真实 RAW 与恢复门槛均未达成；没有 BASELINE/INTEGRATED 模块，未把参考 README 历史测试算作本项目结果。
+- 允许写入/实际变更：`docs/migration/SOURCE_MIGRATION.md` 对应审计/提取/兼容章节；本文件；`tools/m0/OriginalOfflineProbe.cs`、`Invoke-OriginalOfflineProbe.ps1`、`Compare-OfficialParser.mjs`；`docs/migration/evidence/M0-20261012.json`、`M0-20261012-build.log`、`M0-20261012-parser-tests.log`。独立测试副本、依赖与原始日志保留在 `C:/project/LiveWorkbench-baselines/M0-20261012/`，不在主 Git 内。
+- 依赖契约：CORE_CONTRACTS 0.1、PUBLIC_API 0.1 文档基线、核心 v1.1；未改公共接口、决策或其他模块。
+
+实际验证与可复查输入：
+
+| 检查 | 本次结果 | 证据 / 复现 |
+|---|---|---|
+| Windows/构建工具/伴侣 | Windows 11 `10.0.26200` x64；VS `18.5.2` / MSBuild `18.5.4.18101`；Framework 4.6.2 targeting pack 与 4.8 运行时；Node `24.15.0`；伴侣实际 13.0.5，旧注册表 11.9.5；现有服务 PID 18644 占 8827/8888，WinINET 代理已开启 | [M0 证据](../migration/evidence/M0-20261012.json)、SOURCE_MIGRATION 6.1 |
+| 原版独立副本 | 三个参考 commit 再核对；git archive 到主仓库外，未复制 .git；70 个 NuGet 固定包还原退出 0；Debug 构建退出 0、6 警告；未改原版源码，跳过 PostBuildEvent 清理 | [构建日志](../migration/evidence/M0-20261012-build.log)、迁移 6.1 的完整命令 |
+| 原版方法离线 | 24 项合成输入行为观察，探针退出 0；确认平台码被忽略/错误形状异常、跨房间去重/0/300 淘汰/失败重试、gzip/HTTP、连击、重复状态 action | [探针](../../tools/m0/Invoke-OriginalOfflineProbe.ps1)、JSON originalOffline；异常行为是已复现缺陷，不是功能验收通过 |
+| 官方 Parser | 仅 core/pipeline 8 测试、8 通过、0 失败；3 份同字节合成输入对照，精确大 ID/common.room_id；无 SeqID 帧原版丢弃而官方解码；2726 类型、两 vendor 哈希匹配 provenance | [测试日志](../migration/evidence/M0-20261012-parser-tests.log)、[对照工具](../../tools/m0/Compare-OfficialParser.mjs)、JSON crossParser |
+| 参考区与原有工作 | 三参考 71/62/8 个跟踪文件 SHA256 均不变，Git 工作树干净；原 staged `.gitignore` diff 保留；未改原有 unstaged `.gitignore` 和非本任务文档；未 stage/commit、派工或消息其他对话 | JSON referencesIntegrity/existingIndexPreserved；独立目录保存任务前文件哈希及 staged diff |
+
+未执行：原版 Main/代理/证书信任/监听；真实 HTTP/WSS、create/anchor_finish_info/status=3 录制；下游 WS 连接；伴侣人工启动/退出/重启后的捕获恢复；RAW 持久 ACK/片段/同场幂等；第一方 Replay/Gateway/GUI/功能集成；完整依赖许可与在线漏洞审计。项目两个 RAW 样本目录只有 .gitkeep，真实已选样本 **0**；已询问明确样本位置，本次交接未收到，不扫其他服务或私人目录。
+
+发现与影响：原版构造就可能写入/信任证书；代理与 WS 固定 Any；默认端口已被现有服务占用；退出及 watchdog 不恢复原代理，Hook 修改 index.js 不自动还原，现有 .bak 不能证明对应当前版本。合成探针还复现 create 未在播仍输出开播、重复 create action 生成不同 ticks、连击结束增量丢失及清缓存后重计。详细副作用范围、按原值/类型/存在性恢复代理及按本轮备份/新增指纹回退文件/证书的方案在 SOURCE_MIGRATION 6.2，均未执行。不声称本机现状可安全启动原版。
+
+待输入/决策：明确的一组真实 RAW 与来源/版本/元数据；一个测试房间和可恢复的隔离 Windows 运行环境，或用户明确允许的代理/证书/安装文件操作范围；用户人工按“代理就绪→伴侣启动/重启”配合。同场身份/实际推流/platform status 语义及 groupId 唯一域仍待真实证据；宿主/官方 Parser 桥接只提出候选，不冻结接口。
+
+交接校验：两份修订文档 UTF-8/代码围栏及 14 个本地链接检查通过；证据 JSON 可解析，24/8/3 项计数与执行结果相符；原有非本任务文件及 141 个参考文件哈希复核通过；working/cached `git diff --check` 均退出 0，新增工具/JSON/日志未被忽略。探针拒绝主仓库根作为输出目录的保护验证通过；最终再运行仍为 24 项观察、0 探针失败。离线后记录的代理状态、index.js 与两 Root 证书集合摘要在最后核对时一致；这仅覆盖快照之后的区间，不能补出任务开始前的证书证据。以上仅交付/静态完整性验证，不证明真实运行。
+
+下一步：先补齐上述 M0 实际运行与真实样本矩阵，再统一审查 SOURCE_MIGRATION 5.1 的 C# 薄采集宿主+官方 Node Parser 等候选。后续 M2a 的最小链建议为早期采集→RAW ACK→官方解析→上下文去重→EventStore→状态/日志→Gateway 开发 GUI；本轮没有实施功能链。文档和辅助工具交付不能把 M0 标为完成。
+
+## 8. R01 交接：用户指定真实场次有限审计（2026-10-12）
+
+taskId：`M0-R01-20261012`；owner：本 M0 负责对话；交接对象：用户/主架构集成负责对话，未自动消息其他对话。唯一私人输入为用户指定的一个既有场次，暂定别名 **M0-R01**；不扫描同级/其他私人目录，不读旧项目源码，不修改或复制原数据。依赖核心 v1.1、contracts/API 0.1，依用户本次要求按原始字段技术证据对照新旧命名；未修改公共契约、官方 Parser 或实施功能/业务补丁。
+
+状态：**静态与真实业务载荷离线审计已核查；M0 继续开发中**。这次已选输入不是 0：14,588 个真实归档业务 payload；上一节及 M0-20261012.json 的 0 是上一次交接的历史状态。样本来源/采集程序/旧字典版本未知，不等于已建立原版捕获 BASELINE。
+
+变更：SOURCE_MIGRATION 6.5 与相关状态、本文件；只读工具 `tools/m0/Audit-SelectedSession.mjs`；脱敏证据 `docs/migration/evidence/M0-R01-audit.json`（包含 59 个 Golden 定位项）及 `M0-R01-field-evidence.json`。完整本地执行摘要日志在原外部 baseline 目录的 selected-session-*.log；没有复制任何原始 .bin/.json/.jsonl/session.json 到主仓库或测试副本。
+
+| 交付/验证 | 实际结果 / 证据 |
+|---|---|
+| 结构与关联 | proto/json 各 14,588；索引/parsed 各 14,588；33 方法，seq 连续；缺失/孤立/空 RAW/叶子 JSON 不一致均 0。索引与 parsed 的 3,518 个 ts 差为 1—10 ms，不是 method/ID/引用断链 |
+| 原始格式/来源 | .bin 是逐业务消息 Protobuf，14,588 个可被当前模块解码，遍历结构无 wire 错误/冲突；不能冒充完整 PushFrame/gzip/HTTP。archive 格式 livedash-compatible-session-v1；记录时间 2026-08-15 19:09—08-16 01:44（Asia/Shanghai），采集来源/程序/字典版本未知 |
+| 会员/星守护 | 2,629 进场、252 礼物、474 聊天、22 表情、16 粉丝团。seq1601 的原始路径 1.8.2 为“成为…星守护”模板，两侧一致；仅确认文本事实，未确认付费/期限/权益；没有显式“会员”词，subscribeStatus/badge 命名不作权益证据 |
+| 连击 | repeat_count 1—52；146 诊断组，76 多条，74 有结束；无倒退/结束增量更大/首次结束。最长相邻间隔 5,173 ms；不能外推乱序、重传、缓存超时/跨连接或结算 |
+| 新旧差异 | 14,217 个旧 common.msgId 与原 varint 全匹配；旧 user.idStr 对应 User #73 webcast_uid，独立别名可保留。priorityScore 的 4,858 个值来自 Common #10 而非当前 #11；Gift 根 roomId 的 247 个值对应 #33，与 Common 房间不同。364 旧错误/7 未知对应 RAW 保留且当前模块可解码。业务名字和自定义扩展按 SOURCE_MIGRATION 6.5.3 分六类，不一概判错 |
+| 两套 ID | 4,968 个索引 MsgId 与 RAW Common MsgId 不同，集中于 RoomUserSeq/RanklistHourEntrance/Chat；缺外层/采集代码，不断言任一错或简单浮点舍入；分别留证据。索引中 14,585 个 ID 超 JS 安全整数，诊断按原词法转字符串 |
+| Golden | 59 定位项覆盖 33 方法、旧失败/未知、连击、星守护、Control；用同一工具 verify 模式复跑：59 检查、0 失败，验证 RAW/字段结构/原生与旧结果 hash |
+| 来源完整性 | 全 corpus 读前/读后字节 hash 与 proto/json 文件集合/mtime 一致，元数据 hash 一致；没有原始内容进入 AI 上下文。当前官方参考 commit 和两个 vendor 哈希固定，未更新参考源码 |
+
+详细交付与重复命令统一在 [SOURCE_MIGRATION 6.5](../migration/SOURCE_MIGRATION.md#65-r01用户指定真实场次的有限只读审计)；[审计/Golden](../migration/evidence/M0-R01-audit.json)、[字段证据](../migration/evidence/M0-R01-field-evidence.json)、[只读验证入口](../../tools/m0/Audit-SelectedSession.mjs)。Golden 已确认字段事实、旧推断与待人工业务核验分层；真实结束候选为 seq14587、Control 字段2 varint=3（旧 status/官方 action），不直接证明推流结束。
+
+未执行与缺口：HTTP create/anchor_finish_info、传输外层/gzip/原始采集元数据/持久 ACK、伴侣恢复、跨房间/连接/重复传输/连击乱序超时、旧字典源和版本审计、会员权益确认、正式 SessionManager/ReplayEngine/GUI 验证、独立 Proto Patch / Dictionary Extension 实施。原版启动副作用范围仍需用户另行明确；本次真实目录授权只用于只读审计。
+
+交付校验：最终 verify 退出 0，59 检查/0 失败；报告写入样本目录的保护测试拒绝写入且未产生文件。21 个本地链接、JSON 计数/类型覆盖和字段73的 5,535 对相关值核对通过；6,813 个旧用户身份字符串的精确输出检查未发现泄漏；原元数据 hash/mtime 与审计前一致，141 个参考文件及原有非本任务文件未变，原 staged `.gitignore` 保留。工具哈希与校验范围记录在 R01 证据 deliveryVerification。以上只证明本次只读审计/Golden 与交付完整性，不证明生产链或完整生命周期。
+
+下一步：用 Golden 审核独立别名（Common/Gift camel-snake、User #73、Control #2）和 legacy 冲突隔离，保留官方原生输出；需要旧字典源/版本或用户语义说明后才能认可 RoomStats/subscribe/badge 等业务名及价格权益。完整开闭播与 SessionManager 生命周期用另选真实数据继续验收，不要求本互动样本强行具备开播事件。M0 尚未完成，不擅自扩大目录访问或开发范围。
+
+## 9. 简易验证工作台补充与下一任务（2026-10-12）
+
+taskId：`DOC-DEV-BENCH-20261012`；owner：本主文档协调对话。用户补充“需要边做边测试的简易前端，非正式 UI”。本次只补范围/顺序，不启动新开发对话或实现源码，不重跑 R01 审计，不把未验证能力标为可用。
+
+更新：核心升 v1.2，B26 给定持续可操作验证台、A13 图解；PUBLIC_API 10 给定分批落地与待审查输入/验证 DTO；决策 D013/D014；本文件增加 M2a-O；README 修正已完成构建/R01 审计的过期状态；AGENTS 补增量 GUI 与离线/实时验收边界。R01 证据及 tools/m0 不改。
+
+**建议的下一开发任务**：M1 离线适配范围审查 → M2a-O 验证台第一轮。任务内先用 59 Golden 明确已证实别名/冲突隔离及采用的契约，再交付可启动的本机 Gateway+简易页面：选择已登记 R01/Golden，开始/停止解析，消息/官方与增强差异可查，任务日志与实际统计可见。下一增量加隔离播放/暂停/单步、持久化历史/续传，随后加跳转重建和回归面板。完整目录访问范围仍是用户已选 R01，不扫描其他私人输入。
+
+不在下一任务首批范围：真实 Hook/代理/证书/伴侣修改、完整推流判定、LAN 开放、正式主题/业务 UI、真实通知/OBS/Stream Dock。这些能力显示未实现/未验证原因，M0 补证门槛保持。
+
+验收依据：按核心 B26.4 逐增量给启动/操作方式和真实结果；59 Golden 可重复，R01 数量/方法覆盖可核对；记录输入/解码/去重/事件数分别统计；官方输出纯净、源只读、原状态与 references 完整、回放副作用隔离。此处是待实施设计，不宣称验证台完成。
+
+本次文档校验：8 份第一方 Markdown 与 38 处本地链接通过，13 张人看版图/全文 14 张 Mermaid 均解析和渲染成功；Git diff/忽略边界、原 staged `.gitignore`、三参考仓库 commit/干净状态核对通过。没有执行新功能验证或重新审计私人样本。
+
+## 10. M1/M2a-O 离线范围审查稿（2026-10-12）
+
+taskId：`M1-M2AO-REVIEW-20261012`；owner：用户在本 M0/R01 对话提供下一任务文档，本对话负责准备审查稿；交接对象：用户/公共契约负责对话，未自动发送消息或派工。允许写入：本节和 `docs/reviews/2026-10-12-m2ao-offline-contract-review.md`。依赖核心 v1.2、CORE_CONTRACTS/PUBLIC_API 0.1、B26/API10、R01/59 Golden 既有证据。
+
+状态：**设计已记录，待审查；产品开发未开始**。[具体审查稿](../reviews/2026-10-12-m2ao-offline-contract-review.md)提出 HistoricalInput 与 Recording/RawCommit 分离、ValidationRun/MessageTrace/VerificationReport DTO、复用 operation/log/Page 的新增 v1 资源、本机开发认证、首轮只观测重复候选及独立别名/legacy 冲突隔离。推荐 Node 24/Worker/隔离 SQLite/同源简单页面，仅为离线用栈候选，不冻结实时 C# 宿主或更改公共契约。
+
+已核对：下一任务文件、当前 B26/API10/STATUS9/决策、R01 既有报告和 Parser 的 loadParser/decodeBusiness 接口；没有重新扫描私人样本。Node 24.15.0 的运行时报告 SQLite 3.51.3/Worker 可用，候选 18765/18766 未见监听；查询官方固定版本文档确认 node:sqlite 为 release candidate、DatabaseSync 同步。没有打开数据库、监听服务或安装产品依赖。
+
+本轮变更只有审查稿与本节；未改 README/AGENTS/architecture/contracts/migration/decisions、既有工具/证据和原 staged/unstaged `.gitignore`，未提交。无首个主提交，文档审查在当前根做最小改动，不为 worktree 擅自创建首提交。
+
+待审查：首轮栈候选、历史输入/任务/认证接口差异、observe-only 去重和适配白名单。PUBLIC_API 10 要求契约负责人审查后再加字段/注册端口；审批后同步权威契约并形成详细实现计划，后续仍由本对话串行实施。此处不把“任务建议”自动视为新接口已获批准。
+
+未执行：产品脚手架/依赖安装、Gateway/DB/Worker/UI、真实任务运行与新功能测试、正式去重/ReplayEngine/实时链。M0 与 M2a-O 的功能状态保持原记录，不标通过。
+
+交付校验：审查稿和本台账的 UTF-8/围栏、14 个本地链接及新增文件空白检查通过；TBD/TODO 占位扫描无命中；本轮前记录的非 STATUS 权威文档、工具和 R01 证据 hash 未变，三参考 Git 工作树干净，原 staged `.gitignore` 内容保留，working/cached diff 检查无错误。仅文档校验，未运行产品验收。
+
+## 11. 首个可运行工程增量（2026-10-12）
+
+taskId：`CORE-VERTICAL-01`；owner：当前主协调对话。按用户最新指令直接提取、编译、接入与验证，不再把完整 M0 原版验收作为所有开发前置。没有重新开展 R01 结构/历史统计审计，没有消息其他用户对话或提交 Git。
+
+实际复用：DouyinBarrageGrab 的 C# Titanium 捕获、HTTP/WS 原始观察、protobuf-net 外层模型和 GZip；douyinprotobuf 的官方 parser/decode/wire 与 vendor 原样迁入正式源码，业务适配独立。只读 references 无改动，MIT/来源提交/vendor hash 保留；douyinprotobuf 未发现顶层授权文件的事实保留在 THIRD_PARTY_NOTICES，不虚构许可证。
+
+正式模块：`src/capture/BarrageGrab/CaptureHost.cs`、`capture-bridge.js`；`storage.js` RAW 文件 fsync + SQLite FULL/唯一事件/快照分页；`parser/`；`runtime.js` 总线/统一事件/隔离回放；`session-manager.js`；`historical-source.js`；`server.js` 受认证本机 REST/WS；`public/` 简易工作台。构建/测试入口为 package.json、tools/build-capture.ps1、tests 和 tools/verify-workbench.mjs。密码/历史目录登记、RAW/数据库、依赖、产物均忽略。
+
+| 可执行验证 | 实际运行结果 |
+|---|---|
+| `npm run build:capture` | .NET Framework 捕获 exe 构建成功；6 项旧代码/未用入口相关警告，无错误 |
+| `npm test` | **20/20 通过**：实际本地 HTTP、二进制/跨回调分片 WebSocket 捕获、C# gzip/外层解包、RAW ACK、RAW 失败阻断、跨重启去重、大 ID、快照分页、场次局部规则、回放隔离/并发控制、匿名拒绝、命令幂等/版本竞争、daemon 启动顺序/未知时间/退出不下播/观察失效 |
+| `node tools/verify-workbench.mjs` | 真实 **59 Golden / 59 检查 / 0 失败** 经产品 GUI/API/解析/持久化链；官方解码 59、解析失败 0；历史分页/官方详情/RAW 引用/回放单步和跳转通过，浏览器错误 0 |
+| `node tools/verify-workbench.mjs http://127.0.0.1:18780` | 已启动产品实例同样59/59，数据实际写入本项目 data；无需复跑原审计工具 |
+
+运行：`npm start`，工作台 <http://127.0.0.1:18780>。当前服务已由本任务启动，采集停止。GUI 可运行 Golden、载入全 R01、停止任务、分页追踪、回放播放/暂停/单步/停止/跳转与查看日志指标。当前只执行59回归，**未重新执行全量14,588结构统计**；全量按钮是解析输入操作，不是审计。截图和脱敏验证 JSON 位于忽略的 artifacts。
+
+针对明确失败修复：默认 ProxyServer 自动信任已用三个 false 参数显式关闭；WS 握手识别及按连接保存 FIN 分片已修复；超大官方时间字段保留原值、occurredAt=null；并发 capture start/重复回放控制/状态版本竞争与关闭队列已修复。一次只读代码审查完成，具体问题均针对性回归。
+
+未验证/未实现边界：未操作真实伴侣、系统代理、证书信任、安装文件或已有弹幕服务；受控明文 WS 测试不证明真实 WSS/TLS 与伴侣版本兼容。HookReady 保持 false，不由代理已绑定伪报；完整 daemon 观察/恢复、WebSource/人工切换、HTTP 生命周期真实语义、业务/通知/设备出口、连击结算、物理独立回放库、崩溃 RAW 孤立文件恢复、完整 WS 高水位/RBAC/日志导出/性能历史均未完成。RAW 为后端提供的 HTTP body/重组 WS message，非 TCP 原始包；回放当前固定间隔倍速。M0 和整体 P0 不标完成。
+
+下一可直接接入能力：围绕已提取 LiveCompanHelper/代理接口补 daemon 的只读进程观察、启动顺序提示与恢复协调；修改 Hook 安装文件或真实客户端路由之前另行说明具体影响并请求用户授权。其余代码继续增量实现，不用新研究报告替代交付。
+
+用户要求“继续”后的增量：新增 `src/live-hook-daemon.js` 和 C# `--observe` 独立只读模式，只按“直播伴侣”进程名读取 PID/启动时间/主窗口存在性；不调用 GetExePath、SwitchSetup、代理或证书对象。每2秒观察，pid+startedAt 作为进程实例；先开伴侣时提示人工重启，代理先就绪后的新实例只标路由待验证，HookReady 仍 false。退出/新实例只更新采集中断与诊断，不生成直播结束。REST 状态、hook/status、daemon.updated 和工作台提示均已接入；4个针对性测试通过，浏览器真实观察通过；失效后清除旧观察，采集状态变化不能伪造恢复。
+
+当前新版工作台为 <http://127.0.0.1:18781>，独立数据目录 `data/daemon-increment`。工具自动审批拒绝停止本任务旧18780进程，仅返回 blocked by policy、未给具体原因；没有改用其他终止手段，旧进程保留，新版在空闲端口独立启动。新实例已重新完成 GUI Golden 59/59。默认 `npm start` 仍为18780，可用环境变量 LW_PORT/LW_DATA_DIR 启动独立实例。真实伴侣/系统代理/安装文件未操作。
+
+
+## 12. GitHub 首次同步与持续开发（2026-10-12）
+
+任务 `CORE-CONTINUE-20261012`，owner：本对话，按用户授权串行开发并提交到 main；不自动派工。阶段一核实远程 Public 仓库为空，本地主分支无 HEAD，18780/18781 既有实例保留。原 staged/unstaged 文件按授权纳入首次正式基线，不执行清理、强制覆盖或强推。
+
+公开范围：第一方源码/GUI/合成测试、MIT C# 提取源码、架构/契约/进度/工具；排除私人 RAW、真实样本/Golden 证据、数据库、日志、密钥/证书/环境配置及构建缓存。未确认再分发授权的官方解析器及 vendor 六文件保持本地且忽略；新增 setup-parser 固定源版本/哈希准备入口，不替换官方实现。真实样本的房间编号已从合成测试替换为独立虚构值。隐私扫描只报告文件/类别/行号，不输出敏感内容。
+
+验证：原工程 C# 构建退出0；20/20 测试；GUI 实际59 Golden/59检查/0失败、浏览器错误0。新增准备入口测试先失败再通过；六文件从固定上游重新下载到临时目录，全部哈希通过，当前已有六文件核验通过且未覆盖。公开扫描无发现。后续阶段优先修复 SessionManager 的重复证据/场次连续性，再补 API 隐私和运行观察；真实代理/证书/伴侣操作仍须用户具体授权。
+
+本阶段不代表真实伴侣或 P0 整体验证通过。历史证据文档在本机保留，公开链接可能指向被排除的本地证据。

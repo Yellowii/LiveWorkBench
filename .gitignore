@@ -1,0 +1,59 @@
+
+# 第三方参考源码、文档及嵌套 Git 仓库（本地只读，不纳入主项目）
+/references/
+
+# Private runtime inputs, RAW, databases, dependencies and build outputs
+/.local/
+/data/
+/node_modules/
+/src/capture/packages/
+/src/capture/**/bin/
+/src/capture/**/obj/
+/artifacts/
+
+# Private captures and evidence; public tests contain synthetic inputs only.
+/docs/migration/evidence/
+**/sessions/
+**/raw/
+**/raw_proto/
+**/proto/
+**/golden-inputs/
+**/__snapshots__/
+*.jsonl
+*.bin
+*.sqlite*
+*.db
+*.db-shm
+*.db-wal
+*.log
+*.har
+*.pcap*
+
+# Credentials, certificates, caches and build products.
+.env
+.env.*
+!.env.example
+*.pfx
+*.p12
+*.pem
+*.key
+*.crt
+*.cer
+*.jks
+**/secrets.*
+**/credentials.*
+**/cookies.*
+**/.cache/
+**/__pycache__/
+*.pyc
+**/bin/
+**/obj/
+/dist/
+/coverage/
+/.superpowers/
+
+# Rights unresolved: prepared locally with pinned hashes, excluded from publication.
+/src/parser/parser.js
+/src/parser/decode.js
+/src/parser/wire.js
+/src/parser/vendor/
