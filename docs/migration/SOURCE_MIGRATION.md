@@ -10,6 +10,8 @@
 
 2026-10-13 P0-A 第一阶段：修复 Titanium 3.2.2-beta TLS 运行缺少 BouncyCastle.Cryptography 2.0.0 引用及 RSA PFX/CSP 兼容；保留原1.8.8并用alias隔离新引用。单个RSA文件CA/内存私钥签名、临时叶证书EphemeralKeySet、独立127.0.0.1:18827的HTTPS/分片WSS→RAW→C#→官方Parser→测试场次子能力已受控验证；不等于真实伴侣基线。具体工具、证据和未授权边界见 [第一阶段记录](../reviews/2026-10-13-livehook-stage1.md)，references 无改动。
 
+后续PIPELINE增量：C#protobuf-net/GZip解包提到TransportUnpacker.cs，Node复用官方传输types/wire建立独立ProtoIndex，业务parseBusiness与ParserExtensions分开。Web适配v4保留原心跳/ACK/有限重连，注入仅传输packetDecoder；原live.js固定SHA不变、v2/v3保留，v4本地忽略。RawRecorder、缺口、总线/去重/事件存储、历史读模型/Replay物理工作区等为第一方封装，非重写原采集/重新启用原广播服务。进度与测试范围见STATUS14/PROCESSING_PIPELINE v1，真实环境授权没有扩大。
+
 参考 README 的历史测试结论不是本次复验，不自动计入 LiveWorkbench 进度。代码存在也不证明当前伴侣/平台版本兼容，尤其进程恢复、HTTP 字段语义和完整 RAW。
 
 ## 2. 本地 references 快照

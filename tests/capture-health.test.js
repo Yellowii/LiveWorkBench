@@ -38,3 +38,8 @@ test('failure records fall back to a durable private journal if their SQLite wri
  const gap=await r.gaps.record({reason:'RAW_PERSIST_FAILED',recordingId:'synthetic',size:3});
  assert.equal(gap.reason,'RAW_PERSIST_FAILED');const saved=JSON.parse((await fs.readFile(r.gaps.file,'utf8')).trim());assert.equal(saved.gapId,gap.gapId);assert.equal(r.gaps.page().fallbackEntries.length,1);
 });
+test('RAW persistence owns an immutable byte snapshot even if a producer reuses its buffer',async t=>{
+ const r=await setup(t),bytes=Buffer.from([8,1]),persist=r.recorder.persist.bind(r.recorder);let release;const gate=new Promise(resolve=>release=resolve);r.recorder.persist=async input=>{await gate;return persist(input);};t.after(()=>release());
+ const pending=r.ingest({bytes,format:'business-payload',method:'Future'});bytes.fill(255);release();const raw=await pending;
+ assert.deepEqual(await fs.readFile(r.store.raw(raw.rawId).filePath),Buffer.from([8,1]));assert.equal(r.store.rawTrace(raw.rawId).messages[0].parseStatus,'unknown');
+});

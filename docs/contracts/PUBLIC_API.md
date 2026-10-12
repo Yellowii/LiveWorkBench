@@ -10,6 +10,8 @@
 
 第三增量：受认证`GET /capture/gaps?limit=100`返回失败/捕获缺口元数据，最多200条、无原始字节，scope区分input/connection/unknown-range，不能用记录数推出精确丢包率。数据库写失败退到本地fsync journal，fallbackEntries展示本进程回退记录；两种持久化均失败时unavailable计数并向本地stderr告警。health和metrics/modules新增gatewayWebsocket实际Ping/Pong/超时/积压计数，默认15s Ping、10s Pong超时；超时关闭后沿用已实现的历史补查恢复，不引入上游竞争连接。
 
+第四增量兼容：Replay控制路由与DTO保持，仓库/总线已物理隔离。events/详情/logs跨仓库查询通过独立history-view读模型提供原签名快照、唯一查询eventSeq，原eventId/streamId不改；控制job重启恢复尚未实现。`GET /recordings/{id}/raw?cursor&limit`为RAW元数据降序签名页，最大200，可查看没有业务事件的控制/失败输入。Raw详情及`GET /protos/{id}`可带namespace；reparse body可带runtimeNamespace选择当前Replay工作区，仍仅追加解析尝试。实时会话状态来自唯一实时SessionManager，不因回放刷新改变。
+
 Node 同源 Gateway 默认 127.0.0.1:18780，首页设置 HttpOnly/SameSite Strict 会话；REST/WS 均认证，控制命令要求 commandId。匿名控制拒绝，LAN 未启用。当前有 system/status、health、capabilities、hook/status、events/详情、recordings、sessions、logs、operations、replays 与基础模块/进程指标。system/history 指标返回 unavailable。
 
 开发入口 `POST /api/v1/development/r01-runs` 输入 `{commandId,goldenOnly}`，返回 operation；原目录仅由本地私有设置登记，不接受前端任意文件路径。`POST /api/v1/replays` 输入 recordingId；`POST /replays/{id}/actions` 支持 play/pause/step/stop/seek/rebuild、expectedVersion/speed/target。`GET /sources` 返回选中来源/sourceEpoch/stateVersion。`POST /capture/actions` 支持 start/stop/switch；switch携带sourceType及expectedVersion，停止旧来源后仅选择新来源，需要再次人工start；默认禁止自动故障切换。LiveHook start 缺证书返回 TLS_CERTIFICATE_REQUIRED，Web start 缺配置/准备模块返回明确不可用原因。

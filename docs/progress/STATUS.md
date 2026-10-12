@@ -281,3 +281,15 @@ WebSource每条已提交RAW直接进入同一组件，即使连接代次在排�
 第三增量完成验证：独立C#构建退出0、**65/65全套自动化通过**；GUI160合成事件/Proto重解析/捕获缺口与连接健康查询/历史补查均通过、浏览器错误0。Node/C#双侧有界接收，C#传输阶段中断可补处理已持久化RAW；实际真实直播、长时间压力与磁盘彻底耗尽场景未执行，不声明零丢包。崩溃孤立RAW及fallback journal跨重启查询仍待后续。
 
 第三增量最终C#代理异常也改为稳定PROXY_TRANSPORT_FAILED缺口，针对实际HTTP/WS/TLS重新验证8/8通过；解析/存储及GUI未再变更。
+
+第三增量已推送0d1cab0b561dfb11942e40afba594081bd3f1686，远程main一致。
+
+第四增量：新增processing-pipeline/event-bus/event-store/history-query/replay-engine/log-service/metrics-service/message-deduplicator正式组件，保留Runtime/Store/API兼容入口，按数据流/隔离职责拆分。Replay有独立SQLite/索引/总线、没有Source/网络/设备实例，父RAW只读引用。统一查询读模型是另一个history-view.sqlite，保留现有分页/高水位/查询eventSeq，不把Replay写入live库；Gateway直接订阅隔离UI emitter，实时业务总线没有Replay消息。新增namespace上下文追踪/重解析、录制RAW签名分页和GUI无业务RAW检查；修正入口Buffer重用可能影响RAW的风险，Recorder保存独立快照。
+
+第四增量新回归先失败后通过：Replay单步/重建/失败前后直接SQL核对live events/sessions/logs/raw/attempts行数不变、live总线零Replay事件；消费者故障隔离；混合历史签名快照/唯一序号/重启读模型；调用者重用Buffer仍保留原字节。GUI160合成事件验证RAW浏览、隔离Replay单步及Proto详情，浏览器错误0。最终全套/部署/公开审核在提交时记录。
+
+剩余边界：真实伴侣HTTP/WSS及长时间恢复、真实Web凭据未测；磁盘彻底耗尽只能stderr告警，不能承诺保存输入；崩溃孤立RAW恢复/fallback journal跨重启查询、Replay控制job重启恢复与长期保留/资源上限仍待。没有真实直播验收或零丢包证据。第一方与参考文件边界不变，不操作CA信任/index/代理/旧实例，不重跑R01审计或上传原始数据。
+
+第四增量完成验证：C#独立构建退出0；全套**70/70自动化通过**。API/GUI实际160条合成事件的历史锚点/虚拟行/断线补查、RAW浏览、Proto结果/重新解析、隔离Replay单步/Proto追踪、缺口/连接健康，以及日志筛选/受认证脱敏导出均通过，两个浏览器验证错误0。直接SQL/live总线隔离证据在tests/replay-isolation.test.js；测试日志在忽略的.local/pipeline-stage4-tests.log。API兼容新增能力标志，旧18782后端不支持的新GUI按钮禁用。
+
+运行限制：尝试启动新版独立18783/data/pipeline-20261013时自动工具审批拒绝，只有blocked by policy，无具体原因；整条启动命令未执行，未改用其他方式绕过。新版未作为长期实例部署，18780/18781/18782与8827/8888保留；用户可在空闲18783手动启动后复查健康/能力。编译、临时自有GUI/API服务验证通过与长期部署/真实伴侣验证明确分开。

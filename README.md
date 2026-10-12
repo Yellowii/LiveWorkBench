@@ -27,6 +27,20 @@ npm start
 
 2026-10-13已补实际C#回环HTTPS/分片WSS的文件CA测试、环境前后核对与不写安装文件的私有备份；[分阶段记录与复查命令](docs/reviews/2026-10-13-livehook-stage1.md)。真实伴侣接入/恢复仍待单独授权。默认exe被只读观察进程占用时可用 build:capture 的 -OutputDirectory 构建到本项目独立目录，并用 LW_CAPTURE_EXE 选择该构建，不必停止旧工作台。
 
+当前RAW分层增量：独立RawRecorder/TransportUnpacker/ProtoIndex、业务Parser/扩展、去重/总线/事件存储、历史查询、Replay、日志/指标与Gateway连接健康。每条业务payload可定位/查看解析尝试/重新解析，未知、重复、失败输入保留；RAW控制/传输失败可经录制分页检查。Replay有独立SQLite/总线及只读父RAW，查询读模型维持原API分页兼容。新版可在空闲18783及本项目独立data/pipeline-20261013启动；本轮自动启动被工具审批拒绝，未绕过或停止现有实例，当前运行的18782仍为旧后端。采集默认停止。接口和限制见 [PROCESSING_PIPELINE](docs/contracts/PROCESSING_PIPELINE.md) 与 [STATUS第14节](docs/progress/STATUS.md#14-raw解包解析分层持续增量2026-10-13)。
+
+已构建后，在独立终端手动启动新版（不停止旧实例，不改系统代理/证书/伴侣）：
+
+```powershell
+Set-Location C:\project\LiveWorkBench
+$env:LW_PORT='18783'
+$env:LW_DATA_DIR='C:/project/LiveWorkBench/data/pipeline-20261013'
+$env:LW_CAPTURE_EXE='C:/project/LiveWorkBench/.local/pipeline-capture-build/LiveWorkbench.CaptureHost.exe'
+npm start
+```
+
+打开 <http://127.0.0.1:18783>；若端口或该数据目录已被其他工作占用，先核对归属再选择独立值。此命令不会授权真实采集环境变更。
+
 ## 权威入口
 
 WebSource 的 WSS URL/Cookie/User-Agent 只登记在 `.local/settings.json` 的 `webSource` 对象；可选 `roomId` 是平台实际 roomId，不能拿网页短房号代替。配置不经公共 API 传入或返回。默认目标仅接受 douyin.com 下标准443端口WSS，回连/心跳/ACK复用固定上游实现，RAW提交前不会解码或ACK。入站二进制WebSocket消息为采集范围；队列上限触发显式缺口诊断，不能宣称保存了TCP/所有控制帧。

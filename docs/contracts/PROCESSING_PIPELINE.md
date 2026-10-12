@@ -19,3 +19,11 @@ WebSource raw-first-v3增加packetDecoder注入，ACK编码复用固定官方传
 C#完整接收消息带连接ID/输入序号；WS控制帧透明转发并统计，不当业务Proto。FIN前超过上限、被新Binary打断、Close/仅本代理连接的TCP结束或代理停止，都记录不完整/拒绝缺口，不把残片伪造成完整RAW。TCP观察只关联自有代理接受的端点，不判断平台下播；连接观测失败也留诊断。已落盘但C#传输阶段中断的RAW用同一Node解包组件补处理。没有创建上游心跳/ACK。
 
 WebSource v4继续原心跳/ACK/有限重连；仅allowLocalTest支持缩短重试以验证，生产延迟不变。生成SHA256 d952d9992dabe5d215ecedbd2e0cb26b04bd26d88aa768e1d170ff65e1d84903。GatewaySocketHub独立维持前端Ping/Pong和超时清理，控制帧统计与业务RAW分开。中断scope=unknown-range表示不确定范围，不等于已证实丢了N条或零丢包。
+
+第四增量：Runtime为兼容入口/场次协调，正式职责拆到ProcessingPipeline、RawRecorder、TransportUnpacker、OfficialParser/ParserExtensions、MessageDeduplicator、EventBus、EventStore、HistoryQuery、ReplayEngine、LogService、MetricsService与GatewaySocketHub。去重保持既有namespace/room/method/msgId规则；总线主提交先通过正式EventStore持久化，再发events.appended，故障消费者独立记录，不阻断其他消费者。并未重写底层代理/官方协议资源。
+
+ReplayEngine只创建本项目`dataDir/replays/{id}`独立Runtime/SQLite/Proto索引/总线；没有Capture/Source/网络/设备实例。父RAW只读引用，每步核对SHA256，派生payload在隔离目录。播放/暂停/单步/跳转重建沿用正式解包/解析组件。实时DB的RAW/事件/场次/日志/解析记录以及live总线不接收Replay写入；Gateway从Replay专用UI emitter读取经过投影的结果。
+
+`history-view.sqlite`是独立查询读模型，保存实时/Replay查询投影与统一查询序号，保留现有降序签名快照分页/高水位语义；不把Replay行写入实时workbench.sqlite。真实仓库与查询序号区分，eventId和streamId不变。读模型重启可查询已保存的Replay事件；Replay控制job/打开的工作区仍是本进程状态，重启后需要新建回放，未实现控制job恢复。Raw/Proto查询可带namespace定位当前隔离工作区，重建结果使用独立上下文链接，不覆盖live关联。GUI也可分页检查无业务事件的RAW（控制/传输失败）。
+
+RAW append入口先复制调用者字节，避免生产者重用Buffer后写入内容与原SHA256不一致。未实现完所有持久化调度/保留期/崩溃恢复；详见STATUS真实限制，不把模块分离等同完整P0。

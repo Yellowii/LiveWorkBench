@@ -31,6 +31,12 @@ try{
  for(let n=82;n<=160;n++)await append(n);
  await page.waitForFunction(()=>document.getElementById('connection').textContent==='实时增量已连接');
  await page.waitForFunction(()=>Number(document.getElementById('messages').dataset.cachedCount)>=150);
+ await page.locator('#browseRaw').click();await page.waitForFunction(()=>document.getElementById('rawPage').textContent.includes('byteBoundary'));
+ await page.locator('#inspectRaw').click();await page.waitForFunction(()=>document.getElementById('rawPage').textContent.includes('processing'));
+ await page.locator('#createReplay').click();await page.waitForFunction(()=>document.getElementById('replay').textContent.includes('replayId'));
+ await page.locator('[data-action="step"]').click();await page.waitForFunction(()=>document.getElementById('replay').textContent.includes('"position": 1'));
+ await page.locator('#messages tr[data-event-id]').first().click();await page.waitForFunction(()=>document.getElementById('detail').textContent.includes('protoId'));
+ await page.locator('#inspectProto').click();await page.waitForFunction(()=>document.getElementById('protoDetail').textContent.includes('pipeline'));
  assert.ok(await page.locator('#messages tr').count()<=32);
  assert.deepEqual(errors,[]);console.log(JSON.stringify({syntheticEvents:160,virtualRows:true,historyAnchorPreserved:true,reconnectGapRecovered:true,browserErrors:0}));
 }finally{await browser.close();await app.close();await fs.rm(dir,{recursive:true,force:true});}

@@ -7,6 +7,7 @@ export class RawRecorder {
  async append(input){
   if(input.bytes.length>8*1024*1024)throw new Error('RAW_TOO_LARGE');
   if(this.pending>=this.maxPending)throw new Error('RAW_BACKPRESSURE');
+  input={...input,bytes:Buffer.from(input.bytes)};
   this.pending++;try{return await this.persist(input);}finally{this.pending--;}
  }
  async persist(input){
