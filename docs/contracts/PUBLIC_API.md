@@ -4,6 +4,8 @@
 
 ## 当前可运行子集
 
+2026-10-13兼容增量：`GET /recordings/{recordingId}/raw/{rawId}`新增`processing:{transport,messages}`，关联逻辑messageIndex、ProtoRef、method/msgId、payloadHash、parseStatus和eventId；禁止返回派生payload路径/字节。内部接口见 [PROCESSING_PIPELINE](PROCESSING_PIPELINE.md)。旧RAW缺索引时messages为空，不伪造已验证结果。
+
 Node 同源 Gateway 默认 127.0.0.1:18780，首页设置 HttpOnly/SameSite Strict 会话；REST/WS 均认证，控制命令要求 commandId。匿名控制拒绝，LAN 未启用。当前有 system/status、health、capabilities、hook/status、events/详情、recordings、sessions、logs、operations、replays 与基础模块/进程指标。system/history 指标返回 unavailable。
 
 开发入口 `POST /api/v1/development/r01-runs` 输入 `{commandId,goldenOnly}`，返回 operation；原目录仅由本地私有设置登记，不接受前端任意文件路径。`POST /api/v1/replays` 输入 recordingId；`POST /replays/{id}/actions` 支持 play/pause/step/stop/seek/rebuild、expectedVersion/speed/target。`GET /sources` 返回选中来源/sourceEpoch/stateVersion。`POST /capture/actions` 支持 start/stop/switch；switch携带sourceType及expectedVersion，停止旧来源后仅选择新来源，需要再次人工start；默认禁止自动故障切换。LiveHook start 缺证书返回 TLS_CERTIFICATE_REQUIRED，Web start 缺配置/准备模块返回明确不可用原因。

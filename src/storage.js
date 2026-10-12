@@ -4,6 +4,7 @@ import {DatabaseSync} from 'node:sqlite';
 import {randomUUID,createHash} from 'node:crypto';
 import {CursorCodec,decimalSequence} from './cursor.js';
 import {logRecord} from './log-record.js';
+import {ProtoIndex} from './proto-index.js';
 
 export class Store {
   constructor(dir){
@@ -17,7 +18,10 @@ export class Store {
       CREATE TABLE IF NOT EXISTS sessions(id TEXT PRIMARY KEY,key TEXT UNIQUE,json TEXT);
       CREATE TABLE IF NOT EXISTS logs(seq INTEGER PRIMARY KEY AUTOINCREMENT,json TEXT);`);
     this.db.exec('CREATE TABLE IF NOT EXISTS runtime_state(key TEXT PRIMARY KEY,json TEXT); CREATE INDEX IF NOT EXISTS event_identity ON events(namespace,method,json_extract(json,\'$.roomId\'),json_extract(json,\'$.msgId\'));');
+    this.protos=new ProtoIndex(this.db);
   }
+  rawTrace(rawId){return this.protos.trace(rawId);}
+  protoCount(){return this.protos.count();}
   bigStatement(sql){const statement=this.db.prepare(sql);statement.setReadBigInts(true);return statement;}
   getState(key){const row=this.db.prepare('SELECT json FROM runtime_state WHERE key=?').get(key);return row?JSON.parse(row.json):null;}
   setState(key,value){this.db.prepare('INSERT INTO runtime_state VALUES(?,?) ON CONFLICT(key) DO UPDATE SET json=excluded.json').run(key,JSON.stringify(value));}

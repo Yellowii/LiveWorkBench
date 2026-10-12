@@ -253,3 +253,13 @@ taskId：`P0A-STAGE1-20261013`；owner/交接：本对话→用户。允许写�
 状态：**该受控TLS增量验证通过；P0-A真实伴侣链仍实现待验收，P0未完成**。没有重新跑59Golden/全样本审计；本次未改变Parser/场次业务规则，复用已有回归和新合成TLS检验。现有18782工作台仍采集STOPPED/未登记本次证书，不宣称已部署新版TLS给该运行进程。
 
 下一步/阻塞：交付本次具体清单后，等待用户分别批准所选CA的CurrentUser Root信任与单一伴侣代理参数变更；不因时间经过视为批准。随后用户手动重启、真实HTTP/WSS/RAW/解析/场次关联/重启恢复和最终旧路由业务回切须实测；恢复只能处理本次授权新增对象，哈希冲突则保留后续修改并报告。本阶段没有这些真实验收证据。
+
+## 14. RAW/解包/解析分层持续增量（2026-10-13）
+
+任务`PIPELINE-20261013`，owner本对话，用户明确要求串行实现并逐增量提交main。references只读、环境授权边界延续；不停止现有工作台/伴侣/旧服务、不导入CA、不改index或系统代理。内部接口见PROCESSING_PIPELINE v1，PUBLIC_API0.1保留兼容并记录新增字段。
+
+第一增量：`TransportUnpacker`（Node/C#）、`ProtoIndex`正式组件；RAW读取/哈希核对后，独立外层PushFrame/Response/压缩处理与逐条业务payload派生索引。不认识method仍提取，包内业务失败彼此隔离；压缩payload采用messageIndex/rawOffset=null。C#protobuf-net/GZip成熟路径独立提取，Node复用官方传输类型/wire并记录C#输出对照结果，不用IPC/解析JSON冒充RAW。历史business-payload只引用原只读文件；没有复制R01。
+
+WebSource每条已提交RAW直接进入同一组件，即使连接代次在排空时变化仍可留索引；原Web主动心跳/ACK/重试代码保持。GET recording RAW详情兼容新增processing，现有GUI详情展示完整RAW→Proto→event关联，路径/字节仍隐藏。旧库仅加表，不重写数据；Parser/重解析的独立接口及Replay物理隔离将在后续增量完成，不宣称已完成。
+
+第一增量验证：4项新回归先失败后通过（混合method/未知/损坏业务/gzip/外层损坏/大ID/重复索引/从持久化RAW读字节及哈希异常）；C#独立目录构建退出0、6项既有警告；全套54/54；160合成事件GUI验证含ProtoRef/payloadHash详情、历史锚点/有界滚动/断线补查，浏览器错误0。源码/验证工具正式位于本项目；公开扫描与推送在增量提交时核对。未经真实伴侣验证，不声明零丢包。

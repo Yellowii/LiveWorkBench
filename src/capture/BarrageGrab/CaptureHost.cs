@@ -31,15 +31,7 @@ namespace LiveWorkbench {
                 // Reuse BarrageGrab protobuf models + gzip after durable RAW ACK.
                 if(format=="frame" || format=="response") {
                     try {
-                        byte[] payload=bytes;
-                        if(format=="frame") {
-                            var frame=Serializer.Deserialize<WssResponse>(new MemoryStream(bytes));
-                            if(frame.Payload==null) throw new InvalidOperationException();
-                            var compressed=frame.Headers.Any(h=>h.Key=="compress_type" && h.Value=="gzip") || frame.payloadEncoding=="gzip";
-                            payload=compressed?BarrageGrab.WssBarrageGrab.Decompress(frame.Payload):frame.Payload;
-                        }
-                        var response=Serializer.Deserialize<Response>(new MemoryStream(payload));
-                        Emit(new {kind="transport",id,messages=response.Messages.Select(m=>new {method=m.Method,msgId=m.msgId.ToString(),payloadBase64=Convert.ToBase64String(m.Payload)}).ToArray()});
+                        Emit(new {kind="transport",id,messages=TransportUnpacker.Unpack(bytes,format)});
                     } catch { Emit(new {kind="transport-fallback",id}); }
                 }
             } finally { TaskCompletionSource<bool> ignored;Pending.TryRemove(id,out ignored); }

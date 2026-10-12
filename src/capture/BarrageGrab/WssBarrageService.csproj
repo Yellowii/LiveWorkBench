@@ -225,6 +225,7 @@
   </ItemGroup>
   <ItemGroup>
     <Compile Include="CaptureHost.cs" />
+    <Compile Include="TransportUnpacker.cs" />
     <Compile Include="AppRuntime.cs" />
     <Compile Include="AppSetting.cs" />
     <Compile Include="Modles\AnchorFinishInfo.cs" />

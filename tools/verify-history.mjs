@@ -14,6 +14,9 @@ try{
  for(let n=1;n<=80;n++)await append(n);
  await page.goto(app.url);await page.waitForFunction(()=>document.querySelectorAll('#messages tr').length>0);
  assert.ok(await page.locator('#messages tr').count()<=32,'Only visible rows and a small buffer may be rendered');
+ await page.locator('#messages tr[data-event-id]').first().click();
+ await page.waitForFunction(()=>document.getElementById('detail').textContent.includes('protoId'));
+ assert.ok((await page.locator('#detail').textContent()).includes('payloadHash'));
  await page.locator('#older').click();await page.waitForFunction(()=>Number(document.getElementById('messages').dataset.cachedCount)>50);
  const anchor=await page.locator('#messages tr[data-event-id]').first().getAttribute('data-event-id');
  await append(81);await page.waitForFunction(()=>document.getElementById('unread').textContent.includes('新消息'));

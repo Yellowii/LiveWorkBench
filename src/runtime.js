@@ -5,9 +5,10 @@ import {randomUUID,createHash} from 'node:crypto';
 import {Store,RawRecorder} from './storage.js';
 import {OfficialParser} from './parser/index.js';
 import {SessionManager} from './session-manager.js';
+import {TransportUnpacker} from './transport-unpacker.js';
 
 export class Runtime extends EventEmitter {
-  static async open({dataDir}={}){const r=new Runtime();r.dataDir=path.resolve(dataDir||'data');await fs.mkdir(r.dataDir,{recursive:true});r.store=new Store(r.dataDir);r.recorder=new RawRecorder(path.join(r.dataDir,'raw'),r.store);r.parser=await OfficialParser.open();r.sessions=new SessionManager(r.store);r.replays=new Map();r.operations=new Map();r.metrics={inputs:0,decoded:0,unknown:0,failed:0,duplicates:0,events:0};const current=r.store.sessions().filter(s=>s.mode==='live'&&s.sessionState!=='ENDED');r.activeRoom=current.length===1?current[0].roomId:null;if(current.length>1)r.log('SESSION_SELECTION_REQUIRES_RECONCILIATION');return r;}
+  static async open({dataDir}={}){const r=new Runtime();r.dataDir=path.resolve(dataDir||'data');await fs.mkdir(r.dataDir,{recursive:true});r.store=new Store(r.dataDir);r.recorder=new RawRecorder(path.join(r.dataDir,'raw'),r.store);r.parser=await OfficialParser.open();r.unpacker=new TransportUnpacker({native:r.parser.native,index:r.store.protos,payloadDirectory:path.join(r.dataDir,'proto'),readRaw:async(raw,{pathOnly=false}={})=>{const file=r.store.raw(raw.rawId)?.filePath;if(!file)throw new Error('RESOURCE_NOT_FOUND');return pathOnly?file:fs.readFile(file);}});r.sessions=new SessionManager(r.store);r.replays=new Map();r.operations=new Map();r.metrics={inputs:0,decoded:0,unknown:0,failed:0,duplicates:0,events:0};const current=r.store.sessions().filter(s=>s.mode==='live'&&s.sessionState!=='ENDED');r.activeRoom=current.length===1?current[0].roomId:null;if(current.length>1)r.log('SESSION_SELECTION_REQUIRES_RECONCILIATION');return r;}
   log(code,details={}){const log=this.store.log(code,details);this.emit('log.appended',log);}
   timing(stage,started,error=false){this.metrics.timings??={};const value=this.metrics.timings[stage]??={count:0,errors:0,totalMs:0,maxMs:0};const duration=performance.now()-started;value.count++;value.errors+=error?1:0;value.totalMs+=duration;value.maxMs=Math.max(value.maxMs,duration);value.lastMs=duration;}
   async ingest(input,ack){
@@ -16,12 +17,16 @@ export class Runtime extends EventEmitter {
     await this.process(raw,input.bytes);return raw;
   }
   async process(raw,bytes,transport){
-    if(raw.mode==='live'&&this.activeSourceEpoch&&(raw.sourceEpoch!==this.activeSourceEpoch||raw.sourceType!==this.selectedSource)){this.log('STALE_SOURCE_RAW_RETAINED',{rawId:raw.rawId});return;}
     const started=performance.now();let error=false;
     try{
       if(raw.format==='http-json')return this.httpEvidence(raw,bytes);
-      const messages=transport?this.parser.decodeTransport(transport):this.parser.decode({...raw,bytes});
-      for(const message of messages){if(message.status==='error')error=true;this.publish(raw,message);}
+      const unpacked=await this.unpacker.unpack(raw,{transport});
+      if(unpacked.status==='error'){error=true;this.log(unpacked.errorCode,{rawId:raw.rawId,stage:unpacked.stage});this.publish(raw,{method:'ParseFailed',status:'error'});return;}
+      for(const indexed of unpacked.messages){
+        const payload=await this.unpacker.readPayload(indexed.protoId),message={...this.parser.decode({format:'business-payload',method:indexed.method,bytes:payload})[0],msg_id:indexed.msgId};
+        if(message.status==='error')error=true;const event=this.publish(raw,message);
+        this.store.protos.update(indexed.protoId,{parseStatus:message.status,errorCode:message.status==='error'?'BUSINESS_PROTO_INVALID':null,eventId:event?.eventId||null});
+      }
     }catch{error=true;this.log('PARSE_FAILED',{rawId:raw.rawId});this.publish(raw,{method:'ParseFailed',status:'error'});}finally{this.timing('parse',started,error);}
   }
   httpEvidence(raw,bytes){
@@ -77,9 +82,9 @@ export class Runtime extends EventEmitter {
     if(isControlEnd)extensions.lifecycleCandidate=associatedEnd?'platform-ended':'unassociated-platform-end';
     const event={schemaVersion:'1',eventType:message.method,producer:'OfficialParser',origin:raw.format==='http-json'?'derived':'platform',mode:raw.mode,runtimeNamespace:raw.runtimeNamespace,streamId:raw.runtimeNamespace,sourceType:raw.sourceType,sourceEpoch:raw.sourceEpoch,captureId:raw.recordingId,anchorUid:session?.anchorUid||null,roomId,sessionId:session?.sessionId||null,msgId,userId:official?.user?.id_str||official?.user?.id||null,receivedAt:raw.receivedAt,occurredAt,rawRefs:[raw.rawId],payload:{decodeStatus:message.status,official,extensions}};
     if(raw.mode==='live'&&roomId===this.activeRoom&&(extensions.lifecycleCandidate==='platform-ended'||message.method==='PlatformLiveEndObserved'))this.activeRoom=null;
-    const saved=this.store.addEvent(event,key);if(saved.duplicate){this.metrics.duplicates++;return;}
+    const saved=this.store.addEvent(event,key);if(saved.duplicate){this.metrics.duplicates++;return saved.event;}
     if(message.status==='decoded')this.metrics.decoded++;else if(message.status==='unknown')this.metrics.unknown++;else if(message.status==='error')this.metrics.failed++;
-    this.metrics.events++;this.emit('events.appended',saved.event);
+    this.metrics.events++;this.emit('events.appended',saved.event);return saved.event;
   }
   interruptCapture(){this.sessions.interrupt();this.log('CAPTURE_INTERRUPTED');}
   async createReplay({recordingId}){
