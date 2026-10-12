@@ -20,11 +20,11 @@
 | references 核查 / M0 | 开发中；静态、构建、合成离线与 R01 业务载荷审计有结果 | SOURCE_MIGRATION 3.1/6.1—6.5、M0/R01 证据 | 原版启动/退出、完整传输 RAW、伴侣恢复未执行；来源/许可全审计未完成 |
 | 源码能力映射 | 首批已提取 | src/capture、src/parser、THIRD_PARTY_NOTICES | 按下一实际需求增量提取 |
 | 技术栈/宿主/IPC | 首增量已实施 | C# Framework + RAW ACK IPC + 官方 Node Parser/SQLite | 完整进程恢复/升级部署 |
-| LiveHook/Web Source | 独立捕获适配受控测试通过；Web 未实现 | HTTP/WS/分片网络测试 | 真实伴侣路由、Hook 安装授权、人工 Web 切换 |
+| LiveHook/Web Source | 两来源受控测试及人工切换通过 | C# HTTP/WS/分片；Web RAW优先/ACK；版本竞争/GUI切换 | 真实伴侣路由/授权证书、真实网页鉴权/重连 |
 | RAW Recorder/FileStorage | fsync/SQLite FULL/ACK 及失败阻断通过 | tests/core、capture | 崩溃孤立文件恢复、保留策略/磁盘预算 |
 | Parser/补丁/Dedup/连击 | 官方 Parser/上下文持久去重已接入 | 产品 Golden 59/59；精确 ID/重复/未知测试 | 连击结算、完整补丁版本系统仍未实施 |
 | LiveHookDaemon | 只读进程观察、先后顺序和退出/重启诊断已接入 | C# --observe；daemon 4测试；GUI 实测 | 实际 Hook 就绪探针、自动恢复本项目捕获端/客户端路由验证 |
-| SessionManager | 独立状态轴最小实现与局部测试通过 | create=CREATED、推流 UNKNOWN、中断不结束；结束后释放选房 | 真实 HTTP 语义、漏事件/同 room 复用 |
+| SessionManager | 连续性/重复证据/捕获上下文补全已验证 | 重启/切源保留scene；缺room仅继承同捕获证据；推流UNKNOWN | 真实 HTTP 语义、漏事件/同 room 复用 |
 | EventBus/EventStore | Node 增量总线 + SQLite 事件库已实现 | 跨重启去重、快照游标、域隔离 | 正式消费者/outbox/独立业务出口 |
 | ReplayEngine | 播放/暂停/单步/停止/跳转重建已实现 | API 并发版本与 GUI 单步/seek | 检查点、按采集时间调度；当前固定间隔倍速 |
 | Gateway/开发 GUI | 首个可运行子集与浏览器测试通过 | tools/verify-workbench.mjs；API 认证测试 | 完整 API/RBAC/LAN/WS 高水位恢复 |
@@ -206,3 +206,11 @@ taskId：`CORE-VERTICAL-01`；owner：当前主协调对话。按用户最新指
 默认脱敏增量：新增 `src/public-projection.js`、`tests/privacy.test.js`，Gateway REST/WS 统一使用投影，GUI 明示官方结果为脱敏投影。每个本地数据域保存独立32字节私钥，对房间/用户/消息标识做稳定 HMAC 别名；昵称/正文及未知原生字符串/字节字段默认隐藏，原生 Parser 与 RAW/事件库字节不改。凭据、物理路径始终剔除，局部受控查看须本地私有配置 allowPrivateDetails=true，不能经API启用。
 
 验证：REST/WS 泄露回归及未知原生字符串回归先失败，再修复通过；全套29/29，GUI真实59 Golden/59检查/0失败、浏览器错误0。未把脱敏投影作为原生结果哈希。下一段接人工单源控制与 WebSource；当前无授权TLS证书/WebSource配置，真实连接尚未尝试。
+
+WebSource/人工单源增量：新增 `src/web-source.js`、`source-controller.js`、`tools/setup-websource.mjs` 和 `tests/source.test.js`。正式 GET /sources、POST /capture/actions switch/start/stop 与 source.updated/GUI 已接；版本串行化防双选，选择跨重启持久化，默认STOPPED且无自动切源。切换先排空/停止旧来源，更新epoch并记录审计，保持Session；进程观察不能打断选中的WebSource。
+
+固定上游 live.js 连接/鉴权域名验证、心跳、ACK、同来源有限重连均复用；独立 raw-first-v2 适配加入可等待持久化回调和接收时刻/连接尝试快照，官方 Parser 保持原样。准备入口校验上游 SHA256 d72a2440bc6b07ab6586e199a54917d109f30b826fc3f2268771a7342f87d865，生成适配 SHA256 07272bc085d036eaeddf52078e0b4a6848b7761f25b627b87c8015ed42814028。源文件和生成适配均因许可未确认保持本地忽略，不上传。Web范围为入站二进制重组WS消息，不宣称TCP/全部控制帧；队列上限记录WEB_CAPTURE_GAP。捕获中断/同来源恢复只变采集轴，等待新证据恢复连接，不创造开闭播。
+
+去重补全：Session先验证主播/房间身份，EventStore再按namespace/room/method/msgId查既有事件，兼容旧dedup键，避免匿名主播补全后重复计数。缺room不强制去重；旧source/epoch输入仍先留RAW再拒绝当前发布。仅同namespace/source/epoch/connection或capture已留证据的上下文可补缺room；原生缺字段默认0仍原样保留，补全来源写独立extensions，不用可变全局房间给历史归属。
+
+验证：37/37自动化；C#构建退出0；GUI实际59 Golden/59检查/0失败、浏览器错误0，并验证人工双向切换、刷新不切回、未配置时启动禁用；受控Web连接确认RAW提交前received和ACK均0，提交后才解析/ACK。新增失败用例均按缺失行为复现后修复；原生room默认0的断言按已固定Parser事实修正。真实伴侣/TLS、真实Web凭据/长时间重连仍未执行，无外部副作用。

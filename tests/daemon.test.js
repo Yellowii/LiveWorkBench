@@ -30,3 +30,9 @@ test('observer failure cannot be revived by a capture update using stale process
   daemon.observationFailed();bridge.status={proxyBound:true,proxyReadyAt:'2026-10-12T01:00:02Z'};runtime.emit('capture.updated',bridge.status);
   assert.equal(daemon.status.available,false);assert.equal(daemon.status.companionRunning,null);assert.equal(daemon.status.state,'UNKNOWN');
 });
+
+test('companion exit cannot interrupt the manually selected WebSource',()=>{
+ const {daemon,runtime}=setup();runtime.selectedSource='WebSource';
+ daemon.observe({processes:[{pid:5,startedAt:'2026-10-12T01:00:01Z'}]});
+ daemon.observe({processes:[]});assert.equal(runtime.interruptions||0,0);
+});

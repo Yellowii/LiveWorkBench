@@ -16,6 +16,7 @@ export class Runtime extends EventEmitter {
   }
   async process(raw,bytes,transport){
     try{
+      if(raw.mode==='live'&&this.activeSourceEpoch&&(raw.sourceEpoch!==this.activeSourceEpoch||raw.sourceType!==this.selectedSource)){this.log('STALE_SOURCE_RAW_RETAINED',{rawId:raw.rawId});return;}
       if(raw.format==='http-json')return this.httpEvidence(raw,bytes);
       const messages=transport?this.parser.decodeTransport(transport):this.parser.decode({...raw,bytes});
       for(const message of messages)this.publish(raw,message);
@@ -37,8 +38,14 @@ export class Runtime extends EventEmitter {
     this.publish({...raw,anchorUid:anchorUid||raw.anchorUid},{method:isCreate?'RoomCreatedObserved':'PlatformLiveEndObserved',status:'decoded',data:{common:{room_id:String(roomId)},platformStatus:room.status??null}},{created:isCreate,live:isCreate&&room.status===2,ended:Boolean(ended)});
   }
   publish(raw,message,evidence={}){
+    if(raw.mode==='live'&&this.activeSourceEpoch&&(raw.sourceEpoch!==this.activeSourceEpoch||raw.sourceType!==this.selectedSource)){this.log('STALE_SOURCE_RAW_RETAINED',{rawId:raw.rawId});return;}
     const official=message.data||null;const common=official?.common||{};
-    const roomId=common.room_id?String(common.room_id):null;
+    this.contexts??=new Map();
+    const contextKey=JSON.stringify([raw.mode,raw.runtimeNamespace,raw.sourceType,raw.sourceEpoch,raw.sourceConnectionId||raw.recordingId]);
+    const context=this.contexts.get(contextKey),commonRoom=common.room_id&&common.room_id!=='0'?String(common.room_id):null;
+    const roomId=commonRoom||raw.observedRoomId||context?.roomId||null;
+    const anchorUid=raw.anchorUid||context?.anchorUid||null;
+    if(raw.observedRoomId&&common.room_id&&common.room_id!=='0'&&String(common.room_id)!==raw.observedRoomId){this.log('ROOM_CONTEXT_CONFLICT',{rawId:raw.rawId});return;}
     const known=this.sessions.find(roomId,raw.runtimeNamespace);
     const isControlEnd=message.method==='WebcastControlMessage'&&Number(official?.action)===3;
     if(raw.mode==='live'&&roomId){
@@ -51,11 +58,13 @@ export class Runtime extends EventEmitter {
     }
     const associatedEnd=isControlEnd&&Boolean(known)&&(raw.mode!=='live'||this.activeRoom===roomId);
     if(isControlEnd&&!known)this.log('LIFECYCLE_CONTEXT_UNRESOLVED',{rawId:raw.rawId});
-    const session=this.sessions.observe({roomId,anchorUid:raw.anchorUid,mode:raw.mode,namespace:raw.runtimeNamespace,...evidence,ended:Boolean(evidence.ended||associatedEnd),evidenceRef:raw.rawId,observedAt:raw.receivedAt});
+    const session=this.sessions.observe({roomId,anchorUid,mode:raw.mode,namespace:raw.runtimeNamespace,...evidence,ended:Boolean(evidence.ended||associatedEnd),evidenceRef:raw.rawId,observedAt:raw.receivedAt});
+    if(session&&session.sessionState!=='ENDED'){this.contexts.set(contextKey,{roomId,anchorUid:session.anchorUid});if(this.contexts.size>1024)this.contexts.delete(this.contexts.keys().next().value);}
     if(session)this.emit('session.updated',session);
     const msgId=common.msg_id?String(common.msg_id):message.msg_id&&message.msg_id!=='0'?String(message.msg_id):null;
-    const key=message.method==='RoomCreatedObserved'||message.method==='PlatformLiveEndObserved'?JSON.stringify([raw.runtimeNamespace,roomId,message.method]):msgId&&msgId!=='0'?JSON.stringify([raw.runtimeNamespace,session?.anchorUid||raw.anchorUid,roomId,message.method,msgId]):null;
+    const key=message.method==='RoomCreatedObserved'||message.method==='PlatformLiveEndObserved'?JSON.stringify([raw.runtimeNamespace,roomId,message.method]):msgId&&msgId!=='0'&&roomId?JSON.stringify([raw.runtimeNamespace,session?.anchorUid||raw.anchorUid,roomId,message.method,msgId]):null;
     const extensions={};if(official?.user?.webcast_uid)extensions.userIdAlias=official.user.webcast_uid;
+    if(roomId)extensions.roomContextSource=commonRoom?'common.room_id':raw.observedRoomId?'registered-source-context':'capture-evidence';
     const seconds=Number(common.create_time),milliseconds=seconds*1000;
     const validTime=Number.isFinite(milliseconds)&&Math.abs(milliseconds)<=8.64e15&&Number.isSafeInteger(seconds)&&seconds>0;
     const occurredAt=validTime?new Date(milliseconds).toISOString():null;

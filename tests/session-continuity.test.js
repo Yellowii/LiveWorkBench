@@ -56,3 +56,14 @@ test('repeated control end is idempotent and does not recreate an ended room',as
  assert.equal(r.store.sessions()[0].endedAt,first.endedAt);
  assert.equal(r.activeRoom,null);assert.equal(r.store.countRaw(),3);
 });
+
+test('roomless messages inherit only a previously evidenced capture context',async t=>{
+ const {r}=await setup(t);await r.ingest({...httpCreate(),recordingId:'capture-A'});
+ const type=r.parser.native.root.lookupType('webcast.im.ChatMessage');
+ const bytes=type.encode(type.fromObject({common:{msg_id:'8'},content:'synthetic context'})).finish();
+ await r.ingest({bytes,format:'business-payload',method:'WebcastChatMessage',recordingId:'capture-A'});
+ const bound=r.store.events({method:'WebcastChatMessage'}).items[0];assert.equal(bound.roomId,'100');assert.equal(bound.anchorUid,'200');
+ assert.equal(bound.payload.official.common.room_id,'0');assert.equal(bound.payload.extensions.roomContextSource,'capture-evidence');
+ await r.ingest({bytes,format:'business-payload',method:'WebcastChatMessage',recordingId:'capture-B'});
+ const unbound=r.store.events({method:'WebcastChatMessage'}).items[0];assert.equal(unbound.roomId,null);assert.equal(unbound.sessionId,null);
+});

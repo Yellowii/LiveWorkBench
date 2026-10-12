@@ -20,7 +20,7 @@ export async function publicProjection(dataDir,{allowPrivateDetails=false}={}){
     if(typeof value==='string'&&(/^[A-Z]:[\\/]/i.test(value)||/^\\\\/.test(value)||/^https?:\/\//i.test(value)))return '[location]';
     if(value===null||value===undefined||allowPrivateDetails)return value;
     if(/^(?:content|text|nickname|nick_name|default_pattern|defaultPattern|display_name|displayName|description|signature)$/i.test(field)&&typeof value==='string')return '[text]';
-    if(/^(?:room_?id|anchor_?uid|user_?id|sec_?uid|webcast_?uid|id_?str|id|unique_?id|display_?id|short_?id|msg_?id|index_?msg_?id|userIdAlias)$/i.test(field)){
+    if(/^(?:room_?id|room_?id_?str|anchor_?uid|anchor_?id|user_?id|user_?uid|uid|sec_?uid|webcast_?uid|id_?str|id|unique_?id|display_?id|short_?id|msg_?id|index_?msg_?id|userIdAlias)$/i.test(field)){
       const domain=/room/i.test(field)?'room':/msg/i.test(field)?'message':'identity';
       return pseudonym(String(value),domain);
     }

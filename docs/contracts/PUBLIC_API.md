@@ -6,7 +6,7 @@
 
 Node 同源 Gateway 默认 127.0.0.1:18780，首页设置 HttpOnly/SameSite Strict 会话；REST/WS 均认证，控制命令要求 commandId。匿名控制拒绝，LAN 未启用。当前有 system/status、health、capabilities、hook/status、events/详情、recordings、sessions、logs、operations、replays 与基础模块/进程指标。system/history 指标返回 unavailable。
 
-开发入口 `POST /api/v1/development/r01-runs` 输入 `{commandId,goldenOnly}`，返回 operation；原目录仅由本地私有设置登记，不接受前端任意文件路径。`POST /api/v1/replays` 输入 recordingId；`POST /replays/{id}/actions` 支持 play/pause/step/stop/seek/rebuild、expectedVersion/speed/target。`POST /capture/actions` 仅 start/stop，不实现自动或人工 Web 切换。capture start 未配置授权证书返回 TLS_CERTIFICATE_REQUIRED。
+开发入口 `POST /api/v1/development/r01-runs` 输入 `{commandId,goldenOnly}`，返回 operation；原目录仅由本地私有设置登记，不接受前端任意文件路径。`POST /api/v1/replays` 输入 recordingId；`POST /replays/{id}/actions` 支持 play/pause/step/stop/seek/rebuild、expectedVersion/speed/target。`GET /sources` 返回选中来源/sourceEpoch/stateVersion。`POST /capture/actions` 支持 start/stop/switch；switch携带sourceType及expectedVersion，停止旧来源后仅选择新来源，需要再次人工start；默认禁止自动故障切换。LiveHook start 缺证书返回 TLS_CERTIFICATE_REQUIRED，Web start 缺配置/准备模块返回明确不可用原因。
 
 system/status 与 hook/status 包含只读 daemon 状态，WS 增量为 daemon.updated；字段有 available/state/reason/restartRequired/companionRunning/processInstances/lastObservedAt/stateVersion。proxyBound、进程顺序与 HookReady 分开；进程观察不产生开闭播事件，不提供终止或自动重启伴侣命令。
 

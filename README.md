@@ -11,12 +11,13 @@ Windows 本地直播工作台。默认 LiveHookSource，WebSource 由人工选�
 ```powershell
 npm ci
 npm run setup:parser -- --fetch
+npm run setup:websource -- --fetch
 npm run build:capture
 npm test
 npm start
 ```
 
-打开 <http://127.0.0.1:18780>。首版提供持久化消息分页、官方结果/独立增强/RAW 引用、日志与基础指标、隔离回放的播放/暂停/单步/跳转，以及只读伴侣进程/启动顺序/退出重启提示。WebSource 人工切换、完整 daemon 恢复、通知与业务消费者尚未实现，当前能力接口明确标记不可用。
+打开 <http://127.0.0.1:18780>。提供持久化消息分页、官方结果脱敏投影/独立增强/RAW 引用、日志与基础指标、隔离回放的播放/暂停/单步/跳转，以及伴侣进程/启动顺序/退出重启提示。可人工选择 LiveHookSource/WebSource，再独立启动；切换停止旧来源并保留场次，不自动故障切换。真实连接、完整 daemon 恢复、通知与业务消费者仍待相应验证。
 
 本次已启动的更新实例是 <http://127.0.0.1:18781>，使用独立 `data/daemon-increment`。旧18780实例保留。可用 LW_PORT/LW_DATA_DIR 配置独立实例，避免覆盖已有进程。
 
@@ -25,6 +26,8 @@ npm start
 采集默认停止。真实 TLS 捕获还需要本地配置已授权的 `certificatePath`、可选 `certificatePassword`、`capturePort`（默认 18827）及人工客户端路由/伴侣重启。本项目不自动改变系统代理、信任证书、关闭伴侣或修改安装文件；密码不得放入公开文档或提交。第三方来源与许可见 [THIRD_PARTY_NOTICES](THIRD_PARTY_NOTICES.md)。
 
 ## 权威入口
+
+WebSource 的 WSS URL/Cookie/User-Agent 只登记在 `.local/settings.json` 的 `webSource` 对象；可选 `roomId` 是平台实际 roomId，不能拿网页短房号代替。配置不经公共 API 传入或返回。默认目标仅接受 douyin.com 下标准443端口WSS，回连/心跳/ACK复用固定上游实现，RAW提交前不会解码或ACK。入站二进制WebSocket消息为采集范围；队列上限触发显式缺口诊断，不能宣称保存了TCP/所有控制帧。
 
 公开仓库不包含真实 RAW、R01 Golden 定位清单、历史证据及运行数据；原本地文件保留。官方解析器与协议资源因再分发授权未确认，也不进入 Git；准备命令从固定上游版本下载六个文件并验证哈希。已有本地参考源码时可使用 `npm run setup:parser -- --source <protobuf-live 目录>`。真实样本回归需要在受控本机单独登记样本及本地 Golden 清单，公开自动化测试仅使用合成输入。
 

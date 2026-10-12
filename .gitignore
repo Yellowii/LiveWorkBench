@@ -57,3 +57,5 @@
 /src/parser/decode.js
 /src/parser/wire.js
 /src/parser/vendor/
+/src/parser/live.js
+/src/parser/live-raw-first*.js

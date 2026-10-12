@@ -139,3 +139,9 @@ MetricSample 包含 sampledAt、scope/system/process/module、name、value/null�
 ### 场次连续性实现补充（2026-10-12）
 
 SessionManager 的 stateVersion 仅反映语义状态/身份变化；重复证据更新 lastObservedAt 和最近100个不透明 evidenceRefs，完整原始输入仍由 RAW 保留。唯一未结束 live 场次可恢复选中 room；多候选仅提示核对。未关联结束响应不能生成已结束场次，已结束房间迟到 create 不抢占新场；同 RoomId 复用须独立核对。HTTP status_code 必须明确为0，status=2 仅标平台在播观察，不证明实际推流。匿名主播补全后已有 dedup 键的迁移尚未实现，不能宣称所有上下文补全场景去重已通过。
+
+### 人工来源与上下文补全实现（2026-10-12）
+
+SourceController 串行控制，selection/epoch/version持久化，重启不自动采集。switch停止旧来源后选择目标，start为独立人工命令，无自动故障切换；旧epoch/source已采输入继续RAW保存，禁止发布到当前live域。Web复用固定连接/心跳/ACK/有限同来源重连，独立适配await RAW commit后解码/ACK。RAW记录receivedAt、sourceConnectionId、transport/direction及重组消息边界，队列超过上限显式记缺口。
+
+Session验证主播冲突后，EventStore对同namespace/room/method/有效msgId补查旧事件，兼容匿名主播后续补全，不重写已有原生输出。缺room保留独立事件而不共享空上下文去重键；缺room仅从同capture/connection及source/epoch的已确认消息/HTTP证据补全，扩展记录来源。公开接口仍默认脱敏，配置URL/Cookie不进入DTO。

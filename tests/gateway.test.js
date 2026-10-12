@@ -30,3 +30,18 @@ test('concurrent retries advance replay once and competing versions conflict',as
   const different=await Promise.all([post({...body,commandId:'step-a',expectedVersion:'2'}),post({...body,commandId:'step-b',expectedVersion:'2'})]);
   assert.deepEqual(different.map(x=>x.status).sort(),[200,409]);assert.equal(app.runtime.replayView(replay.replayId).position,2);
 });
+
+test('formal capture switch is manual, versioned, authenticated and preserves session identity',async t=>{
+ const dir=await fs.mkdtemp(path.join(os.tmpdir(),'lw-switch-api-')),app=await createGateway({dataDir:dir,port:0});
+ t.after(async()=>{await app.close();await fs.rm(dir,{recursive:true,force:true});});
+ const cookie=(await fetch(app.url)).headers.get('set-cookie').split(';')[0],headers={Cookie:cookie,Origin:app.url,'Content-Type':'application/json'};
+ const sourcesResponse=await fetch(app.url+'/api/v1/sources',{headers});assert.equal(sourcesResponse.status,200);
+ const source=(await sourcesResponse.json()).data;
+ assert.equal(source.selectedSource,'LiveHookSource');
+ const session=app.runtime.sessions.observe({roomId:'100',anchorUid:'200'});
+ const response=await fetch(app.url+'/api/v1/capture/actions',{method:'POST',headers,body:JSON.stringify({commandId:'manual-switch',expectedVersion:source.stateVersion,action:'switch',sourceType:'WebSource'})});
+ assert.equal(response.status,200);assert.equal((await response.json()).data.selectedSource,'WebSource');
+ assert.equal(app.runtime.store.sessions()[0].sessionId,session.sessionId);assert.notEqual(app.runtime.store.sessions()[0].sessionState,'ENDED');
+ const stale=await fetch(app.url+'/api/v1/capture/actions',{method:'POST',headers,body:JSON.stringify({commandId:'stale-switch',expectedVersion:source.stateVersion,action:'switch',sourceType:'LiveHookSource'})});assert.equal(stale.status,409);
+ const status=(await (await fetch(app.url+'/api/v1/system/status',{headers})).json()).data;assert.equal(status.selectedSource,'WebSource');
+});
