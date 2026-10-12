@@ -1,0 +1,21 @@
+import test from 'node:test';
+import assert from 'node:assert/strict';
+import fs from 'node:fs/promises';
+import os from 'node:os';
+import path from 'node:path';
+import {WebSocketServer} from 'ws';
+import {createGateway} from '../src/server.js';
+import {WebSource} from '../src/web-source.js';
+const wait=async check=>{const deadline=Date.now()+4000;while(!check()){if(Date.now()>deadline)throw new Error('AUTO_SOURCE_TIMEOUT');await new Promise(resolve=>setTimeout(resolve,20));}};
+test('confirmed synthetic monitor drives the formal source into RAW/Parser and stops only owned room',async t=>{
+ const dir=await fs.mkdtemp(path.join(os.tmpdir(),'lw-auto-source-')),app=await createGateway({dataDir:dir,port:0});const wss=new WebSocketServer({host:'127.0.0.1',port:0});await new Promise(resolve=>wss.once('listening',resolve));let connects=0;
+ t.after(async()=>{await app.close();for(const ws of wss.clients)ws.terminate();await new Promise(resolve=>wss.close(resolve));await fs.rm(dir,{recursive:true,force:true});});
+ const r=app.runtime,encode=(name,value)=>{const type=r.parser.native.root.lookupType('webcast.im.'+name);return type.encode(type.fromObject(value)).finish();};
+ wss.on('connection',ws=>{connects++;ws.send(encode('PushFrame',{payload:encode('Response',{messages:[{method:'WebcastChatMessage',payload:encode('ChatMessage',{common:{room_id:'100',msg_id:'55'},content:'synthetic automatic'}),msg_id:'55'}]})}));});
+ app.sources.web=new WebSource(r,{allowLocalTest:true,mode:'test'});app.sources.connectionResolver.directProvider=async()=>({url:`ws://127.0.0.1:${wss.address().port}`,roomId:'100',anchorUid:'200',expiresAt:Date.now()+60000});
+ await app.sources.action({action:'switch',sourceType:'WebSource',expectedVersion:app.sources.view().stateVersion});
+ const p=app.profiles.create({target:{type:'web_rid',value:'123'},enabled:true,autoStart:true,autoStop:true,confirmations:1});let state='LIVE';app.monitor.adapter={probe:async()=>({state,roomId:'100',anchorUid:'200',web_rid:'123',source:'synthetic'})};
+ await app.monitor.check(p.profileId);await wait(()=>r.store.countEvents()===1);await app.coordinator.evaluate();assert.equal(connects,1);assert.equal(r.store.countRaw(),1);assert.equal(r.store.events({}).items[0].payload.official.content,'synthetic automatic');
+ state='UNKNOWN';await app.monitor.check(p.profileId);await app.coordinator.evaluate();assert.equal(app.sources.view().captureState,'CONNECTED');
+ state='ENDED';await app.monitor.check(p.profileId);await app.coordinator.evaluate();assert.equal(app.sources.view().captureState,'STOPPED');assert.ok(app.coordinator.view().history.some(x=>x.code==='PROFILE_ENDED_STOP'));
+});

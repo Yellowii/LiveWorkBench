@@ -76,3 +76,12 @@ test('WebSource keeps protocol heartbeat and ACK across a local reconnect withou
  await source.start({url:`ws://127.0.0.1:${wss.address().port}`,sourceEpoch:'2'});await wait(()=>connects>=2&&acks>=2&&heartbeats>=1&&r.store.countRaw()===2);
  const inputs=r.store.rawFor(source.captureId);assert.notEqual(inputs[0].sourceConnectionId,inputs[1].sourceConnectionId);assert.equal(r.store.countEvents(),1);assert.ok(source.controlFrames>=1);assert.ok(r.gaps.page().items.some(x=>x.reason==='WEB_CONNECTION_INTERRUPTED'));
 });
+
+test('fresh connection parameters are fetched on every reconnect and expire closed',async t=>{
+ const r=await setup(t),wss=new WebSocketServer({host:'127.0.0.1',port:0});await new Promise(resolve=>wss.once('listening',resolve));
+ const source=new WebSource(r,{allowLocalTest:true,mode:'test',testOptions:{minConnectMs:10,testRetryDelayMs:20}});let refreshes=0,connections=0;
+ t.after(async()=>{await source.stop();for(const ws of wss.clients)ws.terminate();await new Promise(resolve=>wss.close(resolve));});
+ wss.on('connection',ws=>{connections++;ws.send(frame(r));setTimeout(()=>ws.terminate(),40);});
+ await source.start({url:`ws://127.0.0.1:${wss.address().port}`,refreshConnection:async()=>{refreshes++;if(refreshes>1)throw new Error('WEB_DYNAMIC_PARAMETERS_EXPIRED');return {url:`ws://127.0.0.1:${wss.address().port}`};}});
+ await wait(()=>source.status.captureState==='FAILED');assert.equal(connections,1);assert.equal(refreshes,2);assert.equal(r.store.countRaw(),1);
+});

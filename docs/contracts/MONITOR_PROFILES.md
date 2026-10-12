@@ -11,3 +11,11 @@ LiveMonitor.probe输入Profile，输出state/evidence；监控连接不采集弹
 受认证本机API：GET /profiles与/monitor；POST /profiles {profile,commandId}；POST /profiles/{profileId}/actions {action:update/delete/check/resolve,expectedVersion,patch,commandId}。update/delete要求版本；输入仅写，编辑留空保留；返回目标类型/是否已登记与脱敏解析结果，不返回value/URL/authRef。WS monitor.updated输出同一脱敏投影。API禁止输入任意私有路径；LAN仍不可用。
 
 普通配置保存不会切源或开始采集；自动调度与浏览器后续增量单独记录。真实身份解析/平台状态与生产长期监控尚待实机验收。
+
+## 自动调度增量 B
+
+MonitorCoordinator订阅monitor.updated/Event后的已确认状态，串行选取enabled/autoStart、当前人工选中来源、可信身份/roomId、最新成功检测且配置版本匹配的候选。仅STOPPED/FAILED资源可启动，不抢占活动room；最高priority优先，同最高等级冲突PROFILE_SELECTION_REQUIRED，手动start指定候选。operation/profile/version/room/identity/stateVersion与持久化尝试/绑定确保重复检查不建第二条连接。失败有冷却/次数限制；参数失效/鉴权策略等终止原因需人工重试。手动stop/switch抑制当前已确认直播信号；手动start重新启用。UNKNOWN不停止；确认END只停止本调度拥有且身份/room匹配的连接。SessionManager仍独立；此阶段stop是采集停止，不直接伪造场次结束。
+
+GET /coordinator返回脱敏状态与最近100操作。Profile actions新增start/stop。SourceController.startProfile是内部串行入口，不能在REST传入WSS/Cookie；同一控制队列复查来源、版本、房间占用。WebConnectionResolver只接受新鲜且匹配身份/room的受控provider参数；公开上游没有动态签名获取，默认直连返回WEB_DYNAMIC_PARAMETERS_UNAVAILABLE。显式browser或browserFallback才产生官方页面目标；浏览器未准备时BROWSER_NOT_PREPARED。
+
+WebSource本地v5适配每次连接/重连调用参数刷新，失败停止且不重用旧URL；生产原15秒心跳/指数抖动/403与429策略停止保留。用户autoReconnect/retryLimit传入原客户端。不修改Parser、上游live.js、既有v4或references。

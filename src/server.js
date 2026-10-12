@@ -14,6 +14,7 @@ import {LogExports} from './log-export.js';
 import {GatewaySocketHub} from './gateway-websocket.js';
 import {ProfileStore} from './profiles/profile-store.js';
 import {LiveMonitor} from './monitor/live-monitor.js';
+import {MonitorCoordinator} from './coordinator/monitor-coordinator.js';
 
 const root=path.resolve(path.dirname(fileURLToPath(import.meta.url)),'..');
 const publicDir=path.join(root,'public');
@@ -25,6 +26,8 @@ export async function createGateway({dataDir,port=18780,settings={}}={}){
   monitor.on('monitor.updated',data=>runtime.emit('monitor.updated',data));
   monitor.on('monitor.event',data=>runtime.log('MONITOR_STATE_CHANGED',{profileId:data.profileId,state:data.state,stateVersion:data.stateVersion}));
   monitor.on('monitor.error',data=>runtime.log(data.code,{profileId:data.profileId}));
+  const coordinator=new MonitorCoordinator({profiles,monitor,sources,log:(code,details)=>runtime.log(code,details)});
+  coordinator.on('coordinator.updated',data=>runtime.emit('coordinator.updated',data));
   const exportsProjection=await publicProjection(runtime.dataDir),logExports=new LogExports(runtime,exportsProjection.project);
   const token=randomUUID();const commands=new Map(),jobs=new Set();let url;
   const ok=(res,data,status=200)=>{res.writeHead(status,{'Content-Type':'application/json; charset=utf-8','Cache-Control':'no-store'});res.end(JSON.stringify({schemaVersion:'1',requestId:randomUUID(),data:publicSafe(data),serverTime:new Date().toISOString()}));};
@@ -48,6 +51,7 @@ export async function createGateway({dataDir,port=18780,settings={}}={}){
       if(req.method==='GET'){
         if(p==='/api/v1/profiles')return ok(res,{items:profiles.list().map(item=>({...item,monitor:monitor.view(item.profileId)}))});
         if(p==='/api/v1/monitor')return ok(res,{items:monitor.list(),platformEvidenceOnly:true});
+        if(p==='/api/v1/coordinator')return ok(res,coordinator.view());
         if(p==='/api/v1/system/status')return ok(res,{backendReady:true,selectedSource:sources.view().selectedSource,sourceControl:sources.view(),capture:sources.view().selectedSource==='WebSource'?sources.web.status:bridge.status,daemon:daemon.status,sessions:runtime.store.sessions(),metrics:runtime.metrics,privacy:{mode:projection.mode,projectionVersion:projection.version},liveEnvironmentAuthorized:Boolean(settings.certificatePath)});
         if(p==='/api/v1/health')return ok(res,{status:'ok',storage:'sqlite-wal-full',parser:'official',gatewayWebsocket:socketHub.view()});
         if(p==='/api/v1/capture/gaps')return ok(res,runtime.gaps.page({limit:u.searchParams.get('limit')}));
@@ -87,10 +91,13 @@ export async function createGateway({dataDir,port=18780,settings={}}={}){
         if(body.action==='update')result=profiles.update(id,body.patch,body.expectedVersion);
         else if(body.action==='delete')result=profiles.delete(id,body.expectedVersion);
         else if(body.action==='check')result=await monitor.check(id);
+        else if(body.action==='start')result=await coordinator.start(id);
+        else if(body.action==='stop')result=await coordinator.manualStop();
         else if(body.action==='resolve')result=await monitor.adapter.resolver.resolve(profiles.get(id).target,{timeoutMs:profiles.get(id).timeoutMs});
         else throw new Error('CAPABILITY_UNAVAILABLE');monitor.sync();
       }else if(p==='/api/v1/capture/actions'){
         result=await sources.action(body);
+        if(['stop','switch'].includes(body.action))coordinator.suppress();
       }else if(p==='/api/v1/logs/exports'){
         if(body.format&&body.format!=='jsonl')throw new Error('CAPABILITY_UNAVAILABLE');result=operation('logs.export',()=>logExports.create(body.filters||{}));status=202;
       }else if(p==='/api/v1/development/r01-runs'){
@@ -109,12 +116,12 @@ export async function createGateway({dataDir,port=18780,settings={}}={}){
   const wss=new WebSocketServer({noServer:true,maxPayload:65536});
   const socketHub=new GatewaySocketHub(wss,runtime,settings.gatewayHeartbeat);
   server.on('upgrade',(req,socket,head)=>{if(req.url!=='/api/v1/ws'||!authorized(req)||(req.headers.origin&&req.headers.origin!==url)){socket.end('HTTP/1.1 403 Forbidden\r\n\r\n');return;}wss.handleUpgrade(req,socket,head,ws=>{wss.emit('connection',ws,req);ws.send(JSON.stringify({channel:'subscription.ready',data:{latestEventSeq:runtime.store.eventHighWatermark(),resume:'GET /events with afterSeq and snapshot cursor',live:true}}));});});
-  for(const channel of ['monitor.updated','events.appended','log.appended','session.updated','operation.updated','replay.updated','capture.updated','daemon.updated','source.updated'])runtime.on(channel,data=>socketHub.publish(channel,publicSafe(data)));
+  for(const channel of ['coordinator.updated','monitor.updated','events.appended','log.appended','session.updated','operation.updated','replay.updated','capture.updated','daemon.updated','source.updated'])runtime.on(channel,data=>socketHub.publish(channel,publicSafe(data)));
   for(const channel of ['events.appended','log.appended','session.updated','replay.updated'])runtime.replayEngine.ui.on(channel,data=>socketHub.publish(channel,publicSafe(data)));
   try{await new Promise((resolve,reject)=>{server.once('error',reject);server.listen(port,'127.0.0.1',resolve);});}catch(error){await daemon.close();await sources.close();await runtime.close();throw error;}url=`http://127.0.0.1:${server.address().port}`;
   runtime.log('GATEWAY_STARTED');
   monitor.sync();
-  return {runtime,bridge,daemon,sources,profiles,monitor,url,server,wss,socketHub,async close(){for(const op of runtime.operations.values())op.cancelled=true;await monitor.close();await daemon.close();await sources.close();socketHub.close();await new Promise(resolve=>server.close(resolve));await Promise.allSettled([...jobs]);await runtime.close();}};
+  return {runtime,bridge,daemon,sources,profiles,monitor,coordinator,url,server,wss,socketHub,async close(){for(const op of runtime.operations.values())op.cancelled=true;await coordinator.close();await monitor.close();await daemon.close();await sources.close();socketHub.close();await new Promise(resolve=>server.close(resolve));await Promise.allSettled([...jobs]);await runtime.close();}};
 }
 if(process.argv[1]&&path.resolve(process.argv[1])===fileURLToPath(import.meta.url)){
   let settings={};try{settings=JSON.parse(await fs.readFile(path.join(root,'.local/settings.json'),'utf8'));}catch{}

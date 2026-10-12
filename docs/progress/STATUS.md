@@ -305,3 +305,11 @@ A验证：新增6项回归先失败后通过；独立C#构建退出0，全套76/
 后续B/C/D继续；直连上游没有动态签名发现入口，不能把静态URL作为自动连接已完成。浏览器按Profile显式启用，私有登录保护及SDK ACK边界需独立实现/验证。长期18783启动依然未部署，旧18782后端不支持Profile面板时禁用。
 
 独立待办保留：孤立RAW崩溃恢复、fallback journal跨重启查询、Replay控制job重启恢复；均未在此增量标完成。
+
+A已推送11f0b741598720927495729d0185f8044da34fbc，远程main一致。
+
+B交付：coordinator/monitor-coordinator、capture/websource/connection-resolver、SourceController内部profile启动/停止、REST/GUI调度入口；单源/单房/最高优先级/同级人工选择、重复状态幂等、手动停止抑制、UNKNOWN不停止、匹配END停止自有连接、失败冷却/有界重试。WebSource v5每次重连刷新参数，失效不复用原URL；原15秒心跳/协议ACK与RAW优先仍复用。原六文件/v4/参考仓库未改。
+
+B新验证先失败后通过：4项调度/参数回归、1项实际本机WSS自动连接→RAW→官方Parser/未知检测保持/确认END停止、1项参数刷新失效停止，现有重连心跳/ACK测试复用。真实动态签名获取仍未实现（上游仅接受签名URL）；默认显示WEB_DYNAMIC_PARAMETERS_UNAVAILABLE，不能声称纯ID直连生产可用。浏览器开关允许的路径继续C。最终全套/GUI/构建结果在提交时追加。
+
+B完成验证：全套82/82；Profile/调度GUI与既有160事件历史/RAW/Proto/Replay GUI均浏览器错误0，C#保持A独立成功构建（本增量未改C#）。v5固定源/输出哈希准备命令成功。未启动长期实例、未连接真实平台或伴侣。调度实现通过合成验收，真实直接自动连接仍有上述参数缺口。

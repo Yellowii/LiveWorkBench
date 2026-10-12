@@ -14,6 +14,7 @@ try{
  app.monitor.adapter={probe:async()=>({state:'LIVE',roomId:'9876543210123456789',anchorUid:'456',web_rid:'123',source:'synthetic'})};
  await page.locator('#profileCheck').click();await page.waitForFunction(()=>document.getElementById('profileState').textContent.includes('"confirmationCount": 1'));
  await page.locator('#profileCheck').click();await page.waitForFunction(()=>document.getElementById('profileState').textContent.includes('"confirmedState": "LIVE"'));
+ await page.locator('#profileStart').click();await page.waitForFunction(()=>document.getElementById('coordinateState').textContent.includes('NO_MATCHING_READY_PROFILE'));assert.equal(app.sources.view().captureState,'STOPPED');
  await page.locator('#profileName').fill('synthetic edited');await page.locator('#profileSave').click();await page.waitForFunction(()=>document.getElementById('profileState').textContent.includes('synthetic edited'));
  assert.equal(app.profiles.all()[0].target.value,'123');assert.equal(app.sources.view().selectedSource,'LiveHookSource');
  await page.locator('#profileDelete').click();await page.waitForFunction(()=>document.getElementById('profileSelect').options.length===1);
