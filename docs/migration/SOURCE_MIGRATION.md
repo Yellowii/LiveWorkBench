@@ -8,6 +8,8 @@
 
 首批迁移：`src/capture/BarrageGrab` 保留 HTTP/WS、protobuf-net 外层与 gzip，改第一方入口/loopback、关闭自动证书信任、移除可达系统代理/伴侣修改，早期 RAW ACK 后解包。明确修复 WS 握手识别及跨回调分片组合，已有受控网络回归。`src/parser` 提取 douyinprotobuf 的 parser/decode/wire/vendor，原文件 hash 不变；正式桥接在外层适配。成熟源码来源/commit/MIT 与官方资源 provenance 分别保留于 THIRD_PARTY_NOTICES、采集 LICENSE 及 parser/extraction.json。一次性提取工具拒绝覆盖后续第一方改造。
 
+2026-10-13 P0-A 第一阶段：修复 Titanium 3.2.2-beta TLS 运行缺少 BouncyCastle.Cryptography 2.0.0 引用及 RSA PFX/CSP 兼容；保留原1.8.8并用alias隔离新引用。单个RSA文件CA/内存私钥签名、临时叶证书EphemeralKeySet、独立127.0.0.1:18827的HTTPS/分片WSS→RAW→C#→官方Parser→测试场次子能力已受控验证；不等于真实伴侣基线。具体工具、证据和未授权边界见 [第一阶段记录](../reviews/2026-10-13-livehook-stage1.md)，references 无改动。
+
 参考 README 的历史测试结论不是本次复验，不自动计入 LiveWorkbench 进度。代码存在也不证明当前伴侣/平台版本兼容，尤其进程恢复、HTTP 字段语义和完整 RAW。
 
 ## 2. 本地 references 快照

@@ -230,3 +230,26 @@ GUI按时间从旧到新展示，向上自动续页，最多500缓存且仅渲�
 运行部署只停止本对话创建的18782/PID49192（事先确认监听归属与node名称），不停止18780/18781、旧8827/8888或用户伴侣；新版继续同一独立数据域。完整P0仍未完成：真实TLS/伴侣路由与长时间恢复、真实Web鉴权/重连、同room复用/异常核对、崩溃孤立RAW恢复、业务/设备执行出口尚待。下一步是具体授权范围下的LiveHook环境准备及实机回归，不反复审计R01。
 
 LiveHook环境审查准备：新增 hook-file-transaction.js 和合成hook-patch测试，实际index只读预览（未写入）证实将既有127.0.0.1:8827,direct://替换18827参数的一处差异。授权门禁、独立本次备份/fsync、当前/备份哈希保护、拒绝覆盖后续用户修改及原字节恢复已在合成临时文件执行。具体真实影响/证书信任边界/旧8827流量改变/手动重启与恢复步骤见 docs/reviews/2026-10-12-livehook-environment-authorization.md；真实文件及证书仍未改。该辅助事务没有公开环境写入API，实际应用需要用户明确授权。
+
+## 13. P0-A 分阶段真实环境联调：第一阶段（2026-10-13）
+
+taskId：`P0A-STAGE1-20261013`；owner/交接：本对话→用户。允许写入本项目采集桥接、TLS测试/私有准备工具、文件事务辅助及对应README/迁移/本节；公共API/核心契约0.1未变。用户授权只读环境预检、专用私有备份、127.0.0.1:18827本地测试、自动环境副作用排查和代码修正；CA信任、真实index写入、关闭/重启伴侣、旧服务/配置操作仍不在本阶段授权内。没有自动派工或消息其他对话。
+
+实际交付：`capture-bridge.js`、`CaptureHost.cs`、`Proxy/TitaniumProxy.cs`、csproj补上实际TLS缺失依赖/文件RSA CA的内存CSP兼容与叶证书EphemeralKeySet；保留HTTP/WSS必要代理机制，自动信任三个false、Start(false)、仅loopback、无系统代理/安装修改调用。测试上游证书精确匹配仅test/smoke，正式SourceController/Gateway不传此设置。新增`tools/create-livehook-test-certificates.py`、`livehook-tls-probe.mjs`、`livehook-environment-snapshot.ps1`；新TLS用例从“未解密未入RAW”失败、依赖缺失、RSA私钥类型错误定位后修复，未靠导入证书解决。
+
+准备与恢复：`prepareHookBackup`只写本次私有原字节备份及未应用journal；不调用apply。合成回归发现rename丢目标ACL，授权后应用/恢复改用Windows File.Replace且不忽略元数据错误，ACL/哈希/后续编辑保护验证通过。真实index hash/ACL始终未改。`build-capture.ps1 -OutputDirectory`支持本项目独立构建，LW_CAPTURE_EXE选择测试程序；默认构建曾因旧observer占用失败，不停止旧进程，以独立构建成功解决。
+
+| 验证输入/命令 | 当前结果及范围 |
+|---|---|
+| `npm run build:capture -- -OutputDirectory C:/project/LiveWorkBench/.local/livehook-stage-build` | 构建退出0；完整编译6个既有警告，无新增错误；.NET4.8运行时/4.6.2目标、Titanium3.2.2-beta |
+| `$env:LW_CAPTURE_EXE=...; npm test` | **50/50通过**，包括HTTPS/分片WSS、无CA客户端拒绝、live禁用合成上游pin、私有备份不写入口、文件应用/恢复ACL保留；Node24.15/Python3.12.10/cryptography46.0.7/PowerShell7.6.5 |
+| `node tools/livehook-tls-probe.mjs <本次私有目录> 18827` | 实际127.0.0.1:18827自有C#代理；HTTPS与gzip/分片WSS各一条、RAW字节/哈希2/2、C#传输2、官方事件2、同test Session；live事件0，HookReady=false；代理已停止 |
+| `pwsh -File tools/livehook-environment-snapshot.ps1 -RunDirectory <本次私有目录> -Verify` | 内容/ACL、Root/My四库、WinINET/Connections/WinHTTP、旧监听、伴侣实例、本次CA不在库、18827已关闭均通过。初版字典键顺序误报已修正并重新核对；没有自动写回快照 |
+
+实机只读事实：伴侣13.0.5（实际13.0.5.502287990目录），11个原进程；8827/8888始终原PID18644监听，18780/18781/18782保留；本次18827只由自有测试子进程监听回环。伴侣到8827既有连接前后各10条，证明现有路由仍存在，不证明旧业务捕获正确。Root CurrentUser/LocalMachine各51，My分别5/4，前后指纹一致；本次CA从未导入，不执行任何证书删除。
+
+证据完整值、CA指纹/私钥位置与NTFS权限、目标路径/hash/唯一参数diff、备份及后续授权动作/影响/恢复命令都在忽略的`.local/livehook/stage1-20261013-b/REPORT.md`和操作记录；不进公开Git。脱敏工程说明见 [分阶段记录](../reviews/2026-10-13-livehook-stage1.md)。RAW仍仅本地，未读/复制R01/真实捕获，官方Parser与references未改。
+
+状态：**该受控TLS增量验证通过；P0-A真实伴侣链仍实现待验收，P0未完成**。没有重新跑59Golden/全样本审计；本次未改变Parser/场次业务规则，复用已有回归和新合成TLS检验。现有18782工作台仍采集STOPPED/未登记本次证书，不宣称已部署新版TLS给该运行进程。
+
+下一步/阻塞：交付本次具体清单后，等待用户分别批准所选CA的CurrentUser Root信任与单一伴侣代理参数变更；不因时间经过视为批准。随后用户手动重启、真实HTTP/WSS/RAW/解析/场次关联/重启恢复和最终旧路由业务回切须实测；恢复只能处理本次授权新增对象，哈希冲突则保留后续修改并报告。本阶段没有这些真实验收证据。

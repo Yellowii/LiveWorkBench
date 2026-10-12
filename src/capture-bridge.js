@@ -8,13 +8,15 @@ const root=path.resolve(path.dirname(fileURLToPath(import.meta.url)),'..');
 
 export class CaptureBridge {
   constructor(runtime){this.runtime=runtime;this.child=null;this.pending=new Map();this.stats={csharpTransport:0,fallback:0};this.status={hookReady:false,proxyBound:false,captureState:'STOPPED',reason:'TLS_CERTIFICATE_REQUIRED'};this.queue=Promise.resolve();}
-  async start({stdio=false,networkSmoke=false,mode='live',port=18827,certificatePath,certificatePassword,sourceEpoch='1'}={}){
-    if(this.child||this.starting)throw new Error('SOURCE_BUSY');if(networkSmoke&&mode!=='test')throw new Error('TEST_MODE_REQUIRED');if(!stdio&&!networkSmoke&&!certificatePath)throw new Error('TLS_CERTIFICATE_REQUIRED');
+  async start({stdio=false,networkSmoke=false,mode='live',port=18827,certificatePath,certificatePassword,testUpstreamCertificate,sourceEpoch='1'}={}){
+    if(this.child||this.starting)throw new Error('SOURCE_BUSY');if((networkSmoke||testUpstreamCertificate)&&mode!=='test')throw new Error('TEST_MODE_REQUIRED');if(testUpstreamCertificate&&!networkSmoke)throw new Error('TEST_MODE_REQUIRED');if(!stdio&&!networkSmoke&&!certificatePath)throw new Error('TLS_CERTIFICATE_REQUIRED');
     this.starting=true;this.cancelStart=false;
     try{
-    const exe=path.join(root,'src/capture/BarrageGrab/bin/Debug/LiveWorkbench.CaptureHost.exe');await fs.access(exe);
+    const exe=process.env.LW_CAPTURE_EXE?path.resolve(process.env.LW_CAPTURE_EXE):path.join(root,'src/capture/BarrageGrab/bin/Debug/LiveWorkbench.CaptureHost.exe');await fs.access(exe);
     if(this.cancelStart)throw new Error('CAPTURE_START_CANCELLED');
     const args=stdio?['--stdio','--smoke']:networkSmoke?['--smoke','--port',String(port)]:['--port',String(port),'--certificate',certificatePath];
+    if(networkSmoke&&certificatePath)args.push('--certificate',certificatePath);
+    if(testUpstreamCertificate)args.push('--test-upstream-certificate',testUpstreamCertificate);
     this.captureId=randomUUID();this.mode=mode;this.sourceEpoch=sourceEpoch;
     this.child=spawn(exe,args,{cwd:path.dirname(exe),windowsHide:true,stdio:['pipe','pipe','pipe'],env:{...process.env,LW_CERT_PASSWORD:certificatePassword||''}});
     this.status={...this.status,captureState:'STARTING'};

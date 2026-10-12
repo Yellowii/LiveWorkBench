@@ -32,6 +32,7 @@ namespace BarrageGrab.Proxy
     internal class TitaniumProxy : SystemProxy
     {
         ProxyServer proxyServer = null;
+        RSACryptoServiceProvider rootSigningKey;
         ExplicitProxyEndPoint explicitEndPoint = null;
         ExternalProxy upStreamProxy = null;
         List<string> rinfoRequestings = new List<string>();
@@ -84,6 +85,7 @@ namespace BarrageGrab.Proxy
             //RegisterSystemProxy();
             // Explicitly disable Titanium's default CurrentUser-root trust during Start().
             proxyServer = new ProxyServer(false, false, false);
+            proxyServer.ExceptionFunc = error => { if (LiveWorkbench.CaptureHost.SmokeMode) Console.Error.WriteLine(error); };
 
             proxyServer.ReuseSocket = false;
             proxyServer.EnableConnectionPool = true;
@@ -92,10 +94,25 @@ namespace BarrageGrab.Proxy
 
             // LiveWorkbench: external managed certificate only; NEVER install/trust.
             proxyServer.CertificateManager.SaveFakeCertificates = false;
+            // .NET 4.8 runtime supports EphemeralKeySet (32), absent in net462 refs.
+            proxyServer.CertificateManager.StorageFlag = (X509KeyStorageFlags)32 | X509KeyStorageFlags.Exportable;
             if (!string.IsNullOrWhiteSpace(LiveWorkbench.CaptureHost.CertificatePath))
-                proxyServer.CertificateManager.RootCertificate = new X509Certificate2(
-                    LiveWorkbench.CaptureHost.CertificatePath,
-                    LiveWorkbench.CaptureHost.CertificatePassword);
+            {
+                // Decode PFX in memory. Titanium's signer requires RSA CSP; importing
+                // through X509Certificate2 yields RSACng on this runtime/fixture.
+                var store = new Org.BouncyCastle.Pkcs.Pkcs12Store();
+                using (var input = File.OpenRead(LiveWorkbench.CaptureHost.CertificatePath))
+                    store.Load(input, LiveWorkbench.CaptureHost.CertificatePassword.ToCharArray());
+                var alias = store.Aliases.Cast<string>().Single(store.IsKeyEntry);
+                var privateKey = store.GetKey(alias).Key as Org.BouncyCastle.Crypto.Parameters.RsaPrivateCrtKeyParameters;
+                if (privateKey == null) throw new CryptographicException("RSA_CA_REQUIRED");
+                var certificate = new X509Certificate2(store.GetCertificate(alias).Certificate.GetEncoded());
+                rootSigningKey = new RSACryptoServiceProvider(new CspParameters(24) { Flags = CspProviderFlags.CreateEphemeralKey });
+                rootSigningKey.PersistKeyInCsp = false;
+                rootSigningKey.ImportParameters(Org.BouncyCastle.Security.DotNetUtilities.ToRSAParameters(privateKey));
+                certificate.PrivateKey = rootSigningKey;
+                proxyServer.CertificateManager.RootCertificate = certificate;
+            }
 
             //https://github.com/justcoding121/titanium-web-proxy/issues/828
 
@@ -534,6 +551,14 @@ namespace BarrageGrab.Proxy
             {
                 e.IsValid = true;
             }
+            else if (LiveWorkbench.CaptureHost.SmokeMode && LiveWorkbench.CaptureHost.TestUpstreamCertificate != null &&
+                     (e.SslPolicyErrors & SslPolicyErrors.RemoteCertificateNameMismatch) == 0)
+            {
+                // Only the explicitly pinned local fixture is accepted without OS trust.
+                // The fixture certificate has localhost/127.0.0.1 SANs; live never uses this.
+                using (var expected = new X509Certificate2(LiveWorkbench.CaptureHost.TestUpstreamCertificate))
+                    e.IsValid = e.Certificate != null && expected.RawData.SequenceEqual(e.Certificate.GetRawCertData());
+            }
             return Task.CompletedTask;
         }
 
@@ -559,6 +584,7 @@ namespace BarrageGrab.Proxy
         //检测域名白名单
         protected override bool CheckHost(string hostname)
         {
+            if (LiveWorkbench.CaptureHost.SmokeMode && (hostname == "localhost" || hostname == "127.0.0.1")) return true;
             //需要解析SSL的域名 放在这里，全开会导致性能问题，应只解析业务需要的域名
             var decryptSsls = new string[]
             {
@@ -685,6 +711,7 @@ namespace BarrageGrab.Proxy
         {
             proxyServer.Stop();
             proxyServer.Dispose();
+            rootSigningKey?.Dispose();
             if (AppSetting.Current.UsedProxy)
             {
                 // LiveWorkbench never owns or changes the system proxy.

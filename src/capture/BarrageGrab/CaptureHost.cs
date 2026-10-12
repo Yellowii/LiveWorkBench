@@ -14,7 +14,7 @@ namespace LiveWorkbench {
     // First-party entry. Does not invoke original Program/AppRuntime.Init/Hook installation.
     internal static class CaptureHost {
         internal static int Port = 18827;
-        internal static string CertificatePath, CertificatePassword;
+        internal static string CertificatePath, CertificatePassword, TestUpstreamCertificate;
         internal static bool SmokeMode;
         static TextWriter Output;
         static readonly object Gate = new object();
@@ -78,7 +78,9 @@ namespace LiveWorkbench {
                 if(args[i]=="--port")Port=int.Parse(args[++i]);
                 if(args[i]=="--certificate")CertificatePath=args[++i];
                 if(args[i]=="--smoke")SmokeMode=true;
+                if(args[i]=="--test-upstream-certificate")TestUpstreamCertificate=args[++i];
             }
+            if(!SmokeMode && TestUpstreamCertificate!=null){Emit(new {kind="diagnostic",code="TEST_MODE_REQUIRED"});return 2;}
             CertificatePassword=Environment.GetEnvironmentVariable("LW_CERT_PASSWORD")??"";
             // Read-only daemon mode: no proxy, certificate, registry or installation helper constructed.
             if(args.Contains("--observe")) {

@@ -1,4 +1,4 @@
-param([string]$PackageCache='', [string]$MSBuildPath=$env:LW_MSBUILD)
+param([string]$PackageCache='', [string]$MSBuildPath=$env:LW_MSBUILD, [string]$OutputDirectory='')
 $ErrorActionPreference='Stop'
 $root=[IO.Path]::GetFullPath((Join-Path $PSScriptRoot '..'))
 $packages=Join-Path $root 'src/capture/packages'
@@ -17,5 +17,11 @@ if (!(Test-Path -LiteralPath $packages)) {
         if ($LASTEXITCODE -ne 0) { throw "Capture restore failed: $LASTEXITCODE" }
     }
 }
-& $MSBuildPath $project /t:Build /p:Configuration=Debug /p:PostBuildEvent= /v:minimal /nologo
+$buildArguments=@($project,'/t:Build','/p:Configuration=Debug','/p:PostBuildEvent=','/v:minimal','/nologo')
+if ($OutputDirectory) {
+    $output=[IO.Path]::GetFullPath($OutputDirectory)
+    if (!$output.StartsWith($root+[IO.Path]::DirectorySeparatorChar,[StringComparison]::OrdinalIgnoreCase) -or $output -match '[\\/]references(?:[\\/]|$)') { throw 'OutputDirectory must remain inside the first-party workspace, outside references.' }
+    $buildArguments+=('/p:OutputPath='+$output+[IO.Path]::DirectorySeparatorChar)
+}
+& $MSBuildPath @buildArguments
 if ($LASTEXITCODE -ne 0) { throw "Capture build failed: $LASTEXITCODE" }
