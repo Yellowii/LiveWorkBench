@@ -400,3 +400,29 @@ Gateway新增accounts查询/版本化命令/WS状态及中文错误message/nextA
 真实验收状态：官方匿名页面布局/登录入口/二维码加载验证通过；正式18783中的用户扫码、验证码、真实账号DPAPI保存/共享到真实采集待用户手动更新后验收。RAW/Parser/Source/Session/Replay自动化回归通过，不等于真实弹幕或LiveHook恢复验收；WSS第二增量仍暂停，先等待实际登录反馈。
 
 提交前公开检查node tools/check-public.mjs：181文件、0发现；git diff --check通过。报告、遮蔽截图、合成运行数据库/RAW/证书及独立构建产物均被忽略，不入公开Git。本次只提交上述第一方修复、合成验证和必要文档。
+
+## 19. 登录交互与直播流优化边界修复（2026-10-13）
+
+任务LOGIN-INTERACTION-20261013，owner本对话→用户，基线8b6ec862f38a5cb33a75bb1752bbde573c1b156c，初始工作区干净，串行main、不派工。用户新要求替代第18节旧媒体优化范围：登录窗口不作采集优化，后台只拦已识别直播流。允许写入auth验证/保存流程、BrowserSource流策略、基于实际请求的资源权限、已有账号状态文案、测试/探针、加载版本指纹和相关契约；RAW/EventStore/Parser/references/系统网络/伴侣/旧服务不改，WSS第二增量暂停。
+
+定位证据：只读核对正式18783 PID25388、加载8b6ec86、STOPPED、无登录窗口。旧账号诊断有direct/system固定地址隧道失败，也有页面200后DOMAIN_POLICY_DENIED与LOGIN_MEDIA_BLOCKED，两者分别处理；不把代理失败归为过滤错误。匿名system模式实际解析为HTTP CONNECT代理/远端DNS，TLS正常。真实请求再次证实pull-flv-t11.douyincdn.com的FLV与pull-hls-l11-admin.douyincdn.com的HLS下载；仅保留主机、资源类型、路径类别/后缀和计数，不记录完整流URL/参数/身份。旧代码全局play改写/自动pause、按所有媒体及图片/字体拦截和任意媒体MIME停采集，与本轮需求不符。
+
+已交付代码：
+
+- login-browser-session/login-resource-policy移除播放重写、自动暂停、资源类型/名称优化；login-load-diagnostics保留脱敏失败/网络信息。根据官方页面真实已观察请求补充精确遥测/配置/包资源权限和受限投递服务角色，未全局放开任意域、IP、端口、TLS或TargetResolver/直连WSS。
+- login-account-evidence独立验证固定AccountMonitor的输出，必须受信任当前账号接口HTTP200、JSON及原生normalizer确认。HTTP500伪成功、未知形状、页面变化/Cookie存在不算认证。并发失败查询不会丢弃真正认证响应。实际匿名页面getMe出现HTTP200非JSON；official-account-query复用当前官方SDK已加载profile/self构建器补查询，已实际得到HTTP200/status_code8访客证据；不构造签名URL或把缓存对象当网络证明。
+- LoginManager增加SAVING及DPAPI写入后的快照读回比对，未通过不关闭窗口/不报告remembered；成功返回saveVerified和Cookie/origin计数。十分钟未完成只提示，不强制关窗。public/app.js只更新已有账号状态提示，无新主题。现有共享账号、opt-out/取消/空快照保护及采集不中断保留。
+- capture/browser/live-stream-policy独立分类/保护：受证实拉流服务的FLV/HLS、成功room响应声明的精确stream_url及其manifest目录ts/m4s分片；不凭通用后缀/资源类型/live或video关键词拦截。普通播放调用原生方法，已识别流才阻止下载与播放。普通/不确定媒体继续并计数，普通媒体403不停止采集。blockMedia=false关闭优化，rawBeforeAck=false保留。URLs只存当前策略内存、最多256；未知流/缓存/MSE/blob关联、规则生效前的字节不承诺全部阻断，未声明零带宽/零丢包。
+
+主要文件：src/auth/login-browser-session.js、login-resource-policy.js、login-account-evidence.js、official-account-query.js、login-manager.js、login-load-diagnostics.js；src/capture/browser/browser-source.js、live-stream-policy.js；src/network/target-policy.js、src/instance.js；public/app.js；tests/login-interaction.test.js、live-stream-policy.test.js、login-page.test.js、browser-source.test.js、network-integration.test.js；tools/probe-login-page.mjs。契约同步ACCOUNTS/MONITOR_PROFILES，均为本任务兼容补充。
+
+可复查验证与实际状态：
+
+1. 针对性回归先失败再通过：原登录拦截普通媒体；原检测接受HTTP500的成功JSON；原保存不读回即关闭；并发失败可能覆盖认证；任意普通媒体会停止来源。现验证同一URL页面按钮正常反馈、原生播放未改、有效/无效官方证据区分、失败保留窗口、等待超时不关窗、SDK补查询、真实DPAPI及既有共享/重启数据复用、普通音频实际播放，直播播放与fetch下载分别拒绝。
+2. 独立C#构建退出0：powershell -NoProfile -ExecutionPolicy Bypass -File tools/build-capture.ps1 -OutputDirectory C:\project\LiveWorkBench\.local\login-boundary\capture-build。设置LW_CAPTURE_EXE为其LiveWorkbench.CaptureHost.exe后npm test **120/120通过**，日志.local/login-boundary/final-tests.log。首次全套118/119，唯一失败是旧代理集成测试要求阻断任意/video.flv；已改为证实的拉流服务合成URL，HTTP CONNECT/SOCKS远端DNS/TLS/WSS/RAW联测复验通过，未放宽生产媒体规则来迁就旧断言。
+3. Parser6固定文件、Browser4/v5资源hash核对成功，未修改官方代码。node tools/verify-accounts.mjs和verify-history.mjs均浏览器错误0；账号共享/自动保存与160合成事件、历史锚点、虚拟滚动、重连补查、隔离Replay通过。公开检查186文件0发现、diff校验通过；运行证据、RAW/SQLite/证书/账号状态均不入Git。
+4. 真实匿名页面A/B：boundary-before脚本异常24、媒体播放0；移除优化并允许已观察普通资源后boundary-after脚本异常0、原生媒体播放4，扫码提示/二维码图像1。SDK补查询后boundary-auth-query脚本异常0、扫码图像1、正常媒体播放3、HTTP200/status_code8访客两次，confirmed=0；这是正常登录页行为，不能当后台优化失效。摘要仅本地.local/login-page/boundary-*.json，无真实账号/Cookie保存。平台仍有请求取消/隧道等诊断，不能宣称所有请求成功。工具追加visible --wait-for-user控制调试模式，不改DOM、不限时关闭、不持久化凭据，人工关闭后输出脱敏诊断；不能与layout遮蔽模式混用。
+
+真实用户验收：用户本轮明确回复“完成后我手动更新并扫码”。因此代码、本机/合成和匿名平台加载验证通过；真实扫码后页面反馈、官方确认、DPAPI保存及真实账号重启复用仍待用户在正式新版18783完成，不以合成或访客页面冒充。必要诊断可在账号pageLoad.authentication、login/saveVerified与受保护日志查看，不需发送身份/Cookie/二维码。
+
+部署/交接：未停止或重启18783，8827/8888仍PID18644；Windows代理/Clash/TUN/DNS/CA、伴侣和原数据不操作。用户在GUI停止采集并关闭旧登录窗口后，手动执行tools/restart-dev-workbench.ps1 -ExpectedPid 25388 -ExpectedCommit 8b6ec862f38a5cb33a75bb1752bbde573c1b156c；若归属/PID/版本改变助手拒绝继续。刷新核对新加载commit后登录、扫码并按需记住；窗口只有官方确认和必要保存/读回完成才自动关闭。后续先收集真实反馈；若官方形状/隧道仍失败保留窗口与原因，不继续WSS第二增量或猜测认证成功。

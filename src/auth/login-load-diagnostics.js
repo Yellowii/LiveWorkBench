@@ -1,5 +1,5 @@
 const exactHosts=new Set(['live.douyin.com','lf-webcast-platform.bytetos.com','lf-c-flwb.bytetos.com','lf-cdn-tos.bytescm.com','lf-security.bytegoofy.com','lf3-webcast.bytetos.com','security.zijieapi.com','lf-ucenter-web.yhgfb-cn-static.com','lf-rc1.yhgfb-cn-static.com','lf-rc2.yhgfb-cn-static.com','vcs.zijieapi.com']);
-const publicRoots=new Set(['douyin.com','iesdouyin.com','douyinstatic.com','douyincdn.com','douyinpic.com','byteimg.com','ibyteimg.com','bytedance.com','bytedance.net','bytedns.net','bytegecko.com','bytecdn.cn','pstatp.com','amemv.com','snssdk.com','volcengine.com','bytetos.com','bytescm.com','bytegoofy.com','applogcdn.com','zijieapi.com']);
+const publicRoots=new Set(['douyin.com','iesdouyin.com','douyinstatic.com','douyincdn.com','douyinpic.com','byteimg.com','ibyteimg.com','bytedance.com','bytedance.net','bytedns.net','bytegecko.com','bytecdn.cn','pstatp.com','amemv.com','snssdk.com','volcengine.com','bytetos.com','bytescm.com','bytegoofy.com','applogcdn.com','zijieapi.com','douyinvod.com','douyinliving.com','bytetcc.com','bytednsdoc.com','ibytedapm.com','byted-static.com','feelgood.cn']);
 const types=new Set(['document','stylesheet','script','image','font','media','xhr','fetch','websocket','other']);
 function resource(request){
   let domain='[untrusted-domain]';

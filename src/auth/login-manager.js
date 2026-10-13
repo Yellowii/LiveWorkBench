@@ -1,11 +1,13 @@
 import {EventEmitter} from 'node:events';
 import {randomUUID} from 'node:crypto';
+import {isDeepStrictEqual} from 'node:util';
 import {filterState} from './login-vault.js';
 import {LoginBrowserSession} from './login-browser-session.js';
 
 export class LoginManager extends EventEmitter {
-  constructor({accounts,vault,clientFactory=()=>new LoginBrowserSession(),profiles=()=>[],log=()=>{}}){
+  constructor({accounts,vault,clientFactory=()=>new LoginBrowserSession(),profiles=()=>[],log=()=>{},waitingTimeoutMs=600000}){
     super();this.accounts=accounts;this.vault=vault;this.clientFactory=clientFactory;this.profiles=profiles;this.log=log;this.queue=Promise.resolve();this.active=null;this.sessions=new Map();this.statuses=new Map();this.loadReports=new Map();
+    this.waitingTimeoutMs=waitingTimeoutMs;
   }
   serial(fn){const task=this.queue.catch(()=>{}).then(()=>{if(this.closed)throw new Error('AUTH_MANAGER_CLOSED');return fn();});this.queue=task;return task;}
   async view(id){const p=this.accounts.get(id),saved=await this.vault.inspect(p.vaultRef);return {authProfileId:id,name:p.name,version:p.version,rememberLogin:p.rememberLogin,networkPolicy:{mode:p.networkPolicy.mode,proxyConfigured:Boolean(p.networkPolicy.proxyUrl)},createdAt:p.createdAt,updatedAt:p.updatedAt,savedAt:saved.configured?p.savedAt||null:null,configured:saved.configured,protection:'Windows-DPAPI-CurrentUser',boundProfileIds:this.profiles().filter(x=>x.authProfileId===id).map(x=>x.profileId),pageLoad:this.active?.id===id?this.active.client.diagnostics?.()||null:this.loadReports.get(id)||null,login:this.statuses.get(id)||{state:'UNKNOWN',reasonCode:saved.configured?'AUTH_SAVED_STATE_UNVERIFIED':'AUTH_LOGIN_REQUIRED',requiresUserAction:!saved.configured}};}
@@ -26,7 +28,7 @@ export class LoginManager extends EventEmitter {
     client.on('status',status=>{void this.serial(()=>this.accept(active,status)).catch(()=>{});});
     client.on('closed',()=>{void this.serial(()=>this.cancelActive(active,'AUTH_LOGIN_WINDOW_CLOSED')).catch(()=>{});});
     this.changed(id,{state:'OPENING',operationId:active.operationId,requiresUserAction:true});
-    try{await client.open({storageState,networkPolicy:p.networkPolicy});this.changed(id,{state:'WAITING_FOR_LOGIN',operationId:active.operationId,requiresUserAction:true});active.timer=setTimeout(()=>{void this.serial(()=>this.cancelActive(active,'AUTH_LOGIN_TIMEOUT')).catch(()=>{});},600000);active.timer.unref();}
+    try{await client.open({storageState,networkPolicy:p.networkPolicy});this.changed(id,{state:'WAITING_FOR_LOGIN',operationId:active.operationId,requiresUserAction:true});active.timer=setTimeout(()=>{void this.serial(()=>{if(this.active===active)this.changed(id,{state:'WAITING_FOR_LOGIN',reasonCode:'AUTH_LOGIN_STILL_WAITING',operationId:active.operationId,requiresUserAction:true});}).catch(()=>{});},this.waitingTimeoutMs);active.timer.unref();}
     catch{await this.cancelActive(active,'AUTH_LOGIN_OPEN_FAILED');throw new Error('AUTH_LOGIN_OPEN_FAILED');}
     return this.view(id);
   }
@@ -35,12 +37,13 @@ export class LoginManager extends EventEmitter {
     const verified=status.state==='AUTHENTICATED'&&status.source==='official-self-api'&&Date.now()-Date.parse(status.checkedAt)>=0&&Date.now()-Date.parse(status.checkedAt)<60000;
     if(!verified){if(status.state==='AUTHENTICATED')return;this.changed(active.id,{state:status.state||'UNKNOWN',operationId:active.operationId,reasonCode:status.reasonCode||(['ANONYMOUS','ERROR'].includes(status.state)?'AUTH_LOGIN_OR_VERIFICATION_REQUIRED':null),requiresUserAction:true});return;}
     try{
+      this.changed(active.id,{state:'SAVING',operationId:active.operationId,reasonCode:'AUTH_OFFICIAL_CONFIRMED_SAVING',requiresUserAction:false});
       const snapshot=filterState(await active.client.context.storageState()),p=this.accounts.get(active.id);
       if(!snapshot.cookies.length&&!snapshot.origins.some(x=>x.localStorage.length))throw new Error('AUTH_STATE_EMPTY');
-      if(p.rememberLogin){await this.vault.save(p.vaultRef,snapshot,true);this.accounts.markSaved(active.id);}
+      if(p.rememberLogin){const saved=await this.vault.save(p.vaultRef,snapshot,true);let restored;try{restored=await this.vault.load(p.vaultRef);}catch{throw new Error('AUTH_SAVE_VERIFY_FAILED');}if(saved?.saved!==true||!isDeepStrictEqual(restored,filterState(snapshot)))throw new Error('AUTH_SAVE_VERIFY_FAILED');this.accounts.markSaved(active.id);}
       this.sessions.set(active.id,snapshot);clearTimeout(active.timer);await active.client.close();this.loadReports.set(active.id,active.client.diagnostics?.()||null);this.active=null;
-      this.changed(active.id,{state:'AUTHENTICATED',checkedAt:status.checkedAt,source:'official-self-api',operationId:active.operationId,remembered:p.rememberLogin,requiresUserAction:false});
-    }catch{this.changed(active.id,{state:'ERROR',reasonCode:'AUTH_SAVE_FAILED',operationId:active.operationId,requiresUserAction:true});}
+      this.changed(active.id,{state:'AUTHENTICATED',checkedAt:status.checkedAt,source:'official-self-api',operationId:active.operationId,remembered:p.rememberLogin,saveVerified:p.rememberLogin,cookieCount:snapshot.cookies.length,originCount:snapshot.origins.length,requiresUserAction:false});
+    }catch(error){this.changed(active.id,{state:'ERROR',reasonCode:error.message==='AUTH_SAVE_VERIFY_FAILED'?'AUTH_SAVE_VERIFY_FAILED':'AUTH_SAVE_FAILED',operationId:active.operationId,requiresUserAction:true});}
   }
   async cancelActive(active,reasonCode){if(this.active!==active)return;this.active=null;clearTimeout(active.timer);await active.client.close();this.loadReports.set(active.id,active.client.diagnostics?.()||null);this.changed(active.id,{state:'UNKNOWN',reasonCode,requiresUserAction:true});}
   cancel(id){return this.serial(async()=>{if(this.active?.id===id)await this.cancelActive(this.active,'AUTH_LOGIN_CANCELLED');return this.view(id);});}

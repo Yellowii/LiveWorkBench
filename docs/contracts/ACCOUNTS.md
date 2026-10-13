@@ -29,10 +29,16 @@ system/status新增accounts.count/loginWindowOpen；手动部署助手在独立�
 
 ### 登录页面资源与诊断（2026-10-13兼容补充）
 
-可见登录窗口使用独立login-resource-policy，允许经域名策略校验的CSS、JS、图片、字体、二维码和验证/账号接口，不再使用采集的图片/字体过滤。直播媒体URL（含fetch/XHR下载）、media资源及页面自动播放仍阻断。BrowserSource保留原低资源/媒体策略。networkTarget仅为browserAsset增加从真实官方页面及登录组件观察到的精确HTTPS/443资源主机：lf-webcast-platform.bytetos.com、lf-c-flwb.bytetos.com、lf-cdn-tos.bytescm.com、lf-security.bytegoofy.com、lf3-webcast.bytetos.com、lf-ucenter-web.yhgfb-cn-static.com、lf-rc1.yhgfb-cn-static.com、lf-rc2.yhgfb-cn-static.com、security.zijieapi.com、vcs.zijieapi.com；不扩张TargetResolver/直连WSS白名单、后缀家族、IP权限或TLS豁免。
+可见登录窗口使用正常Chromium交互，不安装采集优化、播放重写、自动暂停或按资源类型/名称过滤。CSS、JS、图片、字体、普通媒体、XHR/Fetch、页面跳转和SDK连接保持正常；login-resource-policy只保留网络安全边界。此前对登录页媒体和遥测的限制由本次用户新要求撤销。BrowserSource仅优化已识别直播流，见MONITOR_PROFILES。TLS、代理路由、安全直连/DNS固定地址、IP限制和目标/直连WSS白名单保留。
+
+资源权限以实际官方页面请求为证据。原10个精确登录/安全CDN主机之外，匿名页面已观察的lf-static.applogcdn.com、mon.zijieapi.com、mcs.zijieapi.com、tnc0-aliec2.zijieapi.com、tnc0-alisc1.zijieapi.com、lf3-config.bytetcc.com、lf3-static.bytednsdoc.com、lf3-short.ibytedapm.com、unpkg.byted-static.com、api.feelgood.cn追加为精确HTTPS资源权限；观察到的v数字-rh.douyinvod.com及pull-flv/pull-hls节点.douyinliving.com按受限投递服务角色允许HTTPS加载，不泛化放行任意域名/子域/IP。未知不安全域拒绝与媒体优化分别诊断，遥测不作为过滤理由。
 
 账号DTO兼容新增可选pageLoad，账号区“账号网络与开发诊断”通过原REST/WS展示。内容为网络模式/实际路由/DNS委托或固定地址策略/TLS模式、资源分类统计、pageErrors/consoleErrors及overflow。resources项仅有脱敏domain、resourceType、outcome、reasonCode、httpStatus和count；不含路径/查询参数、Cookie、身份、响应/二维码内容、控制台或异常原文。未知域名不直接披露；已知公共域只留域根，必要固定资源主机保留完整域名。关闭后保留本次诊断于宿主内存，重启不冒充当前加载状态。
 
 DOMAIN_POLICY_DENIED、LOGIN_MEDIA_BLOCKED与HTTP_ERROR、PROXY_CONNECTION_FAILED、NETWORK_TIMEOUT、DNS_RESOLUTION_FAILED、TLS_VALIDATION_FAILED、REQUEST_CANCELLED、NETWORK_REQUEST_FAILED、PAGE_SCRIPT_EXCEPTION、BROWSER_CONSOLE_ERROR分别记账。主动阻断不重复算网络失败；最多80种聚合记录，溢出计数。每种失败首条以AUTH_LOGIN_RESOURCE_DIAGNOSTIC和账号/operationId写入既有受保护日志，其余聚合计数。页面非成功HTTP、脚本/console异常不会自动声称未登录或登录成功，认证仍只以official-self-api证据判定。
+
+新增LoginAccountEvidence独立验证层，不改固定AccountMonitor或Parser：只接收受信任HTTPS当前账号接口的HTTP200、合法JSON和原生normalizer确认；失败/未知形状、二维码消失、URL不变、Cookie存在均不是认证成功。失败的并发查询不能压过已验证认证响应；失败诊断单独保留。原getMe查询无有效网络证据时，补充调用当前官方SDK已加载的profile/self构建器，仍需观察真正HTTP响应，不构造签名URL或以SDK缓存返回值冒充网络认证。pageLoad.authentication只含响应/失败/访客/确认计数与状态、原因和时间，不含账号ID/原文。
+
+账号状态兼容追加SAVING：新鲜官方确认→storageState/过滤检查→用户rememberLogin时DPAPI写入→读回同一快照验证→关闭自有窗口→AUTHENTICATED。保存/读回失败维持ERROR和窗口，不能宣称remembered成功。成功DTO追加saveVerified与cookieCount/originCount，仅计数。未记住仍只在宿主内存共享；文件存在不证明重启后有效，真实复用需重新官方确认。十分钟等待仅提示AUTH_LOGIN_STILL_WAITING，不自动关闭正在交互的窗口；用户close、窗口自闭或宿主关闭仍释放资源。LOGIN_MEDIA_BLOCKED仅属于旧报告，新登录不再产生该码。
 
 本地合成资源/真实代理失败与真实匿名页面加载分别验收。真实探针node tools/probe-login-page.mjs <本地报告标签> [visible] [layout]仅使用独立临时上下文和现有网络设置，不读已存账号、不写登录态；可点击登录入口，输出脱敏聚合及可选已遮蔽文本/二维码的布局截图到忽略的.local/login-page。观察结束后释放自有临时浏览器。真实扫码、验证码交互、账号确认/保存仍由用户在更新后的正式工作台完成，不能以二维码出现替代登录成功。

@@ -22,7 +22,9 @@ WebSource本地v5适配每次连接/重连调用参数刷新，失败停止且�
 
 ## 浏览器与凭据增量 C
 
-BrowserSource复用固定上游BrowserLive/AccountMonitor/createLoginContext，独立临时Chromium会话，只捕获匹配本次room_id的Douyin WebCast WSS，不主动建第二条上游连接。可选媒体/图片/字体阻断；任何模式均禁止媒体类型/流后缀/已知拉流主机，并阻止HTMLMediaElement.play。保留SDK脚本、弹幕WSS、房间状态与账号接口。官方SDK负责签名/心跳/ACK/连接恢复，工程不自动刷新或无限重启浏览器。
+BrowserSource复用固定上游BrowserLive/AccountMonitor/createLoginContext，独立临时Chromium会话，只捕获匹配本次room_id的Douyin WebCast WSS，不主动建第二条上游连接。blockMedia仅表示后台已识别直播流优化；false关闭该优化。图片、字体、普通媒体、脚本、遥测及普通XHR/Fetch不做采集资源过滤。固定官方投递服务的FLV/HLS请求，以及成功官方room响应stream_url声明的精确拉流URL可拦截；HLS/DASH仅关联已声明manifest的同目录ts/m4s分片，不因任意媒体类型、扩展名或live/video关键词误判。未知媒体允许通过并计数；普通媒体HTTP失败不等于账号失败/来源失败。
+
+网络请求拦截发生在已识别直播流下载前，播放保护只作用于匹配的直播元素；普通HTMLMediaElement.play仍调用原生行为。单纯pause不作为省带宽证据。诊断提供resourceRequests、blockedMediaRequests、unclassifiedMediaResponses、knownStreamTargets、mediaPolicyGaps；未识别的流、缓存/MSE/blob来源及规则生效前已到达的数据不承诺被完全阻断。参数/流URL仅在当前浏览器策略内存中，不进入日志/接口/Git。登录窗口完全不装此优化。rawBeforeAck=false与official-sdk-uncontrolled边界保留；官方SDK负责签名/心跳/ACK/恢复，业务RAW/Proto/Session不改。
 
 RAW边界为browser-websocket-network-event、connectionMode=browser、ackBoundary=official-sdk-uncontrolled、状态rawBeforeAck=false；只是浏览器网络事件可观察字节，无TCP/TLS或所有控制/FIN承诺。提交后才使用本项目解包Parser；SDK ACK可能早于提交。超大/队列拒绝留hash/大小缺口。来源仍WebSource。业务未知/重复/失败保留。
 

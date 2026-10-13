@@ -7,6 +7,7 @@ import {LoginBrowserSession} from '../src/auth/login-browser-session.js';
 import {blockRequest} from '../src/capture/browser/browser-source.js';
 import {networkTarget,trustedUrl} from '../src/network/target-policy.js';
 import {LoginLoadDiagnostics,requestFailureReason} from '../src/auth/login-load-diagnostics.js';
+import {loginResourceDecision} from '../src/auth/login-resource-policy.js';
 // Self-authored two-glyph TrueType fixture (FontBuilder; no third-party font).
 const font=Buffer.from('AAEAAAAKAIAAAwAgT1MvMkUAQ9EAAAEoAAAAYGNtYXAAdABbAAABkAAAADxnbHlmAAAAAAAAAdQAAAABaGVhZF8WQOAAAACsAAAANmhoZWEDIgEuAAAA5AAAACRobXR4AfQAAAAAAYgAAAAGbG9jYQAAAAAAAAHMAAAABm1heHAAAwACAAABCAAAACBuYW1lNopRggAAAdgAAAECcG9zdAAHAAAAAALcAAAAJgABAAAAAQAA5S7sOF8PPPUAAwPoAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAwACAAAAAAAAAAEAAAMg/zgAAAH0AAAAAAAAAAEAAAAAAAAAAAAAAAAAAAABAAEAAAACAAAAAAAAAAAAAgAAAAAAAAAAAAAAAAAAAAAAAwH0AZAABQAEAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAABAAAAAAAAAAAAAAAAPz8/PwAAACAAQQMg/zgAAAMgAMgAAAAAAAAAAAAAAAAAAAAgAAAB9AAAAAAAAAAAAAIAAAADAAAAFAADAAEAAAAUAAQAKAAAAAYABAABAAIAIABB//8AAAAgAEH////h/8AAAQAAAAAAAAAAAAAAAAAAAAAAAAAAAAoAfgABAAAAAAABAAwAAAABAAAAAAACAAcADAABAAAAAAADAA4AEwABAAAAAAAEAAwAAAABAAAAAAAGAAsAIQADAAEECQABABgALAADAAEECQACAA4ARAADAAEECQADABwAUgADAAEECQAEABgALAADAAEECQAGABYAbkxXIFN5bnRoZXRpY1JlZ3VsYXJMVy1TeW50aGV0aWMtMUxXU3ludGhldGljAEwAVwAgAFMAeQBuAHQAaABlAHQAaQBjAFIAZQBnAHUAbABhAHIATABXAC0AUwB5AG4AdABoAGUAdABpAGMALQAxAEwAVwBTAHkAbgB0AGgAZQB0AGkAYwAAAAIAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAgAAAAMAAA==','base64');
 
@@ -20,7 +21,16 @@ test('observed official page CDN hosts are browser assets only; arbitrary and de
  for(const host of ['unknown.bytetos.com','lf-webcast-platform.bytetos.com.evil.invalid','127.0.0.1'])assert.throws(()=>networkTarget('https://'+host+'/a.css',{browserAsset:true}),/NETWORK_TARGET_INVALID/);
 });
 
-test('login page renders CSS, JS, images and fonts while media and unsafe domains are denied; capture remains restrictive',async t=>{
+test('observed telemetry/delivery requests are permitted without enlarging the target or WSS namespace',()=>{
+ for(const host of ['lf-static.applogcdn.com','mon.zijieapi.com','mcs.zijieapi.com','tnc0-aliec2.zijieapi.com','tnc0-alisc1.zijieapi.com','lf3-config.bytetcc.com','lf3-static.bytednsdoc.com','lf3-short.ibytedapm.com','unpkg.byted-static.com','api.feelgood.cn','v3-rh.douyinvod.com','pull-flv-f26.douyinliving.com']){
+  for(const type of ['image','font','media','script','xhr','fetch'])assert.equal(loginResourceDecision('https://'+host+'/video-live-event.mp4',type).allowed,true);
+  assert.throws(()=>networkTarget('https://'+host+'/x'),/NETWORK_TARGET_INVALID/);
+  assert.throws(()=>networkTarget('wss://'+host+'/x',{browserAsset:true}),/NETWORK_TARGET_INVALID/);
+ }
+ for(const host of ['v3-rh.douyinvod.com.evil.invalid','v3-rh.fake.invalid','anything.douyinvod.com'])assert.throws(()=>networkTarget('https://'+host+'/x',{browserAsset:true}),/NETWORK_TARGET_INVALID/);
+});
+
+test('login renders normal resources without capture optimization or playback overrides',async t=>{
  const sockets=new Set(),proxy=http.createServer((_req,res)=>{res.writeHead(403);res.end();});proxy.on('connect',(_req,socket)=>socket.end('HTTP/1.1 403 Forbidden\r\nContent-Length: 0\r\n\r\n'));proxy.on('connection',socket=>{sockets.add(socket);socket.once('close',()=>sockets.delete(socket));});await new Promise(resolve=>proxy.listen(0,'127.0.0.1',resolve));
  const bodies=new Map([
   ['/',{contentType:'text/html',body:'<link rel="stylesheet" href="https://lf-webcast-platform.bytetos.com/login.css"><script src="https://lf-webcast-platform.bytetos.com/login.js"></script><body><button id="login">登录</button><span>A</span><img src="https://p3.douyinpic.com/qr.png"><video autoplay src="/live.flv"></video><script>window.results={};Promise.all([["image","https://p3.douyinpic.com/qr.png"],["font","https://fonts.bytedance.com/login.woff2"],["media","https://live.douyin.com/live.flv"],["unsafe","https://untrusted.invalid/x.js?token=SYNTHETIC_LOGIN_LEAK"]].map(async ([key,url])=>{try{const r=await fetch(url);results[key]=r.ok}catch{results[key]=false}})).then(()=>window.requestsDone=true)</script></body>'}],
@@ -35,13 +45,14 @@ test('login page renders CSS, JS, images and fonts while media and unsafe domain
  }});
  t.after(async()=>{await session.close();for(const socket of sockets)socket.destroy();await new Promise(resolve=>proxy.close(resolve));});
  await session.open({networkPolicy:{mode:'custom',proxyUrl:'http://127.0.0.1:'+proxy.address().port}});await session.page.waitForFunction(()=>window.requestsDone);assert.equal(await session.page.locator('#login').evaluate(e=>getComputedStyle(e).color),'rgb(18, 52, 86)');assert.equal(await session.page.evaluate(()=>window.loginSdkLoaded),true);
- const results=await session.page.evaluate(()=>window.results);assert.deepEqual(results,{image:true,font:true,media:false,unsafe:false});assert.equal(deliveredMedia,0);
+ const results=await session.page.evaluate(()=>window.results);assert.deepEqual(results,{image:true,font:true,media:true,unsafe:false});assert.ok(deliveredMedia>0);
  assert.equal(await session.page.evaluate(async()=>{await document.fonts.load('16px login-fixture','A');return document.fonts.check('16px login-fixture','A');}),true);
  assert.equal(await session.page.locator('img').evaluate(e=>e.naturalWidth),1);
- assert.deepEqual(await session.page.locator('video').evaluate(e=>({paused:e.paused,autoplay:e.autoplay})),{paused:true,autoplay:false});
+ assert.equal(await session.page.evaluate(()=>HTMLMediaElement.prototype.play.toString().includes('[native code]')),true);
+ assert.equal(await session.page.locator('video').evaluate(e=>e.autoplay),true);
  const report=session.diagnostics();for(const type of ['stylesheet','script','image','font'])assert.ok(report.resources.some(x=>x.resourceType===type&&x.outcome==='http-success'&&x.httpStatus===200));
- assert.ok(report.resources.some(x=>x.reasonCode==='LOGIN_MEDIA_BLOCKED'));assert.ok(report.resources.some(x=>x.reasonCode==='DOMAIN_POLICY_DENIED'));assert.equal(JSON.stringify(report).includes('SYNTHETIC_LOGIN_LEAK'),false);
- assert.equal(blockRequest('https://p3.douyinpic.com/qr.png','image'),true);assert.equal(blockRequest('https://fonts.bytedance.com/login.woff2','font'),true);assert.equal(blockRequest('https://live.douyin.com/live.flv','media'),true);
+ assert.ok(!report.resources.some(x=>x.reasonCode==='LOGIN_MEDIA_BLOCKED'));assert.ok(report.resources.some(x=>x.reasonCode==='DOMAIN_POLICY_DENIED'));assert.equal(JSON.stringify(report).includes('SYNTHETIC_LOGIN_LEAK'),false);
+ assert.equal(blockRequest('https://p3.douyinpic.com/qr.png','image'),false);assert.equal(blockRequest('https://fonts.bytedance.com/login.woff2','font'),false);assert.equal(blockRequest('https://live.douyin.com/live.flv','media'),false);
 });
 
 test('load diagnostics distinguish failures, omit URL and error contents, aggregate and stay bounded',()=>{
