@@ -1,3 +1,4 @@
+import {openGuiPage,expandGuiPanel} from './gui-navigation.mjs';
 import fs from 'node:fs/promises';
 import os from 'node:os';
 import path from 'node:path';
@@ -12,7 +13,7 @@ page.on('pageerror',e=>errors.push(e.message));
 const append=async n=>{const type=app.runtime.parser.native.root.lookupType('webcast.im.ChatMessage');await app.runtime.ingest({bytes:type.encode(type.fromObject({common:{room_id:'100',msg_id:String(n)},content:'synthetic history'})).finish(),format:'business-payload',method:'WebcastChatMessage'});};
 try{
  for(let n=1;n<=80;n++)await append(n);
- await page.goto(app.url);await page.waitForFunction(()=>document.querySelectorAll('#messages tr').length>0);
+ await page.goto(app.url);await openGuiPage(page,'data');await page.waitForFunction(()=>document.querySelectorAll('#messages tr').length>0);
  assert.ok(await page.locator('#messages tr').count()<=32,'Only visible rows and a small buffer may be rendered');
  await page.locator('#messages tr[data-event-id]').first().click();
  await page.waitForFunction(()=>document.getElementById('detail').textContent.includes('protoId'));
@@ -21,10 +22,12 @@ try{
  const eventsBefore=app.runtime.store.countEvents();await page.locator('#reparseProto').click();await page.waitForFunction(()=>document.getElementById('notice').textContent.includes('已追加解析结果'));
  assert.equal(app.runtime.store.countEvents(),eventsBefore);
  await app.runtime.gaps.record({reason:'RAW_BACKPRESSURE',recordingId:'synthetic-ui',sourceType:'LiveHookSource'});
- await page.locator('#loadGaps').click();await page.waitForFunction(()=>document.getElementById('gaps').textContent.includes('RAW_BACKPRESSURE'));
- await page.locator('#older').click();await page.waitForFunction(()=>Number(document.getElementById('messages').dataset.cachedCount)>50);
+ await openGuiPage(page,'diagnostics');await page.locator('#loadGaps').click();await page.waitForFunction(()=>document.getElementById('gaps').textContent.includes('RAW_BACKPRESSURE'));
+ await openGuiPage(page,'data');await page.locator('#older').click();await page.waitForFunction(()=>Number(document.getElementById('messages').dataset.cachedCount)>50);
  const anchor=await page.locator('#messages tr[data-event-id]').first().getAttribute('data-event-id');
+ await openGuiPage(page,'diagnostics');
  await append(81);await page.waitForFunction(()=>document.getElementById('unread').textContent.includes('新消息'));
+ await openGuiPage(page,'data');
  assert.equal(await page.locator('#messages tr[data-event-id]').first().getAttribute('data-event-id'),anchor);
  await page.locator('#latest').click();
  for(const ws of app.wss.clients)ws.terminate();

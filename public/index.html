@@ -1,20 +1,389 @@
 <!doctype html>
-<html lang="zh-CN"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>LiveWorkbench 开发工作台</title><link rel="stylesheet" href="/app.css"><script type="module" src="/app.js"></script></head>
-<body><header><h1>LiveWorkbench · 开发工作台</h1><span id="connection">连接中</span><p>验证与测试界面 · 本机运行 · 回放与实时数据隔离</p></header>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>LiveWorkbench 简易工作台</title>
+<link rel="stylesheet" href="/app.css">
+<script type="module" src="/app.js">
+</script>
+</head>
+<body>
+<aside class="sidebar">
+<strong>LiveWorkbench</strong>
+<p>本地简易工作台</p>
+<nav aria-label="主导航">
+<button type="button" data-page="workbench" aria-controls="page-workbench" aria-current="page">工作台</button>
+<button type="button" data-page="accounts" aria-controls="page-accounts">账号管理</button>
+<button type="button" data-page="rooms" aria-controls="page-rooms">直播间</button>
+<button type="button" data-page="data" aria-controls="page-data">数据记录</button>
+<button type="button" data-page="diagnostics" aria-controls="page-diagnostics">开发诊断</button>
+</nav>
+<footer id="notice" role="status"></footer>
+</aside>
+<header>
+<span id="connection">连接中</span>
+<p>本机运行 · 回放与实时数据隔离</p>
+</header>
 <main>
-<section id="accountPanel"><h2>账号管理</h2><p>无需直播间或来源选择。登录成功且勾选记住登录后自动受保护保存并关闭临时窗口，同一账号可绑定多个直播间。</p><div class="actions"><select id="accountSelect"><option value="">新账号</option></select><input id="accountName" placeholder="本地账号名称"><label><input type="checkbox" id="accountRemember">记住登录</label><button id="accountLogin">登录 / 重新登录</button><button id="accountCheck">查看状态</button><button id="accountReload">刷新账号</button><button id="accountClose">关闭登录窗口</button><button id="accountClear">清除保存登录态</button></div><p id="accountSummary">新版后端提供独立账号管理。</p><details><summary>账号网络与开发诊断</summary><select id="accountNetworkMode"><option value="system">系统现有代理</option><option value="direct">安全直连</option><option value="custom">自定义代理</option></select><input id="accountProxy" placeholder="自定义代理地址；留空保留登记值"><pre id="accountState"></pre></details><p>登录或清除保存状态不会关闭正在运行的采集；后续连接读取最新账号设置。</p></section>
-<section><h2>采集与运行状态</h2><div id="status"></div><div class="actions"><select id="sourceSelect"><option value="LiveHookSource">LiveHookSource</option><option value="WebSource">WebSource</option></select><button id="sourceSwitch">人工切换并停止旧来源</button><button id="captureStart">启动选中来源</button><button id="captureStop">停止本项目采集</button></div><p id="captureNote">来源切换保留当前场次；不会自动改系统代理、信任证书、关闭或修改直播伴侣。</p></section>
-<section id="profilePanel"><h2>直播间管理</h2><p>身份输入只写入本机。编辑时留空保留已有输入。监控证据不等于实际推流；自动监听只使用人工选中的来源。</p><div class="actions"><select id="profileSelect"><option value="">新配置</option></select><button id="profileReload">刷新配置</button><input id="profileName" placeholder="配置名称"><select id="targetType"><option value="auto">自动识别（数字需指定类型）</option><option value="url">直播/分享 URL</option><option value="web_rid">网页房号 web_rid</option><option value="anchorUid">主播 UID</option><option value="secUid">secUid</option><option value="roomId">实际 roomId</option></select><input id="targetInput" placeholder="主播 ID 或完整直播间 URL"><label>登录账号 <select id="profileAuth"><option value="">暂不绑定（访客）</option></select></label><select id="profileSource"><option value="WebSource">WebSource</option><option value="LiveHookSource">LiveHookSource</option></select></div><div class="actions"><label><input id="profileEnabled" type="checkbox">启用</label><label><input id="monitorEnabled" type="checkbox">周期监控</label><label><input id="autoStart" type="checkbox">开播自动监听</label><label><input id="autoStop" type="checkbox">确认关播后停止</label><label>频率秒 <input id="pollSeconds" type="number" min="10" value="60"></label><label>优先级 <input id="profilePriority" type="number" min="0" max="100" value="0"></label><label>连接 <select id="profileMode"><option value="direct">直接 WSS</option><option value="browser">浏览器</option></select></label><label><input id="browserFallback" type="checkbox">允许浏览器兜底</label><label><input id="blockMedia" type="checkbox" checked>屏蔽媒体</label></div><div class="actions"><button id="profileSave">保存配置</button><button id="profileDelete">删除配置</button><button id="profileCheck">重新检测</button><button id="profileResolve">解析输入</button></div><pre id="profileState">新版后端支持配置与监控；旧后端不启用此面板。</pre></section>
-<section id="coordinatePanel"><h2>自动监听调度</h2><button id="profileStart">开始监听选中直播间</button><button id="profileStop">停止当前监听</button><button id="coordinateReload">查询调度记录</button><p>同优先级多个开播目标需要人工选择。手动停止或切源后，本次已确认开播不会立即自动重启；手动开始可重新启用。</p><p id="coordinateSummary"></p><details><summary>监听调度诊断</summary><pre id="coordinateState"></pre></details></section>
-<section id="authPanel"><h2>开发诊断：旧配置登录兼容</h2><p>仅本项目的独立浏览器会话。保存需先启用且官方接口确认登录；DPAPI仅当前Windows用户可解密。保存内容不返回界面。打开可见浏览器会访问独立官方首页，由你手动登录或完成验证，不会操作日常浏览器。</p><label><input type="checkbox" id="persistLogin">允许持久化登录态</label><button id="authOptIn">保存此设置</button><button id="authCheck">检查有效性</button><button id="authLogin">打开独立登录窗口</button><button id="authSave">保存当前登录态</button><button id="authClear">清除保存状态并关闭本项目会话</button><pre id="authState"></pre></section>
-<section><h2>浏览器连接与资源</h2><button id="browserStatsReload" disabled>查询真实浏览器指标</button><p>页面SDK负责心跳与ACK；RAW-before-ACK=false。需要登录或验证时请使用上方独立登录窗口。浏览器内存是该实例进程工作集之和，共享页可能重复计入；不可测时显示原因。</p><pre id="browserStats"></pre></section>
-<section id="networkPanel"><h2>网络路径与诊断</h2><p>只影响本项目请求，不修改 Clash、系统代理、DNS 或 TUN。系统模式读取已有静态代理；自定义仅使用登记的 HTTP/HTTPS/SOCKS5 代理；直连拒绝 Fake-IP 与内网地址。代理模式由代理解析目标域名。</p><label>上方配置的网络模式 <select id="networkMode"><option value="system">系统现有代理</option><option value="direct">安全直连</option><option value="custom">自定义代理</option></select></label><input id="networkProxy" placeholder="http://127.0.0.1:端口 或 socks5://127.0.0.1:端口；留空保留已登记值"><button id="networkSave">保存网络模式</button><button id="networkCheck">检测选中目标的实际路径</button><pre id="networkDiagnostic"></pre></section>
-<section><h2>伴侣启动顺序与恢复观察</h2><p id="daemonNote">正在只读观察伴侣进程；不会自动关闭或重启应用。</p><pre id="daemon"></pre><button id="hookMatchReload">查看配置与实际流匹配</button><pre id="hookMatch"></pre></section>
-<section><h2>真实样本与回归</h2><p>已登记 M0-R01 · 业务 Protobuf · 来源未知 · 原文件只读。不能替代完整 HTTP/WSS 捕获验证。</p><div class="actions"><button id="golden">运行 59 Golden 回归</button><button id="r01">载入 R01 全量事件</button><button id="cancel">停止当前任务</button></div><pre id="operation">尚无任务</pre></section>
-<section><h2>隔离回放</h2><div class="actions"><select id="recording"></select><button id="createReplay">创建回放</button><button data-action="play">播放</button><button data-action="pause">暂停</button><button data-action="step">单步</button><button data-action="stop">停止</button><label>倍速 <input id="speed" type="number" min="0.1" max="100" value="1"></label><label>输入位置 <input id="position" type="number" min="0" value="0"></label><button data-action="seek">跳转并重建</button></div><pre id="replay">回放不会发送通知、控制 OBS/Stream Dock 或更新正式业务账本。</pre></section>
-<section><h2>消息与历史</h2><div class="actions"><select id="mode"><option value="">全部域</option value="live">实时</option><option value="replay">回放</option><option value="test">测试</option></select><input id="method" placeholder="按 method 筛选"><button id="reload">刷新</button><button id="older">加载更早消息</button><label><input id="follow" type="checkbox" checked>跟随最新</label><button id="latest">返回最新</button><span id="unread"></span></div><p>向上滚动自动查询更早历史；最多缓存500条，仅渲染可见行。浏览历史时固定阅读位置，断线后从持久事件库补查。</p><div class="scroll" id="messageScroll"><table><thead><tr><th>序号 / 域</th><th>方法</th><th>消息 ID</th><th>结果 / 内容</th></tr></thead><tbody id="messages"></tbody></table></div></section>
-<section><h2>单条追踪 · 官方结果投影与增强分离</h2><pre id="detail">默认展示脱敏字段、RAW 引用、场次与独立增强；原生解析结果保留在本地。凭据及物理路径始终不返回前端。</pre><div class="actions"><select id="protoSelect"></select><button id="inspectProto">查看业务解析记录</button><button id="reparseProto">重新解析选中消息</button></div><p>重新解析追加结果，不改实时事件或场次，不执行外部动作。</p><pre id="protoDetail"></pre></section>
-<section><h2>录制RAW浏览</h2><button id="browseRaw">查看选中录制的输入</button><button id="rawOlder" disabled>更早RAW输入</button><select id="rawSelect"></select><button id="inspectRaw">查看输入与处理链</button><p>使用上方录制选择；控制消息和传输失败输入也可检查。只展示元数据与脱敏结果。</p><pre id="rawPage"></pre></section>
-<section><h2>捕获缺口与连接健康</h2><button id="loadGaps">查询失败记录与连接状态</button><p>无法保存或不完整输入会留下记录；连接中断的丢失范围可能未知，不代表零丢包。</p><pre id="gaps"></pre><pre id="connectionHealth"></pre></section>
-<section><h2>工作日志与基础指标</h2><div class="actions"><select id="logModule"><option value="">全部模块</option><option value="raw">RAW</option><option value="parser">解析</option><option value="source">来源</option><option value="capture">采集</option><option value="session">场次</option><option value="replay">回放</option><option value="gateway">Gateway</option></select><select id="logLevel"><option value="">全部级别</option><option value="error">错误</option><option value="warn">警告</option><option value="info">信息</option></select><input id="logOperation" placeholder="按 operationId 筛选"><button id="logReload">查询日志</button><button id="logOlder">更早日志</button><button id="logExport">导出脱敏 JSONL</button></div><pre id="metrics"></pre><pre id="logs"></pre></section>
-</main><footer id="notice" role="status"></footer></body></html>
+<div id="page-workbench" class="page" aria-labelledby="title-workbench">
+<h1 id="title-workbench">工作台</h1>
+<section id="coordinatePanel">
+<h2>当前直播间与监听</h2>
+<label>选中直播间 <select id="dashboardProfile">
+<option value="">请先添加直播间</option>
+</select>
+</label>
+<p id="dashboardRoom">尚未选择直播间</p>
+<p id="dashboardAccount">
+</p>
+<p id="dashboardConnection">正在读取连接状态</p>
+<div class="actions">
+<button id="profileStart">开始监听选中直播间</button>
+<button id="profileStop">停止当前监听</button>
+</div>
+<p id="coordinateSummary">
+</p>
+</section>
+<section>
+<h2>账号摘要</h2>
+<p id="dashboardAccounts">正在读取账号状态</p>
+<a href="#accounts" data-open-page="accounts">管理账号与登录</a> · <a href="#rooms" data-open-page="rooms">管理直播间</a>
+</section>
+<section>
+<h2>最近实时事件</h2>
+<p>来自持久事件查询；回放结果在数据记录查看。</p>
+<ul id="recentEvents">
+<li>正在查询</li>
+</ul>
+<a href="#data" data-open-page="data">查看全部数据与详情</a>
+</section>
+</div>
+<div id="page-accounts" class="page" hidden aria-labelledby="title-accounts">
+<h1 id="title-accounts">账号管理</h1>
+<section id="accountPanel">
+<h2>账号管理</h2>
+<p>无需直播间或来源选择。登录成功且勾选记住登录后自动受保护保存并关闭临时窗口，同一账号可绑定多个直播间。</p>
+<div class="account-layout">
+<div class="account-list">
+<label for="accountSelect">本地账号列表</label>
+<select id="accountSelect" size="6" aria-label="本地账号列表">
+<option value="">新账号</option>
+</select>
+</div>
+<div class="account-detail">
+<div class="actions">
+<label>名称 <input id="accountName" placeholder="本地账号名称">
+</label>
+<label>
+<input type="checkbox" id="accountRemember">记住登录</label>
+<button id="accountLogin">登录 / 重新登录</button>
+<button id="accountCheck">查看状态</button>
+<button id="accountReload">刷新账号</button>
+<button id="accountClose">关闭登录窗口</button>
+</div>
+<p id="accountSummary">新版后端提供独立账号管理。</p>
+<details id="accountAdvanced">
+<summary>账号网络与开发诊断</summary>
+<select id="accountNetworkMode">
+<option value="system">系统现有代理</option>
+<option value="direct">安全直连</option>
+<option value="custom">自定义代理</option>
+</select>
+<input id="accountProxy" placeholder="自定义代理地址；留空保留登记值">
+<pre id="accountState">
+</pre>
+</details>
+<details id="accountDanger">
+<summary>清除登录态</summary>
+<p>同一账号可能被多个直播间共享。清除后后续连接需要重新登录。</p>
+<button id="accountClear">清除保存登录态…</button>
+</details>
+<p>登录或清除保存状态不会关闭正在运行的采集；后续连接读取最新账号设置。</p>
+</div>
+</div>
+</section>
+</div>
+<div id="page-rooms" class="page" hidden aria-labelledby="title-rooms">
+<h1 id="title-rooms">直播间</h1>
+<section id="profilePanel">
+<h2>直播间管理</h2>
+<p>身份输入只写入本机。编辑时留空保留已有输入。监控证据不等于实际推流；自动监听只使用人工选中的来源。</p>
+<div class="actions">
+<select id="profileSelect">
+<option value="">新配置</option>
+</select>
+<button id="profileReload">刷新配置</button>
+<input id="profileName" placeholder="配置名称">
+<input id="targetInput" placeholder="主播 ID 或完整直播间 URL">
+<label>登录账号 <select id="profileAuth">
+<option value="">暂不绑定（访客）</option>
+</select>
+</label>
+</div>
+<div class="actions">
+<label>
+<input id="profileEnabled" type="checkbox">启用</label>
+<label>
+<input id="monitorEnabled" type="checkbox">周期监控</label>
+<label>
+<input id="autoStart" type="checkbox">开播自动监听</label>
+<label>
+<input id="autoStop" type="checkbox">确认关播后停止</label>
+</div>
+<details id="profileAdvanced">
+<summary>技术身份与连接高级配置</summary>
+<div class="actions">
+<label>输入类型 <select id="targetType">
+<option value="auto">自动识别（数字需指定类型）</option>
+<option value="url">直播/分享 URL</option>
+<option value="web_rid">网页房号 web_rid</option>
+<option value="anchorUid">主播 UID</option>
+<option value="secUid">secUid</option>
+<option value="roomId">实际 roomId</option>
+</select>
+</label>
+<label>采集来源 <select id="profileSource">
+<option value="WebSource">WebSource</option>
+<option value="LiveHookSource">LiveHookSource</option>
+</select>
+</label>
+<label>频率秒 <input id="pollSeconds" type="number" min="10" value="60">
+</label>
+<label>优先级 <input id="profilePriority" type="number" min="0" max="100" value="0">
+</label>
+<label>连接 <select id="profileMode">
+<option value="direct">直接 WSS</option>
+<option value="browser">浏览器</option>
+</select>
+</label>
+<label>
+<input id="browserFallback" type="checkbox">允许浏览器兜底</label>
+<label>
+<input id="blockMedia" type="checkbox" checked>限制已识别直播流</label>
+</div>
+<div class="actions">
+<button id="profileCheck">重新检测</button>
+<button id="profileResolve">解析输入</button>
+</div>
+<pre id="profileState">新版后端支持配置与监控；旧后端不启用此面板。</pre>
+</details>
+<details id="networkAdvanced">
+<summary>网络高级配置</summary>
+<div class="actions">
+<label>当前直播间网络模式 <select id="networkMode">
+<option value="system">系统现有代理</option>
+<option value="direct">安全直连</option>
+<option value="custom">自定义代理</option>
+</select>
+</label>
+<input id="networkProxy" placeholder="http://127.0.0.1:端口 或 socks5://127.0.0.1:端口；留空保留已登记值">
+<button id="networkSave">保存网络模式</button>
+</div>
+</details>
+<div class="actions">
+<button id="profileSave">保存配置</button>
+<button id="profileDelete">删除配置…</button>
+</div>
+</section>
+</div>
+<div id="page-data" class="page" hidden aria-labelledby="title-data">
+<h1 id="title-data">数据记录</h1>
+<section id="replayPanel">
+<h2>隔离回放</h2>
+<div class="actions">
+<select id="recording">
+</select>
+<button id="createReplay">创建回放</button>
+<button data-action="play">播放</button>
+<button data-action="pause">暂停</button>
+<button data-action="step">单步</button>
+<button data-action="stop">停止</button>
+<label>倍速 <input id="speed" type="number" min="0.1" max="100" value="1">
+</label>
+<label>输入位置 <input id="position" type="number" min="0" value="0">
+</label>
+<button data-action="seek">跳转并重建</button>
+</div>
+<pre id="replay">回放不会发送通知、控制 OBS/Stream Dock 或更新正式业务账本。</pre>
+</section>
+<section id="historyPanel">
+<h2>消息与历史</h2>
+<div class="actions">
+<select id="mode">
+<option value="">全部域</option>
+<option value="live">实时</option>
+<option value="replay">回放</option>
+<option value="test">测试</option>
+</select>
+<input id="method" placeholder="按 method 筛选">
+<button id="reload">刷新</button>
+<button id="older">加载更早消息</button>
+<label>
+<input id="follow" type="checkbox" checked>跟随最新</label>
+<button id="latest">返回最新</button>
+<span id="unread">
+</span>
+</div>
+<p>向上滚动自动查询更早历史；最多缓存500条，仅渲染可见行。浏览历史时固定阅读位置，断线后从持久事件库补查。</p>
+<div class="scroll" id="messageScroll">
+<table>
+<thead>
+<tr>
+<th>序号 / 域</th>
+<th>方法</th>
+<th>消息 ID</th>
+<th>结果 / 内容</th>
+</tr>
+</thead>
+<tbody id="messages">
+</tbody>
+</table>
+</div>
+</section>
+<section id="tracePanel">
+<h2>单条追踪 · 官方结果投影与增强分离</h2>
+<pre id="detail">默认展示脱敏字段、RAW 引用、场次与独立增强；原生解析结果保留在本地。凭据及物理路径始终不返回前端。</pre>
+<div class="actions">
+<select id="protoSelect">
+</select>
+<button id="inspectProto">查看业务解析记录</button>
+<button id="reparseProto">重新解析选中消息</button>
+</div>
+<p>重新解析追加结果，不改实时事件或场次，不执行外部动作。</p>
+<pre id="protoDetail">
+</pre>
+</section>
+<section id="rawPanel">
+<h2>录制RAW浏览</h2>
+<button id="browseRaw">查看选中录制的输入</button>
+<button id="rawOlder" disabled>更早RAW输入</button>
+<select id="rawSelect">
+</select>
+<button id="inspectRaw">查看输入与处理链</button>
+<p>使用上方录制选择；控制消息和传输失败输入也可检查。只展示元数据与脱敏结果。</p>
+<pre id="rawPage">
+</pre>
+</section>
+</div>
+<div id="page-diagnostics" class="page" hidden aria-labelledby="title-diagnostics">
+<h1 id="title-diagnostics">开发诊断</h1>
+<section>
+<h2>诊断目标</h2>
+<p id="diagnosticTarget">尚未选择直播间；在工作台或直播间选择后，以下配置诊断沿用该目标。</p>
+</section>
+<section>
+<h2>加载版本与底层来源控制</h2>
+<div id="status">
+</div>
+<details id="sourceAdvanced">
+<summary>底层采集调试指令（日常监听在工作台）</summary>
+<div class="actions">
+<select id="sourceSelect">
+<option value="LiveHookSource">LiveHookSource</option>
+<option value="WebSource">WebSource</option>
+</select>
+<button id="sourceSwitch">人工切换并停止旧来源</button>
+<button id="captureStart">调试：启动选中来源</button>
+<button id="captureStop">调试：停止底层采集</button>
+</div>
+<p id="captureNote">来源切换保留当前场次；不会自动改系统代理、信任证书、关闭或修改直播伴侣。</p>
+</details>
+</section>
+<section id="coordinatorDiagnostics">
+<h2>监听调度记录</h2>
+<button id="coordinateReload">查询调度记录</button>
+<pre id="coordinateState">
+</pre>
+</section>
+<section id="networkPanel">
+<h2>网络路径与诊断</h2>
+<p>只影响本项目请求，不修改 Clash、系统代理、DNS 或 TUN。系统模式读取已有静态代理；自定义仅使用登记的 HTTP/HTTPS/SOCKS5 代理；直连拒绝 Fake-IP 与内网地址。代理模式由代理解析目标域名。</p>
+<button id="networkCheck">检测当前直播间的实际路径</button>
+<pre id="networkDiagnostic">
+</pre>
+</section>
+<section id="browserPanel">
+<h2>浏览器连接与资源</h2>
+<button id="browserStatsReload" disabled>查询真实浏览器指标</button>
+<p>页面SDK负责心跳与ACK；RAW-before-ACK=false。需要登录或验证时请到账号管理打开独立登录窗口。浏览器内存是该实例进程工作集之和，共享页可能重复计入；不可测时显示原因。</p>
+<pre id="browserStats">
+</pre>
+</section>
+<section id="hookPanel">
+<h2>伴侣启动顺序与恢复观察</h2>
+<p id="daemonNote">正在只读观察伴侣进程；不会自动关闭或重启应用。</p>
+<pre id="daemon">
+</pre>
+<button id="hookMatchReload">查看配置与实际流匹配</button>
+<pre id="hookMatch">
+</pre>
+</section>
+<section id="authPanel">
+<h2>旧配置登录兼容</h2>
+<details id="authAdvanced">
+<summary>展开旧配置兼容操作</summary>
+<p>仅本项目的独立浏览器会话。保存需先启用且官方接口确认登录；DPAPI仅当前Windows用户可解密。保存内容不返回界面。打开可见浏览器会访问独立官方首页，由你手动登录或完成验证，不会操作日常浏览器。</p>
+<label>
+<input type="checkbox" id="persistLogin">允许持久化登录态</label>
+<button id="authOptIn">保存此设置</button>
+<button id="authCheck">检查有效性</button>
+<button id="authLogin">打开独立登录窗口</button>
+<button id="authSave">保存当前登录态</button>
+<button id="authClear">清除保存状态并关闭本项目会话</button>
+<pre id="authState">
+</pre>
+</details>
+</section>
+<section id="goldenPanel">
+<h2>真实样本与回归</h2>
+<p>已登记 M0-R01 · 业务 Protobuf · 来源未知 · 原文件只读。不能替代完整 HTTP/WSS 捕获验证。</p>
+<div class="actions">
+<button id="golden">运行 59 Golden 回归</button>
+<button id="r01">载入 R01 全量事件</button>
+<button id="cancel">停止当前任务</button>
+</div>
+<pre id="operation">尚无任务</pre>
+</section>
+<section id="gapPanel">
+<h2>捕获缺口与连接健康</h2>
+<button id="loadGaps">查询失败记录与连接状态</button>
+<p>无法保存或不完整输入会留下记录；连接中断的丢失范围可能未知，不代表零丢包。</p>
+<pre id="gaps">
+</pre>
+<pre id="connectionHealth">
+</pre>
+</section>
+<section id="logPanel">
+<h2>工作日志与基础指标</h2>
+<div class="actions">
+<select id="logModule">
+<option value="">全部模块</option>
+<option value="raw">RAW</option>
+<option value="parser">解析</option>
+<option value="source">来源</option>
+<option value="capture">采集</option>
+<option value="session">场次</option>
+<option value="replay">回放</option>
+<option value="gateway">Gateway</option>
+</select>
+<select id="logLevel">
+<option value="">全部级别</option>
+<option value="error">错误</option>
+<option value="warn">警告</option>
+<option value="info">信息</option>
+</select>
+<input id="logOperation" placeholder="按 operationId 筛选">
+<button id="logReload">查询日志</button>
+<button id="logOlder">更早日志</button>
+<button id="logExport">导出脱敏 JSONL</button>
+</div>
+<pre id="metrics">
+</pre>
+<pre id="logs">
+</pre>
+</section>
+</div>
+</main>
+</body>
+</html>

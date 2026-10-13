@@ -454,3 +454,20 @@ Gateway新增accounts查询/版本化命令/WS状态及中文错误message/nextA
 首次全套138项135通过/3失败：browser-source的DPAPI AUTH_STATE_UNAVAILABLE、浏览器WSS等待，以及capture的中断分片缺口等待；三项单独复查均通过。新增PowerShell/CIM部署测试与Chromium/C#并行时产生明显延迟；未更改生产超时或放宽断言，将npm test限制为4个测试文件并发后重新验证。最终完整回归/公开审查结果在完成时补记。正式双击长期实例部署、真实扫码确认/DPAPI保存与真实捕获尚未验收；不能用隔离部署通过替代。
 
 最终验证通过（自动化/本机隔离范围）：设置LW_CAPTURE_EXE为上述本次构建后执行npm test，**139/139通过**（.local/deployment/bounded-regression.log，约171秒）；包含14项部署/BAT回归及观察器选用本次构建的回归。源码diff校验通过，公开检查190文件0发现；PS1以UTF8 BOM/CRLF保留Windows PowerShell中文兼容，BAT以UTF8无BOM/CRLF验证中文入口。完成时只读复查18783仍PID49944/c666da9/STOPPED、登录窗口关闭，同Windows用户/端口/租约核查通过；8827/8888仍PID18644。Node启动路径与现有Shell匹配。没有运行正式BAT/完整部署来重启18783，也没有重试上次被拒绝的长期重启操作。下一步由用户双击根BAT部署当前HEAD，刷新并核对实际加载Commit，再继续真实扫码排障；本工具只解决本地部署操作，不代表扫码/真实采集已验收。
+
+## 22. 简易工作台操作分层（2026-10-14）
+
+任务UI-NAV-20261014，owner本会话→用户。基线1473ba35bc0966ca836d2b12fd56b14b86dfd45d，主工作区main初始干净。用户明确要求原生HTML/CSS/JS低风险整理与实际GUI验收，禁止后端/API/数据库/业务规则改动及长期服务操作。使用本聊天附加的隔离worktree与codex/workbench-navigation分支，避免开发中的静态资源被长期实例读取；未派工或消息其他聊天。
+
+实施前建立[原控件与处理函数映射](../reviews/2026-10-14-workbench-controls.md)，原控件ID和后端指令均保留。交付左侧固定五导航与右侧卡片，工作台只显示房间/绑定账号/连接/开始停止/最近实时事件；账号使用列表及详情，清除共享登录态、旧兼容登录态及删除房间须确认。房间日常字段默认展开，身份/连接与网络高级字段折叠；RAW/Proto/历史/Replay归数据记录，Golden/R01、Hook、来源底层控制、旧账号兼容、调度、网络、日志/资源/缺口归开发诊断。底层capture start/stop作为折叠调试入口保留，日常监听只有工作台的一组按钮。切页只切hidden，保留原节点、草稿、WS、异步任务、回放位置和历史锚点；通知移入常驻侧栏，避免遮挡内容。
+
+变更文件：public/index.html、app.css、app.js；tools/gui-navigation.mjs、verify-navigation.mjs，以及既有verify-accounts/verify-profiles/verify-history/verify-workbench四个探针的导航适配；本节和控件映射。src/、API契约、数据库、Parser、SourceController/LoginManager/MonitorCoordinator、references均未修改。未改主题系统或引入框架。
+
+验证通过（本机隔离/合成范围）：
+
+- 原账号/房间/历史探针在整理前后均通过，浏览器脚本错误0；160合成事件、虚拟行、历史锚点（含隐藏页面收到消息）和断线补查保留。node tools/verify-accounts.mjs、verify-profiles.mjs、verify-history.mjs为复查入口。
+- node tools/verify-navigation.mjs before / after覆盖账号login/check/reload/close及真实DPAPI保存与清除确认/取消、房间创建修改删除与共享账号、草稿保留、原listen/stop指令、实际回环WebSocket→RAW→官方Parser/存储、人工切源安全、RAW/Proto详情/重新解析、Replay创建/播放/暂停/单步/跳转/停止、59条合成Golden及R01入口/任务保留、日志查询与导出、网络保存与合成路径探针、Hook/资源/健康查询。无未连接或模拟前端控件；平台、账号确认与Golden输入为明确合成夹具，不是生产验收。
+- 首页可见按钮46→7（含5导航与开始/停止）。整理前命中2处旧sticky状态栏遮挡；整理后1365/1024/700宽度逐页检查无溢出、重叠或可见启用按钮/折叠入口中心点遮挡，已人工查看截图。报告与截图位于隔离worktree的artifacts/navigation/{before,after}/，忽略且不上传。
+- 沿用本机已验证C#产物，设置LW_CAPTURE_EXE=C:/project/LiveWorkBench/.local/login-boundary/capture-build/LiveWorkbench.CaptureHost.exe后npm test **139/139通过**，约95秒，.local/ui-full-regression.log。无C#修改/重建；公开扫描193文件0发现，git diff --check与前端语法检查通过。既有verify-workbench私人R01路径本轮未运行，合成59Golden不冒充真实R01复验。
+
+运行边界/交接：未运行正式部署BAT、停止/重启命令或真实平台登录/采集。收尾只读检查发现18783已无监听、原PID49944不存在；退出原因未核查，不声称由本任务解决或恢复。8827/8888仍PID18644。只在main仍干净且18783仍无监听时允许快进同步本前端提交回主工作区；不自动启动服务。若占用/主工作区变化则保留隔离分支。下一步回到真实登录确认/保存与WSS可信直连及隐藏Chromium兜底主线，不继续扩展UI；真实扫码、真实WSS/恢复及正式长期实例部署尚未验收，需先根据实际服务状态与用户授权接续。

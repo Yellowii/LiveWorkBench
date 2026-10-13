@@ -1,3 +1,4 @@
+import {openGuiPage,expandGuiPanel} from './gui-navigation.mjs';
 import fs from 'node:fs/promises';
 import os from 'node:os';
 import path from 'node:path';
@@ -20,13 +21,13 @@ try{
   await wait(()=>document.getElementById('connection').textContent==='实时增量已连接');
   assert.equal(await page.locator('#captureStart').isDisabled(),true);
   await wait(()=>document.getElementById('daemon').textContent.includes('processInstances'));
-  await page.locator('#golden').click();
+  await openGuiPage(page,'diagnostics');await page.locator('#golden').click();
   await wait(()=>{try{return JSON.parse(document.getElementById('operation').textContent).status==='complete';}catch{return false;}},{},{timeout:30000});
   const operation=JSON.parse(await page.locator('#operation').textContent());
   assert.equal(operation.result.processed,59);assert.equal(operation.result.checks,59);assert.equal(operation.result.failures,0);
   if(app){assert.equal(app.runtime.metrics.decoded,59);assert.equal(app.runtime.metrics.failed,0);}
   await wait(()=>Number(document.getElementById('messages').dataset.cachedCount)===50);
-  await page.locator('#messages tr[data-event-id]').first().click();
+  await openGuiPage(page,'data');await page.locator('#messages tr[data-event-id]').first().click();
   await wait(()=>document.getElementById('detail').textContent.includes('\"eventId\"'));
   const detail=JSON.parse(await page.locator('#detail').textContent());
   assert.equal(detail.mode,'replay');assert.ok(detail.rawRefs.length);assert.ok(detail.payload.official);
@@ -39,12 +40,12 @@ try{
   await wait(()=>{try{return JSON.parse(document.getElementById('replay').textContent).position===1;}catch{return false;}});
   await page.locator('#position').fill('3');await page.locator('[data-action="seek"]').click();
   await wait(()=>{try{return JSON.parse(document.getElementById('replay').textContent).position===3;}catch{return false;}});
-  await page.locator('#sourceSelect').selectOption('WebSource');await page.locator('#sourceSwitch').click();
+  await openGuiPage(page,'diagnostics');await expandGuiPanel(page,'sourceAdvanced');await page.locator('#sourceSelect').selectOption('WebSource');await page.locator('#sourceSwitch').click();
   await wait(()=>document.getElementById('status').textContent.includes('来源 WebSource'));
   assert.equal(await page.locator('#captureStart').isDisabled(),true);
   await page.reload();await wait(()=>document.getElementById('status').textContent.includes('来源 WebSource'));
   assert.equal(await page.locator('#sourceSelect').inputValue(),'WebSource');
-  await page.locator('#sourceSelect').selectOption('LiveHookSource');await page.locator('#sourceSwitch').click();
+  await openGuiPage(page,'diagnostics');await expandGuiPanel(page,'sourceAdvanced');await page.locator('#sourceSelect').selectOption('LiveHookSource');await page.locator('#sourceSwitch').click();
   await wait(()=>document.getElementById('status').textContent.includes('来源 LiveHookSource'));
   assert.deepEqual(errors,[]);
   const result={at:new Date().toISOString(),golden:operation.result.processed,checks:operation.result.checks,failures:operation.result.failures,browserErrors:errors.length,verified:['real Golden through GUI/API/parser/store','persistent history pagination','redacted official projection and RAW trace','isolated step and seek','manual source switching and refresh continuity','live capture disabled without configuration']};
