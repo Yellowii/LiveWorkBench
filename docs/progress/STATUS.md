@@ -426,3 +426,5 @@ Gateway新增accounts查询/版本化命令/WS状态及中文错误message/nextA
 真实用户验收：用户本轮明确回复“完成后我手动更新并扫码”。因此代码、本机/合成和匿名平台加载验证通过；真实扫码后页面反馈、官方确认、DPAPI保存及真实账号重启复用仍待用户在正式新版18783完成，不以合成或访客页面冒充。必要诊断可在账号pageLoad.authentication、login/saveVerified与受保护日志查看，不需发送身份/Cookie/二维码。
 
 部署/交接：未停止或重启18783，8827/8888仍PID18644；Windows代理/Clash/TUN/DNS/CA、伴侣和原数据不操作。用户在GUI停止采集并关闭旧登录窗口后，手动执行tools/restart-dev-workbench.ps1 -ExpectedPid 25388 -ExpectedCommit 8b6ec862f38a5cb33a75bb1752bbde573c1b156c；若归属/PID/版本改变助手拒绝继续。刷新核对新加载commit后登录、扫码并按需记住；窗口只有官方确认和必要保存/读回完成才自动关闭。后续先收集真实反馈；若官方形状/隧道仍失败保留窗口与原因，不继续WSS第二增量或猜测认证成功。
+
+部署补记（2026-10-13 20:19，北京时间）：用户随后明确授权由本任务重启18783。预检发现18783已无监听、原PID25388不存在，因此沿用data/pipeline-20261013及既有捕获构建启动新版，无需停止进程。新PID49944实际加载c666da9a9ce0b141fa10e92370f09c846acaf98c，启动时dirty=false，绑定127.0.0.1:18783。经首页取得本机会话后查询/api/v1/system/status与/api/v1/health：backendReady=true、health=ok、capture=STOPPED、登录窗口关闭；首页/app.js/app.css均HTTP200。旧8827/8888仍PID18644，未操作其他服务或系统环境。运行日志位于忽略的.local/deployment/。此项只确认新版部署与接口健康；真实扫码、官方认证、保存及重启复用仍待人工验收。后续刷新工作台后继续扫码反馈，第二增量WSS仍暂停。
