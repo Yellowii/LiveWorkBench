@@ -14,7 +14,7 @@ try{
  app.monitor.adapter={probe:async()=>({state:'LIVE',roomId:'9876543210123456789',anchorUid:'456',web_rid:'123',source:'synthetic',network:{mode:'direct',route:'direct',dns:'verified-and-pinned-public',connectionState:'connected'}})};
  await page.locator('#profileCheck').click();await page.waitForFunction(()=>document.getElementById('profileState').textContent.includes('"confirmationCount": 1'));
  await page.locator('#profileCheck').click();await page.waitForFunction(()=>document.getElementById('profileState').textContent.includes('"confirmedState": "LIVE"'));
- await page.locator('#profileStart').click();await page.waitForFunction(()=>document.getElementById('coordinateState').textContent.includes('NO_MATCHING_READY_PROFILE'));assert.equal(app.sources.view().captureState,'STOPPED');
+ await page.locator('#profileStart').click();await page.waitForFunction(()=>document.getElementById('coordinateState').textContent.includes('WEB_DYNAMIC_PARAMETERS_UNAVAILABLE'));assert.equal(app.sources.view().captureState,'STOPPED');
  await page.locator('#profileName').fill('synthetic edited');await page.locator('#profileSave').click();await page.waitForFunction(()=>document.getElementById('profileState').textContent.includes('synthetic edited'));
  await page.locator('#persistLogin').check();await page.locator('#authOptIn').click();await page.waitForFunction(()=>document.getElementById('profileState').textContent.includes('"persistLogin": true'));
  await page.locator('#authCheck').click();await page.waitForFunction(()=>document.getElementById('authState').textContent.includes('"validity": "UNKNOWN"'));assert.equal(app.profiles.all()[0].persistLogin,true);
@@ -22,7 +22,7 @@ try{
  await page.locator('#networkMode').selectOption('direct');await page.locator('#networkSave').click();await page.waitForFunction(()=>document.getElementById('profileState').textContent.includes('\"mode\": \"direct\"'));assert.equal(app.profiles.all()[0].networkPolicy.mode,'direct');
  await page.locator('#networkCheck').click();await page.waitForFunction(()=>document.getElementById('networkDiagnostic').textContent.includes('verified-and-pinned-public'));assert.ok((await page.locator('#networkDiagnostic').textContent()).includes('monitorStateUnchanged'));
  await page.locator('#browserStatsReload').click();await page.waitForFunction(()=>document.getElementById('browserStats').textContent.includes('"rawBeforeAck": false'));
- assert.equal(app.profiles.all()[0].target.value,'123');assert.equal(app.sources.view().selectedSource,'LiveHookSource');
+ assert.equal(app.profiles.all()[0].target.value,'123');assert.equal(app.sources.view().selectedSource,'WebSource');
  await page.locator('#profileDelete').click();await page.waitForFunction(()=>document.getElementById('profileSelect').options.length===1);
- assert.deepEqual(errors,[]);console.log(JSON.stringify({profileCRUD:true,monitorConfirmed:true,inputWriteOnly:true,manualSourcePreserved:true,browserErrors:0}));
+ assert.deepEqual(errors,[]);console.log(JSON.stringify({profileCRUD:true,monitorConfirmed:true,inputWriteOnly:true,manualListenIntent:true,browserErrors:0}));
 }finally{await browser.close();await app.close();await fs.rm(dir,{recursive:true,force:true});}

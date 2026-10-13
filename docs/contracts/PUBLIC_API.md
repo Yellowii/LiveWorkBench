@@ -225,6 +225,8 @@ Golden/全量检查面板通过后端 operation 显示实际验证结果；实�
 
 Profile网络增量与networkCheck诊断见[NETWORK_TRANSPORT v1](NETWORK_TRANSPORT.md)。返回有效代理路径、DNS委托/验证、连接阶段和稳定错误码；诊断不推进监控或自动监听。凭据与URL不返回，旧配置缺省system；采集connectionMode仍独立且兼容。
 
+独立账号及日常listen命令见[ACCOUNTS v1](ACCOUNTS.md)：GET/POST accounts、版本化账号动作、account.updated、Profile authProfileId绑定，旧路由兼容。登录不需要直播间/Source，用户已启用rememberLogin且官方确认后自动DPAPI保存并关闭窗口。system/status.accounts含数量与独立窗口占用；errors新增中文message/nextAction，code保持。显式listen可在空闲资源下选择该配置来源，后台监控仍不能切Source。
+
 REST/WS 默认返回 redacted 投影，system/status.privacy 记录 mode/projectionVersion。房间/用户/消息标识为数据域内稳定HMAC别名，原生字符串/字节字段只披露必要数值/结构；事件自身不透明ID和RAW引用保留。原生 Parser 输出和RAW仍保存在本地，官方结果投影不能作为原生结果哈希。受控本地诊断可在私有 settings 中显式设置 allowPrivateDetails=true；此模式仍不返回凭据和物理路径。该设置不经API开放，不代表LAN认证/RBAC已经实现。
 
 ### 当前历史/追踪子集（2026-10-12）

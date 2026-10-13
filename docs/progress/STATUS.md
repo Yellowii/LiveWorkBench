@@ -359,3 +359,17 @@ Profile/网络诊断GUI与160合成事件历史锚点/虚拟滚动/断线补查�
 网络功能增量已推送29cc6d7b58e1123073b98ec8b4a725226b29b0af，远程main相同。随后自有18783停止/启动的整条命令被自动审批以blocked by policy拒绝；无更详细原因，整条未执行，未尝试替代启动路径。复查18783仍PID48276/f381be8，旧8827/8888仍PID18644。提供只供用户手动执行的tools/restart-dev-workbench.ps1，核对PID/完整加载commit/STOPPED及Node入口后沿用同数据目录，不把磁盘新界面当新版后端。
 
 无需重启的真实网络只读验证：只从指定本项目SQLite的用户已登记Profile读取目标/超时/网络模式（不读取登录态、Cookie或RAW），新代码独立probe、不写监控/业务状态。2026-10-13北京时间07:43:48，880ms，经现有Windows静态回环HTTP CONNECT代理、代理侧DNS、正常目标TLS验证取得页面成功；localDnsUsed=false、connectionState=connected、网络errorCode=null，RAW/events/sessions计数不变。结构化房间证据仍MONITOR_EVIDENCE_UNAVAILABLE/UNKNOWN；这证明当前代理网络可达，不能证明真实开播、身份映射、官方SDK/WSS捕获或持续恢复。报告只保留脱敏摘要.local/e-network-real-summary.json，页面正文/用户身份未输出/上传。下一步由用户手动更新18783并在GUI选用系统网络/浏览器采集及人工WebSource选择，真实闭环及E4继续待验收。
+
+## 17. 独立账号与日常流程（2026-10-13）
+
+任务ACCOUNT-20261013增量1，owner本对话，基线核对本地/远程e21c4caa140a211a8e8b0b5ec91de2f6fef717c4，工作区初始干净。用户附件明确要求直接实现，不派工、不重复总体审计；新增兼容接口见[ACCOUNTS v1](../contracts/ACCOUNTS.md)。后续内部Web直连/browser自动切换已获用户授权，但本增量不把该功能或真实直连标完成。
+
+已交付源码：auth/auth-profile-store、login-manager、login-browser-session独立账号/临时窗口生命周期；复用官方AccountMonitor/createLoginContext及现有LoginVault/DPAPI。登录无需Profile/roomId/全局Source，无直播间亦可；official-self-api新鲜确认、有效快照、用户rememberLogin后自动保存；保存与自有窗口释放完成才报告AUTHENTICATED。匿名/未经验证/空快照/取消/迟到回调不覆盖旧凭据，重复创建登录不会留下多余账号；关闭后拒绝迟到命令。未记住时只在进程内保存会话，重启已有保存状态仍UNKNOWN。多个MonitorProfile共享authProfileId，Browser采集读取共享或旧vault；旧私有文件只登记原引用，不搬移或扫描其他账号文件。
+
+Gateway新增accounts查询/版本化命令/WS状态及中文错误message/nextAction；公开DTO不含Cookie/用户资料/登录快照。简易GUI增加独立账号区、记住/重新登录/查看/清除/关闭、直播间账号选择和中文状态摘要，保留底层诊断。开始监听为单一listen命令：版本/串行/单资源检查后由用户意图选择配置来源并连续确认，不抢占其他采集；未开播的用户选择供后续监控使用，停止/切源清除并保持同场抑制。后台Monitor仍不切全局Source。账号登录/清除不关闭已有采集。旧共享账号保存/清除入口引导到账号管理，避免按某个房间误清除共享凭据。
+
+验证通过（合成/本机范围）：6项新回归先失败后通过，覆盖无目标/LiveHook选择下独立登录、真实DPAPI密文/重启共享、opt-out、取消/晚回调/空快照/重复创建/关闭后拒写、实际回环WSS在账号登录和清除后继续收RAW、用户一次listen真实本机WS连通、实际Edge合成官方self响应后保存并关闭。完整**107/107自动化通过**（.local/accounts-tests.log），另实例hash针对2/2通过。C#独立.local/accounts-capture-build编译退出0（.local/accounts-build.log）；Parser6原文件及Browser4资源固定hash核对，原Parser输出/references未改。账号GUI、配置/监听意图GUI均浏览器错误0；包含两房共享默认账号及另一个非默认账号显式选择。160合成事件历史锚点/虚拟滚动/断线补查及隔离Replay GUI通过、浏览器错误0。公开扫描177文件0发现，临时证书/SQLite/登录密文/RAW/运行日志不进Git，不读取R01。
+
+真实运行事实：用户已将18783手动更新至e21c4ca，当前只读检查PID52652、采集FAILED、选中WebSource、有两配置；没有accounts能力，不能把新磁盘页面当该进程已支持新账号。8827/8888仍PID18644，本任务没有重试此前被拒绝的长期启动/重启动作，没有停止伴侣或旧服务、修改代理/DNS/TUN/CA。手动部署助手新增独立登录窗口占用保护，脚本仅静态语法核对、未执行；用户先停止本项目采集，再按实际PID/完整加载commit更新。
+
+交接/未执行：第一增量实现及合成验收通过，真实扫码、官方页面账号有效性/过期与共享登录态在真实采集中仍待用户更新宿主后验证。直连动态参数与身份映射真实证据、内部自动无头兜底/恢复直连/释放/同场连续性、Proto字典联动和E4孤立RAW/journal/Replay恢复均未完成；不以107测试或WSS代码存在代替真实弹幕接入。下一增量继续WSS优先的可信ConnectionResolver与账号复用，无法可靠直连保持明确不可用并按已授权自动兜底策略推进，不猜测签名或平台语义。

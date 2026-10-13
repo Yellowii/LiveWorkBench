@@ -286,4 +286,6 @@ node ./tools/m0/Audit-SelectedSession.mjs $selectedSampleRoot $parserCopy $repor
 
 douyinprotobuf@e9e6cec的BrowserLive/AccountMonitor/createLoginContext经tools/setup-browser.mjs四固定哈希准备至忽略的src/parser/browser-vendor，不覆写已有parser/paths.js。本地v3只改准备钩子/目标匹配/RAW后解析与诊断边界；官方页面SDK拥有签名/心跳/ACK。新BrowserSource/媒体策略/DPAPI/login API属第一方；原浏览器资源不因复用获得公开再分发授权。Web直连原live.js保留，v5增加每次连接新参数回调，未补不存在的签名算法。
 
+2026-10-13独立账号增量复用同一AccountMonitor/createLoginContext，第一方LoginBrowserSession仅持有独立官方首页窗口与受控网络策略，LoginManager负责官方确认后按用户opt-in自动DPAPI保存/窗口释放及共享引用。没有调用上游.env明文保存类，不改四原资源，未另复制SDK/签名实现。接口/证据见ACCOUNTS与STATUS17；真实扫码和平台动态连接发现仍待，不把合成官方响应当真实鉴权通过。
+
 合成验证位置：tests/monitor、profile-api、coordinator、automatic-source、browser-source、hook-profile、monitor-session.test.js；实际Edge网络事件/回环WS/DPAPI属于受控离线集成，不是平台生产验收。完整状态与剩余项见STATUS第15节。

@@ -21,6 +21,7 @@ export class MonitorCoordinator extends EventEmitter{
    if(p&&!p.autoReconnect){this.record('PROFILE_RECONNECT_DISABLED',{profileId:p.profileId});return;}this.state.active=null;this.save();
   }
   const adoptExisting=source.selectedSource==='LiveHookSource'&&source.captureState==='CONNECTED'&&this.profiles.all().some(p=>this.sources.adoptable?.(p));
+  if(!choice&&this.state.requestedProfileId){const p=this.profiles.all().find(x=>x.profileId===this.state.requestedProfileId);if(p?.version===this.state.requestedProfileVersion)choice=p.profileId;else{this.state.requestedProfileId=null;this.state.requestedProfileVersion=null;}}
   if(!['STOPPED','FAILED'].includes(source.captureState)&&!adoptExisting){this.state.reason='SOURCE_BUSY';this.save();return this.view();}
   const candidates=this.profiles.all().filter(p=>p.enabled&&(choice?p.profileId===choice:p.autoStart)&&p.sourceType===source.selectedSource).map(p=>({p,s:this.sources.hookEvidence?.(p)||this.monitor.view(p.profileId)})).filter(({p,s})=>s.confirmedState==='LIVE'&&s.queryState==='LIVE'&&s.profileVersion===p.version&&s.roomId&&s.anchorUid&&Date.now()-Date.parse(s.checkedAt)<p.pollMs*2&&this.state.suppressed[p.profileId]!==signalKey(p,s));
   candidates.sort((a,b)=>b.p.priority-a.p.priority);
@@ -36,7 +37,17 @@ export class MonitorCoordinator extends EventEmitter{
   return this.view();
  }
  start(id){return this.serialize(async()=>{const p=this.profiles.get(id);delete this.state.suppressed[id];delete this.state.attempts[id];if(!p.enabled)throw new Error('PROFILE_DISABLED');return this.run(id);});}
- suppress(){for(const p of this.profiles.all()){const s=this.monitor.view(p.profileId);if(s.confirmedState==='LIVE')this.state.suppressed[p.profileId]=signalKey(p,s);}this.state.active=null;this.record('PROFILE_MANUAL_STOP');}
+ listen(id,expectedVersion){return this.serialize(async()=>{
+  const p=this.profiles.get(id),source=this.sources.view();if(p.version!==expectedVersion)throw new Error('STATE_CONFLICT');if(!p.enabled)throw new Error('PROFILE_DISABLED');
+  if(this.state.active?.profileId===id&&!['STOPPED','FAILED'].includes(source.captureState))return this.view();
+  if(!['STOPPED','FAILED'].includes(source.captureState)&&!this.sources.adoptable?.(p))throw new Error('SOURCE_BUSY');
+  // Only this explicit user command may select the profile's declared global Source.
+  if(source.selectedSource!==p.sourceType)await this.sources.action({action:'switch',sourceType:p.sourceType,expectedVersion:source.stateVersion});
+  this.state.requestedProfileId=id;this.state.requestedProfileVersion=p.version;delete this.state.suppressed[id];delete this.state.attempts[id];this.record('PROFILE_LISTEN_REQUESTED',{profileId:id});
+  if(!this.sources.hookEvidence?.(p))for(let n=0;n<p.confirmations;n++){const evidence=await this.monitor.check(id);if(this.profiles.get(id).version!==p.version)throw new Error('STATE_CONFLICT');if(evidence.queryState==='UNKNOWN'||evidence.confirmedState==='LIVE'&&evidence.profileVersion===p.version)break;}
+  return this.run(id);
+ });}
+ suppress(){this.state.requestedProfileId=null;this.state.requestedProfileVersion=null;for(const p of this.profiles.all()){const s=this.monitor.view(p.profileId);if(s.confirmedState==='LIVE')this.state.suppressed[p.profileId]=signalKey(p,s);}this.state.active=null;this.record('PROFILE_MANUAL_STOP');}
  manualStop(){return this.serialize(async()=>{await this.sources.stopProfile();this.suppress();return this.view();});}
  async close(){this.closed=true;clearTimeout(this.timer);this.monitor.off('monitor.updated',this.changed);await this.queue.catch(()=>{});}
 }

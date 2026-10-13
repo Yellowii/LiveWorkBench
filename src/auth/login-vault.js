@@ -14,5 +14,6 @@ export class LoginVault{
  async read(id){try{const encrypted=await fs.readFile(this.file(id));if(encrypted.length>2*1024*1024)throw new Error('AUTH_STATE_TOO_LARGE');const plain=await protect('unprotect',encrypted);try{return JSON.parse(plain.toString('utf8'));}finally{plain.fill(0);}}catch(error){if(error.code==='ENOENT')return null;throw new Error('AUTH_STATE_UNAVAILABLE');}}
  async load(id){const saved=await this.read(id);return saved?filterState(saved.storageState):null;}
  async status(id){const saved=await this.read(id);return {configured:Boolean(saved),savedAt:saved?.savedAt||null,protection:'Windows-DPAPI-CurrentUser',validity:'UNKNOWN',reason:'Official account check required; saved state alone is not authentication evidence'};}
+ async inspect(id){try{const entry=await fs.stat(this.file(id));return {configured:entry.isFile()};}catch(error){if(error.code==='ENOENT')return {configured:false};throw new Error('AUTH_STATE_UNAVAILABLE');}}
  clear(id){return this.serial(async()=>{await fs.rm(this.file(id),{force:true});return {cleared:true,validity:'UNKNOWN'};});}
 }
