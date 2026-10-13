@@ -42,3 +42,5 @@ DOMAIN_POLICY_DENIED、LOGIN_MEDIA_BLOCKED与HTTP_ERROR、PROXY_CONNECTION_FAILE
 账号状态兼容追加SAVING：新鲜官方确认→storageState/过滤检查→用户rememberLogin时DPAPI写入→读回同一快照验证→关闭自有窗口→AUTHENTICATED。保存/读回失败维持ERROR和窗口，不能宣称remembered成功。成功DTO追加saveVerified与cookieCount/originCount，仅计数。未记住仍只在宿主内存共享；文件存在不证明重启后有效，真实复用需重新官方确认。十分钟等待仅提示AUTH_LOGIN_STILL_WAITING，不自动关闭正在交互的窗口；用户close、窗口自闭或宿主关闭仍释放资源。LOGIN_MEDIA_BLOCKED仅属于旧报告，新登录不再产生该码。
 
 本地合成资源/真实代理失败与真实匿名页面加载分别验收。真实探针node tools/probe-login-page.mjs <本地报告标签> [visible] [layout]仅使用独立临时上下文和现有网络设置，不读已存账号、不写登录态；可点击登录入口，输出脱敏聚合及可选已遮蔽文本/二维码的布局截图到忽略的.local/login-page。观察结束后释放自有临时浏览器。真实扫码、验证码交互、账号确认/保存仍由用户在更新后的正式工作台完成，不能以二维码出现替代登录成功。
+
+扫码确认排障补充：pageLoad.loginFlow按qr-create、qr-poll、challenge、ticket-guard及passport-other记录请求/响应/失败计数、时间、HTTP状态、固定协议状态与数值错误码；其他扫码状态只显示unrecognized。这些流程信号不作为认证依据，不保存二维码、重定向URL、参数、Cookie或官方错误原文。pageLoad.authentication.lastResponse追加固定endpoint分类、数值responseCode和账号结构类别；官方拒绝明确为AUTH_OFFICIAL_REJECTED，不再混作未知结构。原生账号查询与响应验证异步执行时，等待已收到响应的验证结束，再判断是否补充profile/self查询；未知主接口结构同样允许备用官方查询，但必须由该接口的新鲜HTTP证据确认，不能猜测嵌套字段即已登录。

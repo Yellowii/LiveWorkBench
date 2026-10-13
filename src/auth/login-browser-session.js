@@ -36,7 +36,12 @@ export class LoginBrowserSession extends EventEmitter {
     }catch{await this.close();throw new Error('AUTH_LOGIN_OPEN_FAILED');}
   }
   async check(){const sequence=this.evidence?.sequence,result=await this.account?.check({force:true});
-    if(!this.closing&&result?.state==='error'&&Date.now()-(this.lastProfileCheck||0)>=15000){this.lastProfileCheck=Date.now();await queryOfficialProfile(this.page).catch(()=>false);}
+    await this.evidence?.settled();
+    // A primary response may look anonymous to the pinned normalizer while the
+    // validation layer rejects its shape. That is not a reason to skip the
+    // independent current-account endpoint. Its actual HTTP response is proof.
+    const fallback=result?.state==='error'||['UNKNOWN','ERROR'].includes(this.evidence?.last?.state);
+    if(!this.closing&&fallback&&Date.now()-(this.lastProfileCheck||0)>=15000){this.lastProfileCheck=Date.now();await queryOfficialProfile(this.page).catch(()=>false);}
     if(!this.closing&&this.evidence?.sequence===sequence&&result?.state==='error')this.emit('status',{state:'ERROR',reasonCode:'AUTH_OFFICIAL_QUERY_UNAVAILABLE'});return this.evidence?.last||{state:'UNKNOWN'};
   }
   diagnostics(){const network=this.network?.diagnostic;return {network:network?{mode:network.mode,route:network.route,dns:network.dns,localDnsUsed:network.localDnsUsed,tls:network.tls,connectionState:network.connectionState,errorCode:network.errorCode||null}:null,authentication:this.evidence?.snapshot()||null,...(this.loadDiagnostics?.snapshot()||{resources:[]})};}

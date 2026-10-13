@@ -428,3 +428,13 @@ Gateway新增accounts查询/版本化命令/WS状态及中文错误message/nextA
 部署/交接：未停止或重启18783，8827/8888仍PID18644；Windows代理/Clash/TUN/DNS/CA、伴侣和原数据不操作。用户在GUI停止采集并关闭旧登录窗口后，手动执行tools/restart-dev-workbench.ps1 -ExpectedPid 25388 -ExpectedCommit 8b6ec862f38a5cb33a75bb1752bbde573c1b156c；若归属/PID/版本改变助手拒绝继续。刷新核对新加载commit后登录、扫码并按需记住；窗口只有官方确认和必要保存/读回完成才自动关闭。后续先收集真实反馈；若官方形状/隧道仍失败保留窗口与原因，不继续WSS第二增量或猜测认证成功。
 
 部署补记（2026-10-13 20:19，北京时间）：用户随后明确授权由本任务重启18783。预检发现18783已无监听、原PID25388不存在，因此沿用data/pipeline-20261013及既有捕获构建启动新版，无需停止进程。新PID49944实际加载c666da9a9ce0b141fa10e92370f09c846acaf98c，启动时dirty=false，绑定127.0.0.1:18783。经首页取得本机会话后查询/api/v1/system/status与/api/v1/health：backendReady=true、health=ok、capture=STOPPED、登录窗口关闭；首页/app.js/app.css均HTTP200。旧8827/8888仍PID18644，未操作其他服务或系统环境。运行日志位于忽略的.local/deployment/。此项只确认新版部署与接口健康；真实扫码、官方认证、保存及重启复用仍待人工验收。后续刷新工作台后继续扫码反馈，第二增量WSS仍暂停。
+
+## 20. 手机确认后停留排障（2026-10-13）
+
+用户真实反馈：扫码进入“需在手机上进行确认”，手机同意后无后续；用户按F5刷新后又回到初次访问。正式c666da9/18783本次脱敏诊断显示系统HTTP代理、代理侧DNS、正常TLS、页面已响应、pageErrors=0；官方账号响应仍未确认登录，保存未配置。zijieapi.com有少量脚本域名拒绝，但尚无证据表明其导致登录失败，未猜测添加白名单。扫码/回调环节缺少诊断，不能把当前阻塞直接归为保存失败或声称根因全部解决。
+
+本次第一方修复：login-browser-session等待已收到账号响应的验证结束，未支持的主接口结构也可触发现有官方SDK的profile/self备用查询；login-account-evidence将官方拒绝与未知结构区分，追加不含身份的固定接口/结构/数值错误码。login-load-diagnostics追加扫码生成、轮询、challenge/ticket及其他passport请求的有限状态诊断；信号只用于排障，不用于认证。未修改官方Parser/AccountMonitor、网络策略、媒体策略、RAW/Storage或系统设置。
+
+自动化：新回归先失败后通过，复现主接口未知结构跳过备用查询以及异步验证竞态；验证官方拒绝不误标结构、扫码错误可定位、隐私字段不输出、关闭后迟到响应无效。针对性14/14通过；沿用本轮已构建且未改的C#捕获宿主设置LW_CAPTURE_EXE后执行npm test，完整124/124通过（.local/login-flow-regression.log）。本轮无C#源码变更，未重复构建。真实匿名页面仅验证扫码接口可响应；真实手机确认、网页登录态落地及保存仍待更新后的再次扫码，不能由合成测试替代。下一步在用户已授权的18783重启范围内部署，保留已有账号/配置/数据，再读取本地脱敏流程证据继续排障。
+
+20:38匿名实测：沿现有system代理，ticket-guard/challenge/qr-create均HTTP200；qr-poll四次HTTP200、errorCode=0、pollStatus=new；profile/self为HTTP200/responseCode=8访客、confirmed=0，pageErrors=0。新流程诊断在真实官方匿名页面已生效，未读取或保存真实账号；本地脱敏报告.local/login-flow-anonymous.json。公开检查187文件0发现。

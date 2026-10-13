@@ -16,6 +16,29 @@ import {normalizeAccount} from '../src/parser/browser-vendor/account.js';
 const until=async fn=>{const deadline=Date.now()+12000;while(!await fn()){if(Date.now()>deadline)throw new Error('TEST_TIMEOUT');await new Promise(resolve=>setTimeout(resolve,25));}};
 const snapshot={cookies:[{name:'synthetic_session',value:'SYNTHETIC_INTERACTION_VALUE',domain:'.douyin.com',path:'/',expires:-1,httpOnly:true,secure:true,sameSite:'Lax'}],origins:[]};
 
+test('official rejection is distinct from an unsupported response shape and exposes only safe metadata',async()=>{
+ const evidence=new LoginAccountEvidence(new EventEmitter(),normalizeAccount);
+ const response=body=>({url:()=> 'https://live.douyin.com/webcast/user/me/?token=SYNTHETIC_PRIVATE',status:()=>200,text:async()=>JSON.stringify(body)});
+ await evidence.observe(response({status_code:3001,status_msg:'SYNTHETIC_PRIVATE',data:{user:{uid:'987654321'}}}));
+ assert.equal(evidence.last.state,'ERROR');assert.equal(evidence.last.reasonCode,'AUTH_OFFICIAL_REJECTED');assert.equal(evidence.last.responseCode,3001);
+ await evidence.observe(response({status_code:0,data:{user:{uid:'987654321',nickname:'SYNTHETIC_PRIVATE'}}}));
+ assert.equal(evidence.last.state,'UNKNOWN');assert.equal(evidence.last.reasonCode,'AUTH_OFFICIAL_SHAPE_UNCONFIRMED');
+ assert.equal(evidence.snapshot().lastResponse.endpoint,'webcast-me');assert.equal(evidence.snapshot().lastResponse.accountShape,'nested-user');
+ assert.doesNotMatch(JSON.stringify(evidence.snapshot()),/SYNTHETIC|987654321|token|nickname/);evidence.close();
+});
+
+test('unsupported primary account shape triggers an independent official self query without inferring login',async t=>{
+ const proxy=http.createServer(),sockets=new Set();proxy.on('connect',(_req,socket)=>socket.end('HTTP/1.1 403 Forbidden\r\nContent-Length: 0\r\n\r\n'));proxy.on('connection',socket=>{sockets.add(socket);socket.once('close',()=>sockets.delete(socket));});await new Promise(resolve=>proxy.listen(0,'127.0.0.1',resolve));
+ const session=new LoginBrowserSession({launchBrowser:options=>chromium.launch({...options,headless:true}),prepareContext:async context=>{await context.route('**/*',route=>{
+  const p=new URL(route.request().url()).pathname;
+  if(p==='/webcast/user/me/')return route.fulfill({contentType:'application/json',body:JSON.stringify({status_code:0,data:{user:{uid:'900'}}})});
+  if(p.endsWith('/profile/self/'))return route.fulfill({contentType:'application/json',body:JSON.stringify({status_code:0,user:{uid:'900'}})});
+  return route.fulfill({contentType:'text/html',body:`<script>const getMe=()=>fetch("/webcast/user/me/").then(r=>r.json()).then(data=>({data}));const getSelf=()=>fetch("/aweme/v1/web/user/profile/self/").then(r=>r.json());window.webpackChunkdouyin_live_v2=[[[],{me:function(){return "/webcast/user/me/"},self:function(){return "/aweme/v1/web/user/profile/self/"}}]];window.webpackChunkdouyin_live_v2.push=function(entry){Array.prototype.push.call(this,entry);entry[2](id=>id==='me'?{getMe}:{getSelf});};</script>`});
+ });}});const states=[];session.on('status',status=>states.push(status));t.after(async()=>{await session.close();for(const socket of sockets)socket.destroy();await new Promise(resolve=>proxy.close(resolve));});
+ await session.open({networkPolicy:{mode:'custom',proxyUrl:'http://127.0.0.1:'+proxy.address().port}});await until(()=>states.some(x=>x.state==='AUTHENTICATED')).catch(()=>assert.fail(JSON.stringify({states,diagnostics:session.diagnostics()})));
+ assert.ok(states.some(x=>x.reasonCode==='AUTH_OFFICIAL_SHAPE_UNCONFIRMED'));assert.equal(session.diagnostics().authentication.lastResponse.endpoint,'profile-self');assert.equal(session.diagnostics().authentication.confirmed,1);
+});
+
 test('a failed concurrent probe cannot suppress a successful official authentication response',async()=>{
  const evidence=new LoginAccountEvidence(new EventEmitter(),normalizeAccount);let release;
  const pending=evidence.observe({url:()=> 'https://www.douyin.com/aweme/v1/web/user/profile/self/',status:()=>200,text:()=>new Promise(resolve=>release=resolve)});
