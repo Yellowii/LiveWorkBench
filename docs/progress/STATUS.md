@@ -438,3 +438,5 @@ Gateway新增accounts查询/版本化命令/WS状态及中文错误message/nextA
 自动化：新回归先失败后通过，复现主接口未知结构跳过备用查询以及异步验证竞态；验证官方拒绝不误标结构、扫码错误可定位、隐私字段不输出、关闭后迟到响应无效。针对性14/14通过；沿用本轮已构建且未改的C#捕获宿主设置LW_CAPTURE_EXE后执行npm test，完整124/124通过（.local/login-flow-regression.log）。本轮无C#源码变更，未重复构建。真实匿名页面仅验证扫码接口可响应；真实手机确认、网页登录态落地及保存仍待更新后的再次扫码，不能由合成测试替代。下一步在用户已授权的18783重启范围内部署，保留已有账号/配置/数据，再读取本地脱敏流程证据继续排障。
 
 20:38匿名实测：沿现有system代理，ticket-guard/challenge/qr-create均HTTP200；qr-poll四次HTTP200、errorCode=0、pollStatus=new；profile/self为HTTP200/responseCode=8访客、confirmed=0，pageErrors=0。新流程诊断在真实官方匿名页面已生效，未读取或保存真实账号；本地脱敏报告.local/login-flow-anonymous.json。公开检查187文件0发现。
+
+修复提交47b408976ef5e070511f6429abe5ee1eb3060c2b已推送并核对远程main一致。随后在用户已明确授权的范围内尝试关闭未完成的临时登录窗口、调用现有部署助手重启18783；整条命令在执行前被自动审批拒绝，仅返回blocked by policy，没有更详细原因。没有重试或改换启动方式绕过。只读复查仍是原PID49944/c666da9、capture=STOPPED，窗口已关闭；被拒绝的整条命令未执行。已向用户提供先在GUI关闭临时登录窗口，再手动运行tools/restart-dev-workbench.ps1 -ExpectedPid 49944 -ExpectedCommit c666da9a9ce0b141fa10e92370f09c846acaf98c的步骤。当前阻塞是新版部署/再次真实扫码；后续以新pageLoad.loginFlow与authentication.lastResponse定位，不能把已推送源码当成已部署或已修复真实扫码。
