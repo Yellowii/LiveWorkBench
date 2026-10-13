@@ -471,3 +471,5 @@ Gateway新增accounts查询/版本化命令/WS状态及中文错误message/nextA
 - 沿用本机已验证C#产物，设置LW_CAPTURE_EXE=C:/project/LiveWorkBench/.local/login-boundary/capture-build/LiveWorkbench.CaptureHost.exe后npm test **139/139通过**，约95秒，.local/ui-full-regression.log。无C#修改/重建；公开扫描193文件0发现，git diff --check与前端语法检查通过。既有verify-workbench私人R01路径本轮未运行，合成59Golden不冒充真实R01复验。
 
 运行边界/交接：未运行正式部署BAT、停止/重启命令或真实平台登录/采集。收尾只读检查发现18783已无监听、原PID49944不存在；退出原因未核查，不声称由本任务解决或恢复。8827/8888仍PID18644。只在main仍干净且18783仍无监听时允许快进同步本前端提交回主工作区；不自动启动服务。若占用/主工作区变化则保留隔离分支。下一步回到真实登录确认/保存与WSS可信直连及隐藏Chromium兜底主线，不继续扩展UI；真实扫码、真实WSS/恢复及正式长期实例部署尚未验收，需先根据实际服务状态与用户授权接续。
+
+同步补记：实现提交3175d426aee48a3782d31b261efe1e66a84913ff已完成；再次核对main干净、HEAD仍为1473ba3、18783无监听后，以git merge --ff-only将同一已验证提交同步回C:/project/LiveWorkBench。没有执行服务部署、启动或重启。隔离worktree保留本地合成报告和截图；这些证据不进入Git。后续界面/后端实际加载版本仍需在用户授权启动后核对，不能把main代码更新当作服务运行通过。
