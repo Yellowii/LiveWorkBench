@@ -440,3 +440,17 @@ Gateway新增accounts查询/版本化命令/WS状态及中文错误message/nextA
 20:38匿名实测：沿现有system代理，ticket-guard/challenge/qr-create均HTTP200；qr-poll四次HTTP200、errorCode=0、pollStatus=new；profile/self为HTTP200/responseCode=8访客、confirmed=0，pageErrors=0。新流程诊断在真实官方匿名页面已生效，未读取或保存真实账号；本地脱敏报告.local/login-flow-anonymous.json。公开检查187文件0发现。
 
 修复提交47b408976ef5e070511f6429abe5ee1eb3060c2b已推送并核对远程main一致。随后在用户已明确授权的范围内尝试关闭未完成的临时登录窗口、调用现有部署助手重启18783；整条命令在执行前被自动审批拒绝，仅返回blocked by policy，没有更详细原因。没有重试或改换启动方式绕过。只读复查仍是原PID49944/c666da9、capture=STOPPED，窗口已关闭；被拒绝的整条命令未执行。已向用户提供先在GUI关闭临时登录窗口，再手动运行tools/restart-dev-workbench.ps1 -ExpectedPid 49944 -ExpectedCommit c666da9a9ce0b141fa10e92370f09c846acaf98c的步骤。当前阻塞是新版部署/再次真实扫码；后续以新pageLoad.loginFlow与authentication.lastResponse定位，不能把已推送源码当成已部署或已修复真实扫码。
+
+## 21. 一键本地部署（2026-10-14）
+
+用户明确要求新增一键入口，未授权本轮重启长期18783。owner本会话，串行main；写入根BAT、tools/deploy-dev-workbench.ps1及原restart助手、针对测试/README/STATUS。另有live-hook-daemon一行复用现有LW_CAPTURE_EXE，使观察器与CaptureBridge选择本次构建；没有修改其采集/HookReady语义或公共API。账号与扫码诊断仍维持前节状态，未开展第二增量WSS。
+
+实现：BAT双击后以UTF8中文显示阶段、失败原因、诊断代码及保留窗口；PS1自动取得受认证API的实际PID/Commit/采集/登录/健康状态及Git HEAD，不固定旧PID/Commit。复用原restart助手的唯一受保护Stop-Process位置，增加监听端口/Node入口/同Windows用户/SQLite只读租约、进程创建时间及实例nonce核查，构建后再校验。使用独立.local/deploy-builds输出和现有build-capture；--stdio --smoke验证ready、proxyBound=false、hookReady=false与退出0，再以临时独立Runtime验证Node依赖/官方Parser/SQLite。旧PID退出和端口释放后才启动新实例，沿用data/pipeline-20261013，核查新PID、实际Commit、健康、租约以及构建期间Git变化；同版本健康时不重启。部署文件锁阻止并发部署；不提权、不使用-Force/taskkill、不删除租约或数据、不绕过审批、不修改系统网络/证书/伴侣/其他服务。原带ExpectedPid/ExpectedCommit的手动入口仍可用，现在验证后在后台运行并返回，而非占用终端一直等待。
+
+失败边界：采集/登录/身份/目录归属、工作区未提交修改、构建/验证失败时保留旧进程。首次启动或状态不可读取时拒绝，由用户按README先启动已有实例；不拿任意端口进程当可结束目标。旧实例已经退出后发生启动失败/目标版本不符，明确报告失败，保留私有运行日志和数据，不声称已回滚/保住旧进程，不强制清理未知进程。文件系统没有复制或删除账号、Cookie、事件库或真实RAW；临时验证数据与测试输入独立。
+
+验证进度：部署回归先失败后通过；实际cmd.exe运行BAT的合成入口验证中文与退出码0/3，Windows PowerShell 5.1测试覆盖采集/登录占用、异项目Node、错误Windows用户、错误数据租约、构建/运行依赖失败、源码/采集在构建期间变化、同版本、旧退出/新启动/新Commit不符，真实CaptureHost用于stdio验证。真实MSBuild独立构建与Test-LwCaptureHost/Test-LwRuntime退出0（.local/deploy-builds/verify-7ebc72a2359447188b9ae6b754803649，exe SHA256 ebe2a4928b812142c2207e892fc5791f06b274102882791a2a57efcaa223d8aa）。只读预检实际18783归属通过，仍PID49944/c666da9/STOPPED、登录窗口关闭；没有执行正式部署。
+
+首次全套138项135通过/3失败：browser-source的DPAPI AUTH_STATE_UNAVAILABLE、浏览器WSS等待，以及capture的中断分片缺口等待；三项单独复查均通过。新增PowerShell/CIM部署测试与Chromium/C#并行时产生明显延迟；未更改生产超时或放宽断言，将npm test限制为4个测试文件并发后重新验证。最终完整回归/公开审查结果在完成时补记。正式双击长期实例部署、真实扫码确认/DPAPI保存与真实捕获尚未验收；不能用隔离部署通过替代。
+
+最终验证通过（自动化/本机隔离范围）：设置LW_CAPTURE_EXE为上述本次构建后执行npm test，**139/139通过**（.local/deployment/bounded-regression.log，约171秒）；包含14项部署/BAT回归及观察器选用本次构建的回归。源码diff校验通过，公开检查190文件0发现；PS1以UTF8 BOM/CRLF保留Windows PowerShell中文兼容，BAT以UTF8无BOM/CRLF验证中文入口。完成时只读复查18783仍PID49944/c666da9/STOPPED、登录窗口关闭，同Windows用户/端口/租约核查通过；8827/8888仍PID18644。Node启动路径与现有Shell匹配。没有运行正式BAT/完整部署来重启18783，也没有重试上次被拒绝的长期重启操作。下一步由用户双击根BAT部署当前HEAD，刷新并核对实际加载Commit，再继续真实扫码排障；本工具只解决本地部署操作，不代表扫码/真实采集已验收。

@@ -20,7 +20,7 @@ export class LiveHookDaemon {
     if(changed){this.runtime.emit('daemon.updated',this.status);this.runtime.log(state,{restartRequired});}
   }
   observationFailed(){this.observed=null;this.rootInstance=null;this.targetEvidence=null;this.bridge.status.hookReady=false;this.runtime.captureTargets?.interrupt();this.status={...this.status,available:false,state:'UNKNOWN',hookReady:false,reason:'PROCESS_OBSERVATION_FAILED',companionRunning:null,processInstances:[],stateVersion:String(Number(this.status.stateVersion)+1)};this.runtime.emit('daemon.updated',this.status);}
-  async start(){const exe=path.join(root,'src/capture/BarrageGrab/bin/Debug/LiveWorkbench.CaptureHost.exe');
+  async start(){const exe=process.env.LW_CAPTURE_EXE||path.join(root,'src/capture/BarrageGrab/bin/Debug/LiveWorkbench.CaptureHost.exe');
     return new Promise(resolve=>{let settled=false;const finish=()=>{if(!settled){settled=true;clearTimeout(timer);resolve(this.status);}};const fail=()=>{this.observationFailed();finish();};
       const child=this.child=spawn(exe,['--observe'],{cwd:path.dirname(exe),windowsHide:true,stdio:['pipe','pipe','pipe']});const timer=setTimeout(finish,3000);
       child.stdin.on('error',()=>{});
