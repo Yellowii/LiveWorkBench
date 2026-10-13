@@ -26,3 +26,13 @@ Profile actions新增listen {expectedVersion}，由明确用户意图串行检�
 system/status新增accounts.count/loginWindowOpen；手动部署助手在独立登录窗口仍打开时拒绝停止宿主。普通失败返回中文message/nextAction和诊断code。旧Profile登录动作转到独立首页，不再先解析room或抑制Coordinator；已有私人vault仅在用户明确登录时登记原引用，不扫描/搬移文件。共享账号的旧保存/清除入口引导到账号管理，避免误伤其他绑定。
 
 验收覆盖：tests/accounts.test.js（真实DPAPI、本机WS、实际Edge合成官方self响应）；tools/verify-accounts.mjs（含默认共享与非默认账号选择）、verify-profiles.mjs（完整等待新listen结果）、verify-history.mjs（合成历史/回放）。真实扫码、真实账号过期、平台直连与兜底恢复尚未验收。当前第一增量没有实现可靠动态参数发现或新的内部自动模式协调器；后续增量继续WSS优先、隐藏兜底/恢复和字典联动。
+
+### 登录页面资源与诊断（2026-10-13兼容补充）
+
+可见登录窗口使用独立login-resource-policy，允许经域名策略校验的CSS、JS、图片、字体、二维码和验证/账号接口，不再使用采集的图片/字体过滤。直播媒体URL（含fetch/XHR下载）、media资源及页面自动播放仍阻断。BrowserSource保留原低资源/媒体策略。networkTarget仅为browserAsset增加从真实官方页面及登录组件观察到的精确HTTPS/443资源主机：lf-webcast-platform.bytetos.com、lf-c-flwb.bytetos.com、lf-cdn-tos.bytescm.com、lf-security.bytegoofy.com、lf3-webcast.bytetos.com、lf-ucenter-web.yhgfb-cn-static.com、lf-rc1.yhgfb-cn-static.com、lf-rc2.yhgfb-cn-static.com、security.zijieapi.com、vcs.zijieapi.com；不扩张TargetResolver/直连WSS白名单、后缀家族、IP权限或TLS豁免。
+
+账号DTO兼容新增可选pageLoad，账号区“账号网络与开发诊断”通过原REST/WS展示。内容为网络模式/实际路由/DNS委托或固定地址策略/TLS模式、资源分类统计、pageErrors/consoleErrors及overflow。resources项仅有脱敏domain、resourceType、outcome、reasonCode、httpStatus和count；不含路径/查询参数、Cookie、身份、响应/二维码内容、控制台或异常原文。未知域名不直接披露；已知公共域只留域根，必要固定资源主机保留完整域名。关闭后保留本次诊断于宿主内存，重启不冒充当前加载状态。
+
+DOMAIN_POLICY_DENIED、LOGIN_MEDIA_BLOCKED与HTTP_ERROR、PROXY_CONNECTION_FAILED、NETWORK_TIMEOUT、DNS_RESOLUTION_FAILED、TLS_VALIDATION_FAILED、REQUEST_CANCELLED、NETWORK_REQUEST_FAILED、PAGE_SCRIPT_EXCEPTION、BROWSER_CONSOLE_ERROR分别记账。主动阻断不重复算网络失败；最多80种聚合记录，溢出计数。每种失败首条以AUTH_LOGIN_RESOURCE_DIAGNOSTIC和账号/operationId写入既有受保护日志，其余聚合计数。页面非成功HTTP、脚本/console异常不会自动声称未登录或登录成功，认证仍只以official-self-api证据判定。
+
+本地合成资源/真实代理失败与真实匿名页面加载分别验收。真实探针node tools/probe-login-page.mjs <本地报告标签> [visible] [layout]仅使用独立临时上下文和现有网络设置，不读已存账号、不写登录态；可点击登录入口，输出脱敏聚合及可选已遮蔽文本/二维码的布局截图到忽略的.local/login-page。观察结束后释放自有临时浏览器。真实扫码、验证码交互、账号确认/保存仍由用户在更新后的正式工作台完成，不能以二维码出现替代登录成功。

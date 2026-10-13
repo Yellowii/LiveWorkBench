@@ -2,8 +2,8 @@ import {EventEmitter} from 'node:events';
 import fs from 'node:fs/promises';
 import {chromium} from 'playwright-core';
 import {NetworkTransport} from '../network/transport.js';
-import {networkTarget} from '../network/target-policy.js';
-import {blockRequest} from '../capture/browser/browser-source.js';
+import {loginResourceDecision} from './login-resource-policy.js';
+import {LoginLoadDiagnostics} from './login-load-diagnostics.js';
 
 // A login window owns no capture source, room, recorder or upstream barrage client.
 export class LoginBrowserSession extends EventEmitter {
@@ -18,9 +18,14 @@ export class LoginBrowserSession extends EventEmitter {
     try{
       this.browser=await this.launchBrowser({executablePath,headless:false,...this.network.launch});
       this.context=await createLoginContext(this.browser,{storageState});
-      await this.context.route('**/*',route=>{const request=route.request();if(blockRequest(request.url(),request.resourceType()))return route.abort();try{networkTarget(request.url(),{browserAsset:true});}catch{return route.abort();}return route.continue();});
-      await this.context.addInitScript(()=>{HTMLMediaElement.prototype.play=function(){this.muted=true;return Promise.resolve();};});
+      this.loadDiagnostics=new LoginLoadDiagnostics(this.context,entry=>this.emit('diagnostic',entry));
       await this.prepareContext(this.context);
+      await this.context.route('**/*',route=>{const request=route.request(),decision=loginResourceDecision(request.url(),request.resourceType());if(!decision.allowed){this.loadDiagnostics.blocked(request,decision.reasonCode);return route.abort('blockedbyclient');}return route.fallback();});
+      await this.context.addInitScript(()=>{
+        HTMLMediaElement.prototype.play=function(){this.muted=true;return Promise.resolve();};
+        const stopMedia=()=>document.querySelectorAll('video,audio').forEach(media=>{media.autoplay=false;media.muted=true;media.pause();});
+        new MutationObserver(stopMedia).observe(document,{childList:true,subtree:true,attributes:true,attributeFilter:['autoplay']});
+      });
       this.page=await this.context.newPage();this.account=new AccountMonitor();
       this.account.on('status',value=>this.emit('status',{state:String(value.state||'unknown').toUpperCase(),source:value.source||null,checkedAt:value.checked_at||null}));
       this.account.attach(this.page,{schedule:false});
@@ -32,5 +37,6 @@ export class LoginBrowserSession extends EventEmitter {
     }catch{await this.close();throw new Error('AUTH_LOGIN_OPEN_FAILED');}
   }
   async check(){return this.account?.check({force:true});}
-  async close(){this.closing=true;clearInterval(this.timer);this.account?.stop();await this.context?.close().catch(()=>{});await this.browser?.close().catch(()=>{});await this.network?.close();}
+  diagnostics(){const network=this.network?.diagnostic;return {network:network?{mode:network.mode,route:network.route,dns:network.dns,localDnsUsed:network.localDnsUsed,tls:network.tls}:null,...(this.loadDiagnostics?.snapshot()||{resources:[]})};}
+  async close(){this.closing=true;clearInterval(this.timer);this.account?.stop();this.loadDiagnostics?.close();await this.context?.close().catch(()=>{});await this.browser?.close().catch(()=>{});await this.network?.close();}
 }

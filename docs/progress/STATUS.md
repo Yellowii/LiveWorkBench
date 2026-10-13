@@ -373,3 +373,30 @@ Gateway新增accounts查询/版本化命令/WS状态及中文错误message/nextA
 真实运行事实：用户已将18783手动更新至e21c4ca，当前只读检查PID52652、采集FAILED、选中WebSource、有两配置；没有accounts能力，不能把新磁盘页面当该进程已支持新账号。8827/8888仍PID18644，本任务没有重试此前被拒绝的长期启动/重启动作，没有停止伴侣或旧服务、修改代理/DNS/TUN/CA。手动部署助手新增独立登录窗口占用保护，脚本仅静态语法核对、未执行；用户先停止本项目采集，再按实际PID/完整加载commit更新。
 
 交接/未执行：第一增量实现及合成验收通过，真实扫码、官方页面账号有效性/过期与共享登录态在真实采集中仍待用户更新宿主后验证。直连动态参数与身份映射真实证据、内部自动无头兜底/恢复直连/释放/同场连续性、Proto字典联动和E4孤立RAW/journal/Replay恢复均未完成；不以107测试或WSS代码存在代替真实弹幕接入。下一增量继续WSS优先的可信ConnectionResolver与账号复用，无法可靠直连保持明确不可用并按已授权自动兜底策略推进，不猜测签名或平台语义。
+
+## 18. Chromium登录页加载修复（2026-10-13）
+
+任务LOGIN-PAGE-20261013，owner/交接本对话→用户，基线本地/远程b9a72a9c6f892416eb44c100f66a8068746e96fa，开始时工作区干净。暂停WSS第二增量，串行main，不派工，不改系统网络、references、伴侣、旧服务或已有登录/RAW/数据库/配置。允许写入本任务auth资源/加载诊断、精确网络白名单、加载版本指纹、合成测试/探针及本契约/进度。
+
+根因已用真实匿名页面复现：原策略主动拒绝lf-webcast-platform.bytetos.com的12个CSS和16个脚本，原页面仅3个stylesheet、计算字体Times New Roman；不是图片/字体过滤单独造成CSS丢失。独立登录窗口同时误用了采集端图片/字体过滤，会影响二维码及验证素材。恢复页面CSS后，点击登录还发现按需登录/验证组件的精确CDN主机被拒绝，逐层补证而未全域放行。
+
+已交付：login-resource-policy分离可见登录与后台采集策略；network/target-policy只扩充10个已观察的精确HTTPS资源主机，TLS/代理端DNS/安全直连与目标/WSS策略保留。login-load-diagnostics对主动拒绝、HTTP、代理、超时、DNS/TLS、脚本/console异常作有界脱敏聚合；LoginManager通过既有账号DTO/pageLoad和受保护日志提供查询，关闭后仍可查看本次结果。instance指纹覆盖新组件，避免旧后端页面冒充新实现。源码/证据入口：src/auth/login-browser-session.js、login-resource-policy.js、login-load-diagnostics.js、login-manager.js、src/network/target-policy.js、src/instance.js、tests/login-page.test.js、tools/probe-login-page.mjs、tools/verify-accounts.mjs及[ACCOUNTS](../contracts/ACCOUNTS.md)。正式认证/opt-in DPAPI保存/自动关闭、共享登录态与采集生命周期保持原规则。
+
+本轮可复查验证：
+
+- 新资源回归先失败（CSS未渲染、精确CDN拒绝）再通过；4项针对测试以实际本机Chromium验证CSS样式、JS执行、图片naturalWidth、自制字体解码、媒体不下载/不播放、不安全域拒绝；真实回环CONNECT拒绝/超时与HTTP503、脚本/console异常分别分类，URL/签名/异常原文不进入诊断，80项上限/聚合生效。
+- 独立构建命令powershell -NoProfile -ExecutionPolicy Bypass -File tools/build-capture.ps1 -OutputDirectory C:\project\LiveWorkBench\.local\login-page\capture-build退出0。首次npm test使用默认bin/Debug旧2026-10-12产物时有3项采集失败；构建并设置LW_CAPTURE_EXE为该新产物后，失败项所在capture/livehook-tls8/8通过，全套npm test **111/111通过**（.local/login-page/final-tests.log）。不修改原采集逻辑，不把旧构建失败隐瞒为全程通过。复查命令如下：
+
+  ```powershell
+  $env:LW_CAPTURE_EXE='C:/project/LiveWorkBench/.local/login-page/capture-build/LiveWorkbench.CaptureHost.exe'
+  npm test
+  ```
+- setup:parser核对6原文件，setup:browser核对4资源/v5，未改官方Parser/references。node tools/verify-accounts.mjs账号GUI（含pageLoad经API展示/共享账号）浏览器错误0；node tools/verify-history.mjs的160合成事件、虚拟行/锚点/断线补查及隔离Replay通过、浏览器错误0。C#本地TLS证书仅测试文件，没有Windows信任导入。
+- 真实匿名可见Chromium：node tools/probe-login-page.mjs final-visible visible layout，通过现有system HTTP CONNECT代理、代理端DNS、正常TLS验证访问官方首页；2026-10-13 11:44（Asia/Shanghai）采样stylesheet21、正常系统字体，点击登录后扫码提示可见、二维码图像1、播放媒体0、autoplay0、authenticated=false、credentialsUsed=false。布局截图在.local/login-page/final-visible.png，全部身份文本/图片/二维码遮蔽；真实请求聚合只留本地final-visible.json。已有无头复测也有扫码/二维码证据。
+- 官方页面仍有被阻断的非必要媒体/遥测请求，console68及pageerror24（探针分类为网络异常）；不宣称页面所有请求成功或零错误。登录/安全CDN、扫码图像已实际加载，不通过开放遥测域或关TLS来消除计数。验证码完整交互及真实扫码尚待人工。
+
+部署边界：本轮仅只读核对18783仍PID29036、加载b9a72a9、capture STOPPED、独立登录窗口关闭；8827/8888仍PID18644。本项目自有短期测试实例/浏览器结束后释放，没有操作18783或旧服务。新版待用户手动调用tools/restart-dev-workbench.ps1 -ExpectedPid 29036 -ExpectedCommit b9a72a9c6f892416eb44c100f66a8068746e96fa（需先在GUI停止采集并关闭旧登录窗口；若实际版本/PID改变，助手拒绝继续，不应强行结束进程）。更新后强制刷新，核对新commit，点击账号登录并按需记住/完成扫码，只有官方确认后才保存关闭。
+
+真实验收状态：官方匿名页面布局/登录入口/二维码加载验证通过；正式18783中的用户扫码、验证码、真实账号DPAPI保存/共享到真实采集待用户手动更新后验收。RAW/Parser/Source/Session/Replay自动化回归通过，不等于真实弹幕或LiveHook恢复验收；WSS第二增量仍暂停，先等待实际登录反馈。
+
+提交前公开检查node tools/check-public.mjs：181文件、0发现；git diff --check通过。报告、遮蔽截图、合成运行数据库/RAW/证书及独立构建产物均被忽略，不入公开Git。本次只提交上述第一方修复、合成验证和必要文档。
