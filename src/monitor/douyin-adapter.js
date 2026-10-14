@@ -3,8 +3,9 @@ import {TargetResolver} from '../targets/resolver.js';
 export const losslessJson=text=>JSON.parse(text,(_key,value,context)=>typeof value==='number'&&!Number.isSafeInteger(value)&&/^-?\d+$/.test(context?.source||'')?context.source:value);
 function documents(text){const values=[];try{values.push(losslessJson(text));}catch{}
  for(const match of text.matchAll(/<script\b[^>]*(?:id=["'](?:RENDER_DATA|__NEXT_DATA__)["']|type=["']application\/json["'])[^>]*>([\s\S]*?)<\/script>/gi))try{values.push(losslessJson(match[1].trim().startsWith('%')?decodeURIComponent(match[1].trim()):match[1]));}catch{}
- // Next flight embeds JSON strings. Only parse literals; never evaluate script.
- for(const match of text.matchAll(/self\.__next_f\.push\(\[\d+,\s*("(?:\\.|[^"\\])*")\s*\]\)/g))try{const inner=JSON.parse(match[1]);for(const line of inner.split('\n')){const start=line.indexOf(':');try{values.push(losslessJson(line.slice(start+1)));}catch{}}}catch{}
+ // Observed Next/Pace flight embeds JSON strings. Only parse literals; never
+ // evaluate script or accept arbitrary global stream names.
+ for(const match of text.matchAll(/self\.(?:__next_f|__pace_f)\.push\(\[\d+,\s*("(?:\\.|[^"\\])*")\s*\]\)/g))try{const inner=JSON.parse(match[1]);for(const line of inner.split('\n')){const start=line.indexOf(':');try{values.push(losslessJson(line.slice(start+1)));}catch{}}}catch{}
  return values;
 }
 export function extractRoomEvidence(text,target){

@@ -46,3 +46,8 @@ HookTargetMatcher使用已提交RAW的成功伴侣HTTP room/create owner作为�
 ## 单观看账号兼容收敛（2026-10-14）
 
 用户当前需求覆盖旧逐配置凭据规则：Gateway ProfileStore 新建/编辑时 authProfileId=null、persistLogin=false，既有字段保留但不参与登录选择。观看槽位由 LoginManager 统一读取，不批量改房间版本/监控状态。统一 target auto 支持分享文本与明确 ID 前缀，无法确定类型仍 PENDING_TYPE。actions.details 仅安全查询与展示严格匹配的结构证据，未知资料返回 null；账号与资料的 REST 展示白名单见 ACCOUNTS v2。旧 authCheck 只读兼容查询观看槽位，authSave/authClear/login 写命令引导统一入口，避免旧清除路径停止浏览器采集。Coordinator、SourceController、人工单来源、确认与抑制规则没有改动。
+
+
+### 当前页面 Pace Flight 兼容（2026-10-14）
+
+真实目标页面只读观察到 self.__pace_f.push 的字符串 Flight 承载 roomStore.roomInfo；现有读取仅支持 __next_f，因而网络200也返回 MONITOR_EVIDENCE_UNAVAILABLE。documents 现明确支持已观察的 __next_f/__pace_f 两种名称，仍只 JSON.parse 字符串字面量及独立 JSON 行，不执行脚本，不泛化任意 stream global。目标匹配、roomId/anchorUid、冲突 UNKNOWN、连续确认与连接控制规则保持。真实页面修复前 UNKNOWN、修复后 LIVE 的只读证据不等于已连接 WSS 或完成真实 RAW 采集；直连参数 provider 仍未实施，browserFallback 必须用户明确配置。

@@ -516,3 +516,16 @@ GitHub同步未完成：git push origin main首次返回Connection was reset，�
 服务边界：任务开始只读观察18783 PID29792；结束前复查已无监听且该PID不存在，停止原因未知，本任务没有执行正式端口/进程启停。仅启停随机端口隔离服务及部署测试自己的夹具；没有修改系统代理/Clash/TUN/DNS/CA、操作伴侣/旧监听或读取正式 Cookie/RAW/数据库。代码提交不代表正式加载版本更新。下一步回真实登录/可信 WSS 主线，不继续扩展 UI；正式启动/重启仍由用户明确安排。
 
 Git同步：实现及验收提交551a8f30e473bbe31d50eadab3f768e5bf129b62已快进同步到主工作区main并成功推送GitHub（aedb61d→551a8f3）。中间fetch/push曾连接重置或443不可达，普通重试恢复，未调整系统网络。交接补记随本段文档提交同步；代码更新与正式服务运行验收仍分开。
+
+
+## 25. 真实监听阻塞定位与 Pace 页面兼容（2026-10-14）
+
+任务 MONITOR-PACE-20261014，owner 本会话→用户，基线2970a28012d2392c34608d22bfeeb3fa077c8080，隔离 codex/monitor-pace。用户报告观看账号已登录，但点击监听后 STOPPED/NO_MATCHING_READY_PROFILE。先只读核查18783：PID42296实际加载2970a28、dirty=false；观看槽位已官方确认；目标解析已到 RESOLVED_PAGE，周期监控已开启，但检测6次失败，MONITOR_EVIDENCE_UNAVAILABLE，网络direct/TLS成功；选择 direct 且 browserFallback=false。
+
+真实根因：当前官方页面使用 self.__pace_f.push 承载 Flight 数据，旧 documents 只支持 __next_f。仅查询 runtime_state 中选中 profile 的目标配置（SQLite只读，不读账号/RAW/事件），用既有安全HTTP读取匿名官方页面，不保存响应，不打印或提交真实房号/UID/昵称/流URL。观察27个Pace字符串帧、5个可解析JSON文档及 roomStore.roomInfo.room。相同页面旧提取 UNKNOWN/MONITOR_EVIDENCE_UNAVAILABLE，兼容提取 LIVE，room/anchor非空且web_rid严格匹配目标。该证据证明开播检测兼容问题，不证明登录态、WSS连接、RAW链或推流语义全面验收。
+
+最小修复：src/monitor/douyin-adapter.js 的 Flight 字符串白名单新增明确 __pace_f；仍不eval或执行页面脚本，不改变所有目标身份约束、冲突、状态、单活动来源与连续确认。未修改 SourceController/MonitorCoordinator/BrowserSource/网络/登录/RAW/Parser/EventStore。tests/target-evidence.test.js增加真实形状的合成用例，先2项失败再修复，通过Pace/Next、错误房号/UID拒绝、未知global和表达式不执行、跨流主房间冲突UNKNOWN。
+
+验收：node --test tests/target-evidence.test.js tests/monitor.test.js tests/coordinator.test.js tests/profile-api.test.js tests/monitor-session.test.js，16/16通过（约6.6秒），隔离 artifacts/pace-tests.txt；tools/verify-profiles.mjs 实际Edge GUI通过、0页面错误，artifacts/pace-profiles.txt。真实匿名页面复测旧UNKNOWN/新LIVE，未运行采集；公开扫描201文件0发现，git diff --check通过。本轮仅改检测兼容、相关测试及必要契约/进度，不重新执行无关架构审计或完整历史读取。
+
+剩余独立阻塞：WebConnectionResolver 尚无生产 directProvider，当前房间关闭浏览器兜底。即使检测修复加载，纯direct仍会返回 WEB_DYNAMIC_PARAMETERS_UNAVAILABLE。应由用户明确启用现有浏览器兜底/浏览器方式后实际验收；不能以强行放行UNKNOWN或虚构直连参数解决。现18783进程未启停、配置未改变、采集未启动；新代码仅提交，不代表服务已加载。按用户“不得擅自重启18783”约束，加载修复及启用该房间兜底需用户确认。下一步在确认后保留数据与登录态受保护更新，再验证真实隐藏浏览器/WSS/RAW；可信真实直连继续作为未完成主线。
