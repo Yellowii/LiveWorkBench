@@ -2,6 +2,14 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import {extractRoomEvidence,DouyinMonitorAdapter} from '../src/monitor/douyin-adapter.js';
 import {TargetResolver} from '../src/targets/resolver.js';
+import {WebConnectionResolver} from '../src/capture/websource/connection-resolver.js';
+
+test('browser fallback keeps headless default and allows explicit normal window without changing source selection',async()=>{
+ const resolver=new WebConnectionResolver(),evidence={roomId:'100',anchorUid:'200',web_rid:'123'},profile={connectionMode:'direct',browserFallback:true};
+ assert.equal((await resolver.resolve(profile,evidence)).headless,true);
+ assert.equal((await resolver.resolve({...profile,browserHeadless:false},evidence)).headless,false);
+ await assert.rejects(()=>resolver.resolve({...profile,browserFallback:false},evidence),/WEB_DYNAMIC_PARAMETERS_UNAVAILABLE/);
+});
 
 test('current Pace flight data binds roomStore roomInfo to the exact target without executing scripts',()=>{
  const room={id_str:'9876543210123456789',status:2,title:'synthetic live',owner:{id_str:'200',sec_uid:'MS4wLjABAAAA_SYNTHETIC'}},data={state:{roomStore:{roomInfo:{web_rid:'123',room}}}};

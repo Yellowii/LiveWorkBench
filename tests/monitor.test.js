@@ -16,6 +16,12 @@ test('profile versions, write-only input and restart preserve independent source
  assert.equal(store.getState('source-control').selectedSource,'LiveHookSource');
  assert.throws(()=>profiles.create({target:{type:'roomId',value:9007199254740993}}),/PROFILE_INVALID/);
 });
+
+test('explicit browser window preference persists while existing profiles keep hidden browser default',async t=>{
+ const store=await fixture(t),profiles=new ProfileStore(store),base=profiles.create({target:{type:'web_rid',value:'123'}});
+ assert.equal(base.browserHeadless,true);
+ const changed=profiles.update(base.profileId,{browserHeadless:false},base.version);assert.equal(changed.browserHeadless,false);assert.equal(new ProfileStore(store).get(base.profileId).browserHeadless,false);
+});
 test('resolver separates UID, secUid, web_rid and actual roomId and bounds share redirects',async()=>{
  assert.ok(TargetResolver,'independent resolver required');const resolver=new TargetResolver({http:{get:async()=>({url:'https://live.douyin.com/123',text:''})}});
  assert.equal(resolver.classify({type:'roomId',value:'9876543210123456789'}).roomId,'9876543210123456789');

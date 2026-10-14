@@ -529,3 +529,12 @@ Git同步：实现及验收提交551a8f30e473bbe31d50eadab3f768e5bf129b62已快�
 验收：node --test tests/target-evidence.test.js tests/monitor.test.js tests/coordinator.test.js tests/profile-api.test.js tests/monitor-session.test.js，16/16通过（约6.6秒），隔离 artifacts/pace-tests.txt；tools/verify-profiles.mjs 实际Edge GUI通过、0页面错误，artifacts/pace-profiles.txt。真实匿名页面复测旧UNKNOWN/新LIVE，未运行采集；公开扫描201文件0发现，git diff --check通过。本轮仅改检测兼容、相关测试及必要契约/进度，不重新执行无关架构审计或完整历史读取。
 
 剩余独立阻塞：WebConnectionResolver 尚无生产 directProvider，当前房间关闭浏览器兜底。即使检测修复加载，纯direct仍会返回 WEB_DYNAMIC_PARAMETERS_UNAVAILABLE。应由用户明确启用现有浏览器兜底/浏览器方式后实际验收；不能以强行放行UNKNOWN或虚构直连参数解决。现18783进程未启停、配置未改变、采集未启动；新代码仅提交，不代表服务已加载。按用户“不得擅自重启18783”约束，加载修复及启用该房间兜底需用户确认。下一步在确认后保留数据与登录态受保护更新，再验证真实隐藏浏览器/WSS/RAW；可信真实直连继续作为未完成主线。
+
+
+## 26. 用户授权直接操作与真实浏览器模式复核（2026-10-14）
+
+用户随后明确“直接操作”，授权本次加载修复、调整选中房间兜底并实际监听。沿既有受保护Update流程确认STOPPED/无登录窗口、独立构建/stdio/Runtime预检，将18783从PID42296/2970a28更新到PID20740/d038024，数据与观看槽位保留。选中房间browserFallback=true；匿名监控LIVE与身份匹配已通过，真实初次无头浏览器失败，未产生正式RAW或事件。
+
+继续单活动来源排查：停止失败的项目浏览器连接后，分别使用应用direct及现有system路由复测，后者仅修改该房间networkPolicy，不改Windows/Clash/DNS/TUN/CA。正常页面能播放；隔离诊断用同一DPAPI状态，官方profile/self两次确认authenticated，未出现可见验证码；无头窗口/webcast/im/fetch/返回HTTP200、空体，只观察到无关frontier连接。不是已确认“需验证码”。同一配置正常可见窗口返回application/protobuffer约85KB，并观察到webcast100-ws-web-lq.douyin.com /webcast/im/push/v2/带room_id、29帧。未输出Cookie/账号ID/签名URL、未把frontier流当直播弹幕；诊断截图及一次空响应RAW仅在忽略的.local/listen-diagnostic，RAW保存后才检查，不修改正式历史。
+
+最小兼容：ProfileStore增加默认true的browserHeadless布尔值，WebConnectionResolver把显式false传给既有BrowserSource，SourceController/MonitorCoordinator和浏览器SDK/媒体策略未改。只为该房间选择正常窗口，其他房间默认后台不变；仍需原兜底开关。instance fingerprint增加连接解析文件。两项用例先失败后实现，相关27/27回归通过（约10.6秒）、verify-profiles真实GUI通过0错误、公开201文件0发现、差异检查通过。正常窗口正式监听/RAW结果在后续交接补记，不把诊断帧当已接通生产采集。

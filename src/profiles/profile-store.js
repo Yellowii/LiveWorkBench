@@ -1,7 +1,7 @@
 import {randomUUID} from 'node:crypto';
 import {validateNetworkPolicy} from '../network/proxy-policy.js';
 import {TargetResolver} from '../targets/resolver.js';
-const defaults={name:'监听配置',enabled:false,sourceType:'WebSource',monitorEnabled:false,autoStart:false,autoStop:false,autoReconnect:true,retryLimit:5,cooldownMs:30000,pollMs:60000,timeoutMs:10000,confirmations:2,priority:0,connectionMode:'direct',browserFallback:false,blockMedia:true,persistLogin:false,authRef:null,errorPolicy:'backoff',networkPolicy:{mode:'system'}};
+const defaults={name:'监听配置',enabled:false,sourceType:'WebSource',monitorEnabled:false,autoStart:false,autoStop:false,autoReconnect:true,retryLimit:5,cooldownMs:30000,pollMs:60000,timeoutMs:10000,confirmations:2,priority:0,connectionMode:'direct',browserFallback:false,browserHeadless:true,blockMedia:true,persistLogin:false,authRef:null,errorPolicy:'backoff',networkPolicy:{mode:'system'}};
 export class ProfileStore{
  constructor(repository,{accounts,singleViewer=false}={}){this.repository=repository;this.accounts=accounts;this.singleViewer=singleViewer;this.resolver=new TargetResolver();}
  all(){return this.repository.getState('profiles-v1')||[];}
@@ -12,7 +12,7 @@ export class ProfileStore{
   const allowed=new Set([...Object.keys(defaults),'target','authProfileId']);if(Object.keys(value).some(k=>!allowed.has(k)))throw new Error('PROFILE_INVALID');
   const p={...defaults,authProfileId:null,...value};if(this.singleViewer){p.authProfileId=null;p.persistLogin=false;}try{this.resolver.classify(p.target);if(p.authProfileId!==null){if(typeof p.authProfileId!=='string'||!this.accounts)throw new Error();this.accounts.get(p.authProfileId);}}catch{throw new Error('PROFILE_INVALID');}
   if(Object.keys(p.target).some(k=>!['type','value'].includes(k))||typeof p.name!=='string'||p.name.length>80||!['WebSource','LiveHookSource'].includes(p.sourceType)||!['direct','browser'].includes(p.connectionMode)||p.errorPolicy!=='backoff'||(p.authRef!==null&&!/^[a-zA-Z0-9-]{1,64}$/.test(p.authRef)))throw new Error('PROFILE_INVALID');
-  for(const k of ['enabled','monitorEnabled','autoStart','autoStop','autoReconnect','browserFallback','blockMedia','persistLogin'])if(typeof p[k]!=='boolean')throw new Error('PROFILE_INVALID');
+  for(const k of ['enabled','monitorEnabled','autoStart','autoStop','autoReconnect','browserFallback','browserHeadless','blockMedia','persistLogin'])if(typeof p[k]!=='boolean')throw new Error('PROFILE_INVALID');
   for(const [k,min,max] of [['pollMs',10000,3600000],['timeoutMs',1000,30000],['cooldownMs',1000,3600000],['retryLimit',0,10],['confirmations',1,5],['priority',0,100]])if(!Number.isInteger(p[k])||p[k]<min||p[k]>max)throw new Error('PROFILE_INVALID');
   p.networkPolicy=validateNetworkPolicy(p.networkPolicy);p.target={type:p.target.type||'auto',value:p.target.value.trim()};return p;
  }

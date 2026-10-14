@@ -51,3 +51,8 @@ HookTargetMatcher使用已提交RAW的成功伴侣HTTP room/create owner作为�
 ### 当前页面 Pace Flight 兼容（2026-10-14）
 
 真实目标页面只读观察到 self.__pace_f.push 的字符串 Flight 承载 roomStore.roomInfo；现有读取仅支持 __next_f，因而网络200也返回 MONITOR_EVIDENCE_UNAVAILABLE。documents 现明确支持已观察的 __next_f/__pace_f 两种名称，仍只 JSON.parse 字符串字面量及独立 JSON 行，不执行脚本，不泛化任意 stream global。目标匹配、roomId/anchorUid、冲突 UNKNOWN、连续确认与连接控制规则保持。真实页面修复前 UNKNOWN、修复后 LIVE 的只读证据不等于已连接 WSS 或完成真实 RAW 采集；直连参数 provider 仍未实施，browserFallback 必须用户明确配置。
+
+
+### 单房间正常浏览器窗口（2026-10-14）
+
+明确配置 browserHeadless=false 时，既有浏览器兜底传递 headless=false，使用正常 Chromium 窗口；默认 true，未修改房间仍为原后台模式。仅增加窗口选择布尔值，仍需原 browserFallback/connectionMode 允许，不改变来源选择、身份验证、单活动来源、RAW先保存、音视频限制或系统代理。用户授权本次直接操作，真实平台复核无头窗口弹幕初始化HTTP200空体、正常窗口返回Protobuf并建立匹配路径的WSS；这只解释该房间实际行为，不笼统认定验证码或无头模式普遍不可用。
