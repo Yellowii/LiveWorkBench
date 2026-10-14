@@ -487,3 +487,5 @@ GitHub同步未完成：git push origin main首次返回Connection was reset，�
 验证通过（本机隔离）：tests/deploy-workbench.test.js追加10项生命周期/保护回归，实际PowerShell 5.1操作自有合成服务、随机端口和隔离数据，验证冷Start/Update、保留数据、既有实例不重复启动、Stop/重复Stop、采集/登录/异项目拒绝、活动租约/未绑定端口拒绝及端口查询失败拒绝。旧14项部署回归保留；BAT实际cmd.exe验证三个直接入口及菜单三个动作的中文、分发与退出码0/3。首次完整148项147通过，唯一BAT中文条件行被cmd截断，改为独立标签/提示行后针对BAT通过；最终设置LW_CAPTURE_EXE为既有本机验证产物执行npm test，**149/149通过**，约159秒，.local/lifecycle-final-tests.log。新增冷Update曾按预期返回WORKBENCH_STATUS_UNAVAILABLE后通过；初次测试夹具等待Windows signalCode遗漏已修正，不将其归为业务故障。PS1保留UTF8 BOM/CRLF，BAT UTF8无BOM/CRLF；PowerShell5.1语法、git diff --check和公开扫描197文件0发现通过。
 
 交接：只读调用新Get-LwOptionalWorkbenchState核对正式C:/project/LiveWorkBench，结果FORMAL_READONLY_NOT_RUNNING_PROVEN；未启动、停止或更新正式18783，未跑真实平台扫码/WSS。本轮实际启停验证针对合成服务，正式目录/账号/历史保留，首次正式双击启动仍由用户执行并核对实际加载版本。下一步回到真实登录与可信WSS主线，不扩展UI或管理工具。
+
+同步补记：实现提交d22bba643bd6d75b38fe3e6d081bcd4ae7097f0f已快进同步到本地主工作区，并成功推送GitHub main（1473ba3→d22bba6），包含第22节此前未同步的UI和交接提交。此前网络推送阻塞已解除，未修改网络设置。正式工作台仍未执行启停；用户现在可双击根目录启动工作台.bat，或工作台管理.bat选择操作。
