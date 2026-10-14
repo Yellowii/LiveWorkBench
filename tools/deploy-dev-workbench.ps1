@@ -1,6 +1,6 @@
 ﻿# User-invoked local deployment; no Git pull or system configuration changes.
 [CmdletBinding()]
-param()
+param([ValidateSet('Start','Stop','Update')][string]$Action='Update')
 . (Join-Path $PSScriptRoot 'restart-dev-workbench.ps1')
 
 function Test-LwRuntime {
@@ -24,15 +24,22 @@ finally {if(runtime)await runtime.close().catch(()=>{});await fs.rm(directory,{r
 }
 
 function Invoke-LwDeployment {
-    param($Context,[int]$StartupTimeoutSeconds=30)
+    param($Context,[int]$StartupTimeoutSeconds=30,[ValidateSet('Start','Stop','Update')][string]$Action='Update')
     $lock=Open-LwDeploymentLock $Context
     try {
         Write-Host '[1/6] 读取当前工作区版本和工作台实例状态。'
-        $target=Get-LwWorkspaceTarget $Context;$state=Get-LwWorkbenchState $Context
-        $null=Assert-LwOwnedInstance $Context $state
-        Write-Host ("工作区 HEAD：{0}`n已加载版本：{1}`n当前 PID：{2}；采集状态：{3}" -f $target,$state.Instance.commit,$state.Instance.pid,$state.CaptureState)
-        if ($state.Instance.commit -eq $target) { Write-Host '当前实例已是目标版本且健康，无需构建或重启。';return [pscustomobject]@{status='unchanged';pid=$state.Instance.pid;commit=$target;url=$Context.Base} }
-        $null=Assert-LwOwnedInstance $Context $state -RequireIdle
+        $state=Get-LwOptionalWorkbenchState $Context
+        if ($Action -eq 'Stop') {
+            if (-not $state) { Write-Host '工作台已停止，无需重复操作。';return [pscustomobject]@{status='stopped';pid=0;commit=$null;url=$Context.Base} }
+            return Invoke-LwProtectedStop $Context $state
+        }
+        if ($Action -eq 'Start' -and $state) { Write-Host '工作台已经运行，不重复启动或更新。';return [pscustomobject]@{status='unchanged';pid=$state.Instance.pid;commit=$state.Instance.commit;url=$Context.Base} }
+        $target=Get-LwWorkspaceTarget $Context
+        if ($state) {
+            Write-Host ("工作区 HEAD：{0}`n已加载版本：{1}`n当前 PID：{2}；采集状态：{3}" -f $target,$state.Instance.commit,$state.Instance.pid,$state.CaptureState)
+            if ($state.Instance.commit -eq $target) { Write-Host '当前实例已是目标版本且健康，无需构建或重启。';return [pscustomobject]@{status='unchanged';pid=$state.Instance.pid;commit=$target;url=$Context.Base} }
+            $null=Assert-LwOwnedInstance $Context $state -RequireIdle
+        } else { Write-Host '未发现活动工作台；验证当前本地版本后启动，原数据保留。' }
         Write-Host '[2/6] 构建独立 CaptureHost，不覆盖旧服务正在使用的文件。'
         $output=Join-Path $Context.Root ('.local/deploy-builds/'+[Guid]::NewGuid().ToString('N'))
         $buildLog=Join-Path $Context.Logs ('build-'+[Guid]::NewGuid().ToString('N')+'.log')
@@ -43,7 +50,8 @@ function Invoke-LwDeployment {
         Write-Host '核验 Node 依赖、官方解析器及隔离 SQLite 初始化。'
         Test-LwRuntime $Context
         if ((Get-LwWorkspaceTarget $Context) -ne $target) { throw 'WORKSPACE_HEAD_CHANGED' }
-        return Invoke-LwProtectedRestart $Context -ExpectedPid $state.Instance.pid -ExpectedCommit $state.Instance.commit -ExpectedInstanceId $state.Instance.instanceId -TargetCommit $target -CaptureExecutable $exe -CaptureSha256 $hash -StartupTimeoutSeconds $StartupTimeoutSeconds
+        if ($state) { return Invoke-LwProtectedRestart $Context -ExpectedPid $state.Instance.pid -ExpectedCommit $state.Instance.commit -ExpectedInstanceId $state.Instance.instanceId -TargetCommit $target -CaptureExecutable $exe -CaptureSha256 $hash -StartupTimeoutSeconds $StartupTimeoutSeconds }
+        return Invoke-LwVerifiedStart $Context -TargetCommit $target -CaptureExecutable $exe -CaptureSha256 $hash -StartupTimeoutSeconds $StartupTimeoutSeconds
     } finally { $lock.Dispose() }
 }
 
@@ -52,7 +60,12 @@ function Get-LwDeploymentFailureMessage {
     $messages=@{
         WORKSPACE_DIRTY='工作区有未提交或未跟踪的正式文件。请先保存并提交；不会覆盖这些修改。'
         WORKSPACE_GIT_UNAVAILABLE='无法取得当前项目的 Git HEAD。'
-        WORKBENCH_STATUS_UNAVAILABLE='无法读取 18783 工作台的状态或健康接口；请先启动已有工作台。'
+        WORKBENCH_STATUS_UNAVAILABLE='端口已被占用，但无法核对工作台状态；不会结束未知进程。'
+        PORT_ALREADY_IN_USE='工作台端口已被占用，启动已取消；不会结束占用进程。'
+        PORT_STATUS_UNAVAILABLE='无法读取端口状态，操作已取消；不能把检查失败当作端口空闲。'
+        PROCESS_SCAN_UNAVAILABLE='无法完成本项目进程检查，启动已取消。'
+        OWNED_INSTANCE_NOT_LISTENING='发现本项目进程尚未监听端口；请稍后再试，不重复启动。'
+        NODE_ENTRY_AMBIGUOUS='发现使用相对 src/server.js 入口的 Node 进程，无法核对目录归属；不重复启动或结束该进程。'
         CAPTURE_NOT_STOPPED='采集尚未停止。请在工作台停止监听后再运行。'
         LOGIN_WINDOW_OPEN='临时登录窗口仍打开。请先完成或关闭登录窗口。'
         OWNED_INSTANCE_INVALID='当前实例身份或健康状态无法可靠确认。'
@@ -88,8 +101,9 @@ if ($MyInvocation.InvocationName -ne '.') {
     $ErrorActionPreference='Stop'
     [Console]::OutputEncoding=New-Object Text.UTF8Encoding($false)
     try {
-        $result=Invoke-LwDeployment (New-LwDeploymentContext)
-        Write-Host ("完成：PID {0}；实际加载版本 {1}`n工作台：{2}" -f $result.pid,$result.commit,$result.url) -ForegroundColor Green
+        $result=Invoke-LwDeployment (New-LwDeploymentContext) -Action $Action
+        if ($Action -eq 'Stop') { Write-Host '完成：本项目工作台已停止，账号和历史数据保留。' -ForegroundColor Green }
+        else { Write-Host ("完成：PID {0}；实际加载版本 {1}`n工作台：{2}" -f $result.pid,$result.commit,$result.url) -ForegroundColor Green }
         exit 0
     } catch {
         $code=$_.Exception.Message

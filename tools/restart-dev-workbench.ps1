@@ -2,6 +2,12 @@
 [CmdletBinding()]
 param([int]$ExpectedPid=0,[string]$ExpectedCommit='',[string]$CaptureExecutable='')
 
+function Get-LwPortListeners {
+    param($Context)
+    try { return @(Get-NetTCPConnection -State Listen -ErrorAction Stop | Where-Object { $_.LocalPort -eq $Context.Port }) }
+    catch { throw 'PORT_STATUS_UNAVAILABLE' }
+}
+
 function New-LwDeploymentContext {
     param([string]$WorkspaceRoot=[IO.Path]::GetFullPath((Join-Path $PSScriptRoot '..')),[int]$Port=18783)
     $workspace=[IO.Path]::GetFullPath($WorkspaceRoot)
@@ -52,7 +58,7 @@ function Assert-LwOwnedInstance {
         if ($State.CaptureState -ne 'STOPPED') { throw 'CAPTURE_NOT_STOPPED' }
         if ($State.LoginWindowOpen -ne $false) { throw 'LOGIN_WINDOW_OPEN' }
     }
-    $listeners=@(Get-NetTCPConnection -State Listen -LocalPort $Context.Port -ErrorAction SilentlyContinue)
+    $listeners=@(Get-LwPortListeners $Context)
     if (-not $listeners.Count -or @($listeners | Where-Object { $_.OwningProcess -ne $ownerPid -or $_.LocalAddress -ne '127.0.0.1' }).Count) { throw 'PORT_OWNER_MISMATCH' }
     $info=Get-CimInstance Win32_Process -Filter "ProcessId=$ownerPid" -ErrorAction Stop
     $server=[regex]::Escape((Join-Path $Context.Root 'src/server.js').Replace('/','\'))
@@ -99,10 +105,44 @@ function Open-LwDeploymentLock {
     catch { throw 'DEPLOY_BUSY' }
 }
 
-function Invoke-LwProtectedRestart {
-    param($Context,[int]$ExpectedPid,[string]$ExpectedCommit,[string]$ExpectedInstanceId,[string]$TargetCommit,[string]$CaptureExecutable,[string]$CaptureSha256,[int]$StartupTimeoutSeconds=30)
-    if ((Get-LwWorkspaceTarget $Context) -ne $TargetCommit) { throw 'WORKSPACE_HEAD_CHANGED' }
-    if ((Get-LwFileSha256 $CaptureExecutable) -ne $CaptureSha256) { throw 'CAPTURE_BUILD_CHANGED' }
+function Assert-LwNoRunningInstance {
+    param($Context)
+    if (Get-LwPortListeners $Context) { throw 'PORT_ALREADY_IN_USE' }
+    $lease=Join-Path $Context.Data '.instance.sqlite'
+    if (Test-Path -LiteralPath $lease -PathType Leaf) {
+        $leasePid=Get-LwDataOwner $Context
+        if ($leasePid) {
+            try { $owner=Get-CimInstance Win32_Process -Filter "ProcessId=$leasePid" -ErrorAction Stop }
+            catch { throw 'DATA_DIRECTORY_OWNER_MISMATCH' }
+            if ($owner) { throw 'DATA_DIRECTORY_STILL_OWNED' }
+        }
+    }
+    try { $nodes=@(Get-CimInstance Win32_Process -Filter "Name='node.exe'" -ErrorAction Stop) }
+    catch { throw 'PROCESS_SCAN_UNAVAILABLE' }
+    $entry=[regex]::Escape((Join-Path $Context.Root 'src/server.js').Replace('/','\'))
+    foreach ($node in $nodes) {
+        if (-not $node.CommandLine) { throw 'PROCESS_SCAN_UNAVAILABLE' }
+        if ($node.CommandLine -match ('(?:^|\s)(?:"'+$entry+'"|'+$entry+')\s*$')) { throw 'OWNED_INSTANCE_NOT_LISTENING' }
+        if ($node.CommandLine -match '(?:^|\s)"?(?:\.[/\\])?src[/\\]server\.js"?\s*$') { throw 'NODE_ENTRY_AMBIGUOUS' }
+    }
+}
+
+function Get-LwOptionalWorkbenchState {
+    param($Context)
+    if (Get-LwPortListeners $Context) {
+        $state=Get-LwWorkbenchState $Context
+        $null=Assert-LwOwnedInstance $Context $state
+        return $state
+    }
+    Assert-LwNoRunningInstance $Context
+    return $null
+}
+
+function Invoke-LwProtectedStop {
+    param($Context,$PreviousState)
+    $ExpectedPid=$PreviousState.Instance.pid
+    $ExpectedCommit=$PreviousState.Instance.commit
+    $ExpectedInstanceId=$PreviousState.Instance.instanceId
     $state=Get-LwWorkbenchState $Context
     $identity=Assert-LwOwnedInstance $Context $state -RequireIdle -ExpectedPid $ExpectedPid -ExpectedCommit $ExpectedCommit -ExpectedInstanceId $ExpectedInstanceId
     $oldProcess=Get-Process -Id $ExpectedPid -ErrorAction Stop
@@ -112,10 +152,18 @@ function Invoke-LwProtectedRestart {
     # No -Force, taskkill, process-name stop, elevation or fallback is used.
     Stop-Process -InputObject $oldProcess -ErrorAction Stop
     if (-not $oldProcess.WaitForExit(10000)) { throw 'OLD_PROCESS_EXIT_TIMEOUT' }
-    if (Get-NetTCPConnection -State Listen -LocalPort $Context.Port -ErrorAction SilentlyContinue) { throw 'PORT_NOT_RELEASED' }
+    if (Get-LwPortListeners $Context) { throw 'PORT_NOT_RELEASED' }
     $leasePid=Get-LwDataOwner $Context
     if ($leasePid -and (Get-Process -Id $leasePid -ErrorAction SilentlyContinue)) { throw 'DATA_DIRECTORY_STILL_OWNED' }
+
+    return [pscustomobject]@{status='stopped';pid=$ExpectedPid;commit=$ExpectedCommit;url=$Context.Base}
+}
+
+function Invoke-LwVerifiedStart {
+    param($Context,[string]$TargetCommit,[string]$CaptureExecutable,[string]$CaptureSha256,[int]$StartupTimeoutSeconds=30,[int]$ExpectedPid=0)
     if ((Get-LwWorkspaceTarget $Context) -ne $TargetCommit) { throw 'WORKSPACE_HEAD_CHANGED_AFTER_STOP' }
+    if ((Get-LwFileSha256 $CaptureExecutable) -ne $CaptureSha256) { throw 'CAPTURE_BUILD_CHANGED' }
+    Assert-LwNoRunningInstance $Context
     $tag=[Guid]::NewGuid().ToString('N')
     $stdout=Join-Path $Context.Logs ($tag+'.stdout.log');$stderr=Join-Path $Context.Logs ($tag+'.stderr.log')
     $previous=@{};foreach ($key in @('LW_PORT','LW_DATA_DIR','LW_CAPTURE_EXE')) { $previous[$key]=[Environment]::GetEnvironmentVariable($key,'Process') }
@@ -137,6 +185,17 @@ function Invoke-LwProtectedRestart {
     }
     $newProcess.Refresh();if ($newProcess.HasExited) { throw 'NEW_PROCESS_EXITED' }
     throw 'NEW_SERVICE_START_TIMEOUT'
+}
+
+
+function Invoke-LwProtectedRestart {
+    param($Context,[int]$ExpectedPid,[string]$ExpectedCommit,[string]$ExpectedInstanceId,[string]$TargetCommit,[string]$CaptureExecutable,[string]$CaptureSha256,[int]$StartupTimeoutSeconds=30)
+    if ((Get-LwWorkspaceTarget $Context) -ne $TargetCommit) { throw 'WORKSPACE_HEAD_CHANGED' }
+    if ((Get-LwFileSha256 $CaptureExecutable) -ne $CaptureSha256) { throw 'CAPTURE_BUILD_CHANGED' }
+    $state=Get-LwWorkbenchState $Context
+    $null=Assert-LwOwnedInstance $Context $state -RequireIdle -ExpectedPid $ExpectedPid -ExpectedCommit $ExpectedCommit -ExpectedInstanceId $ExpectedInstanceId
+    $null=Invoke-LwProtectedStop $Context $state
+    return Invoke-LwVerifiedStart $Context -TargetCommit $TargetCommit -CaptureExecutable $CaptureExecutable -CaptureSha256 $CaptureSha256 -StartupTimeoutSeconds $StartupTimeoutSeconds -ExpectedPid $ExpectedPid
 }
 
 if ($MyInvocation.InvocationName -ne '.') {

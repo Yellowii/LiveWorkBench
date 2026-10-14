@@ -475,3 +475,15 @@ Gateway新增accounts查询/版本化命令/WS状态及中文错误message/nextA
 同步补记：实现提交3175d426aee48a3782d31b261efe1e66a84913ff已完成；再次核对main干净、HEAD仍为1473ba3、18783无监听后，以git merge --ff-only将同一已验证提交同步回C:/project/LiveWorkBench。没有执行服务部署、启动或重启。隔离worktree保留本地合成报告和截图；这些证据不进入Git。后续界面/后端实际加载版本仍需在用户授权启动后核对，不能把main代码更新当作服务运行通过。
 
 GitHub同步未完成：git push origin main首次返回Connection was reset，同命令重试返回github.com:443连接失败；未修改代理/Clash/DNS/TUN或绕过网络策略。代码与交接已在本地main提交，远程同步结果未确认，网络可达后可重试同一推送命令。此阻塞不改变本机隔离GUI与139项回归的已验证结果。
+
+## 23. 一键启动、停止、更新（2026-10-14）
+
+任务WORKBENCH-LIFECYCLE-20261014，owner本会话→用户；用户明确“补上”三个管理入口，基线69d01cccb25cb2f79fd32995d9984d6d801c272f，主工作区干净。在既有隔离worktree建立codex/workbench-lifecycle分支，未派工；允许修改管理脚本、BAT、测试、README及本节，不修改src/、public/、API契约、数据库模式和自动监听/单来源/账号复用规则。
+
+实现：根目录新增启动工作台.bat、停止工作台.bat、工作台管理.bat（启动/停止/更新菜单）；一键更新工作台.bat转到同一个tools/workbench-action.bat，统一调用deploy-dev-workbench.ps1的Start/Stop/Update。启动遇到健康的自有实例返回实际PID/版本、不重复启动；未运行时构建/stdio smoke/Runtime预检后启动当前干净HEAD。停止只处理已核对的空闲实例，已停止时无操作；采集未停止或登录窗口未关闭时拒绝。更新运行时受保护重启，未运行时构建验证后直接启动；默认动作仍Update，旧ExpectedPid/Commit重启入口保留。
+
+复用原restart助手的保护，拆成Invoke-LwProtectedStop/Invoke-LwVerifiedStart，仍只有一个生产Stop-Process位置，没有-Force/taskkill/按名称杀进程。检查当前Windows用户、Node入口、实例nonce/创建时间、端口、只读SQLite租约、实际Commit和健康状态；端口检查失败不当作空闲，存活租约/未监听的自有进程/无法归属的相对入口/进程信息不可读均拒绝冷启动。陈旧死PID租约由既有Runtime接管，不删账号、租约或历史。构建失败不停止旧实例；旧实例退出后新启动失败保留日志/数据并明确失败，不强制清理未知进程。Node启动为隐藏后台窗口，日志仍在.local/deployment。不会自动拉Git、修改全局依赖或系统代理/Clash/DNS/TUN/CA、操作伴侣/旧服务或新增开始监听指令。
+
+验证通过（本机隔离）：tests/deploy-workbench.test.js追加10项生命周期/保护回归，实际PowerShell 5.1操作自有合成服务、随机端口和隔离数据，验证冷Start/Update、保留数据、既有实例不重复启动、Stop/重复Stop、采集/登录/异项目拒绝、活动租约/未绑定端口拒绝及端口查询失败拒绝。旧14项部署回归保留；BAT实际cmd.exe验证三个直接入口及菜单三个动作的中文、分发与退出码0/3。首次完整148项147通过，唯一BAT中文条件行被cmd截断，改为独立标签/提示行后针对BAT通过；最终设置LW_CAPTURE_EXE为既有本机验证产物执行npm test，**149/149通过**，约159秒，.local/lifecycle-final-tests.log。新增冷Update曾按预期返回WORKBENCH_STATUS_UNAVAILABLE后通过；初次测试夹具等待Windows signalCode遗漏已修正，不将其归为业务故障。PS1保留UTF8 BOM/CRLF，BAT UTF8无BOM/CRLF；PowerShell5.1语法、git diff --check和公开扫描197文件0发现通过。
+
+交接：只读调用新Get-LwOptionalWorkbenchState核对正式C:/project/LiveWorkBench，结果FORMAL_READONLY_NOT_RUNNING_PROVEN；未启动、停止或更新正式18783，未跑真实平台扫码/WSS。本轮实际启停验证针对合成服务，正式目录/账号/历史保留，首次正式双击启动仍由用户执行并核对实际加载版本。下一步回到真实登录与可信WSS主线，不扩展UI或管理工具。
