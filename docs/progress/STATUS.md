@@ -538,3 +538,10 @@ Git同步：实现及验收提交551a8f30e473bbe31d50eadab3f768e5bf129b62已快�
 继续单活动来源排查：停止失败的项目浏览器连接后，分别使用应用direct及现有system路由复测，后者仅修改该房间networkPolicy，不改Windows/Clash/DNS/TUN/CA。正常页面能播放；隔离诊断用同一DPAPI状态，官方profile/self两次确认authenticated，未出现可见验证码；无头窗口/webcast/im/fetch/返回HTTP200、空体，只观察到无关frontier连接。不是已确认“需验证码”。同一配置正常可见窗口返回application/protobuffer约85KB，并观察到webcast100-ws-web-lq.douyin.com /webcast/im/push/v2/带room_id、29帧。未输出Cookie/账号ID/签名URL、未把frontier流当直播弹幕；诊断截图及一次空响应RAW仅在忽略的.local/listen-diagnostic，RAW保存后才检查，不修改正式历史。
 
 最小兼容：ProfileStore增加默认true的browserHeadless布尔值，WebConnectionResolver把显式false传给既有BrowserSource，SourceController/MonitorCoordinator和浏览器SDK/媒体策略未改。只为该房间选择正常窗口，其他房间默认后台不变；仍需原兜底开关。instance fingerprint增加连接解析文件。两项用例先失败后实现，相关27/27回归通过（约10.6秒）、verify-profiles真实GUI通过0错误、公开201文件0发现、差异检查通过。正常窗口正式监听/RAW结果在后续交接补记，不把诊断帧当已接通生产采集。
+
+
+正式采集交接补记：用户授权范围内再次受保护Update到PID41096，实际加载6eb4a075085468814d4bada5e49a21d8cb6b16d9，fingerprint df83684705110d79b3cab3c21bdd7d01781b86429f972423a1ac7d2104dd55da。选中房间版本9，system网络、browserFallback=true、browserHeadless=false、blockMedia=true；不改其他房间、系统环境、伴侣或旧监听。正常窗口正式采集已CONNECTED，匹配房间的真实直播WSS只有1条连接；两次受认证Gateway快照RAW提交77→230、事件109→327，failed=0、queuePending=0。实际Member/Like/Chat事件可查询，单条live事件同时关联RAW与Proto。正常浏览器窗口留给采集继续运行，没有在交接时停止它；用户关闭窗口会断开采集。
+
+这次真实验证覆盖已保存观看态复用、真实开播结构兼容、正常窗口官方WSS、RAW先保存/官方解析/事件持久化和查询的当前房间路径。它是browser采集，不是尚未实现的纯Node真实WSS直连provider。长期恢复/压力、其他房间与无头模式成功仍未验收；媒体限制配置保留，但实际blockedMedia=0、unclassifiedMedia=2，不能声明本目标的媒体优化已验证。私有诊断与真实RAW/SQLite不上传，公开视频帧/头像/签名URL不写公共进度。
+
+实现d038024（Pace）与6eb4a07（单房间正常窗口）均已推送GitHub main；网络临时push失败后普通重试与ls-remote核对恢复，未变更代理/DNS。后续仅追加本交接文档，不为文档提交重启正在采集的18783。当前问题已在真实平台实证接通，下一步继续可信直连与后台模式/恢复主线，不扩展UI。
