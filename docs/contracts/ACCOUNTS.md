@@ -1,4 +1,6 @@
-# 独立账号与日常监听命令 v1
+# 观看账号与日常监听命令
+
+当前规则以文末“单观看账号 v2”为准；以下 v1 是原实现的历史说明，逐房间绑定与多账号写接口已由用户新需求撤销。
 
 2026-10-13 用户正式任务增量1，owner本对话，串行main。复用官方AccountMonitor/createLoginContext及现有LoginVault/DPAPI，不改官方输出或references。任务附件明确授权实现独立账号、确认后自动保存及简化操作；不另加总体设计审批或派工。
 
@@ -44,3 +46,22 @@ DOMAIN_POLICY_DENIED、LOGIN_MEDIA_BLOCKED与HTTP_ERROR、PROXY_CONNECTION_FAILE
 本地合成资源/真实代理失败与真实匿名页面加载分别验收。真实探针node tools/probe-login-page.mjs <本地报告标签> [visible] [layout]仅使用独立临时上下文和现有网络设置，不读已存账号、不写登录态；可点击登录入口，输出脱敏聚合及可选已遮蔽文本/二维码的布局截图到忽略的.local/login-page。观察结束后释放自有临时浏览器。真实扫码、验证码交互、账号确认/保存仍由用户在更新后的正式工作台完成，不能以二维码出现替代登录成功。
 
 扫码确认排障补充：pageLoad.loginFlow按qr-create、qr-poll、challenge、ticket-guard及passport-other记录请求/响应/失败计数、时间、HTTP状态、固定协议状态与数值错误码；其他扫码状态只显示unrecognized。这些流程信号不作为认证依据，不保存二维码、重定向URL、参数、Cookie或官方错误原文。pageLoad.authentication.lastResponse追加固定endpoint分类、数值responseCode和账号结构类别；官方拒绝明确为AUTH_OFFICIAL_REJECTED，不再混作未知结构。原生账号查询与响应验证异步执行时，等待已收到响应的验证结束，再判断是否补充profile/self查询；未知主接口结构同样允许备用官方查询，但必须由该接口的新鲜HTTP证据确认，不能猜测嵌套字段即已登录。
+
+
+## 单观看账号 v2（2026-10-14，用户明确收敛）
+
+观看身份与直播间独立。ViewerAccount 是现有 LoginManager/AuthProfileStore/LoginVault 的薄适配层，保存唯一 selectedId、迁移选择版本和显式退出标记；不改变 DPAPI、官方确认门槛、捕获宿主或数据库模式。所有房间由 LoginManager.credentialsFor 读取同一槽位，Gateway 的 ProfileStore 忽略旧 authProfileId/persistLogin 配置，旧字段不用批量改写。后台 MonitorCoordinator、SourceController、RAW/Parser/EventStore/Session 与浏览器兜底规则保持。
+
+首次登录按需建立内部记录，名称不要求用户输入，默认 rememberLogin=true。可见 Chromium 仍正常完整交互；重新登录打开不带旧 storageState 的临时上下文，成功前保留旧 vault。仅可信当前账号 self API 的新鲜认证证据可触发快照、DPAPI 保存、读回验证与窗口关闭。取消/失败不覆盖已有状态。服务重启可读取保存状态，但有效性 UNKNOWN，不以文件存在宣称已登录。头像/昵称/ID 只从官方 normalizer 的已确认身份中获取，当前宿主内存保存；重启未重新官方确认时不编造身份资料。
+
+退出：LoginManager 同一队列内关闭本槽位的临时登录窗口、清除对应 DPAPI 文件、所有同 vault 引用的内存会话/有效性/页面报告并移除记录，持久化 loggedOut，避免下次启动悄悄选用另一个旧凭据。不调用采集停止，不清理采集浏览器当前上下文；已运行连接可继续，后续新连接或重连可能需要重新登录。清理非当前凭据须显式 candidateIds；拒绝当前槽位/同文件别名/正在登录的候选。所有写命令 expectedVersion 与 commandId 检查仍有效。
+
+迁移只检查已登记账号及旧 profile authRef/profileId 引用，不扫描凭据目录。唯一已保存/内存可用候选可原地复用，多个候选返回 migration.required，由用户在界面选择。采用只登记原引用，不搬移/覆写/删除其他凭据；未选状态提供独立确认清理。文件存在仅表示配置，不能证明有效。无凭据、无内存会话、无登录窗口的空元数据在明确登录时可清理；退出后没有空账号列表条目。
+
+受认证的 GET /viewer、POST /viewer/actions 为日常入口，动作 login/check/close/logout/adopt/cleanup。check 只检查已打开的临时窗口，不将离线文件检查当作官方有效性验收。GET /accounts 保留脱敏只读诊断；旧多账号创建/修改/clear/login 及逐房间认证写动作返回 AUTH_USE_ACCOUNT_MANAGEMENT 引导新入口，避免旧 authClear 关闭活动采集。旧 authCheck 只读兼容查询同一观看槽位，不再查询逐房间凭据。
+
+本机受认证 REST 的 viewer.identity 和 Profile details.roomInfo 是用户明确要求的固定字段展示例外：仅有限长度身份、已匹配房间的 URL/ID/标题/简介及受限 CDN HTTPS 头像。头像移除查询串、fragment、用户信息与自定义端口；页面 referrerpolicy=no-referrer，CSP 限定头像 CDN。Cookie/storageState/响应原文/路径不返回，日志、WS、导出与 RAW/事件投影仍脱敏，例外不扩展到它们。
+
+统一房间输入为 auto，接受单个可信 HTTPS URL（包括分享文本内一个 URL）或明确 web_rid:/uid:/anchorUid:/roomId:/secUid: 前缀。无前缀数字返回 PENDING_TYPE，不猜 UID 为网页房号。已有显式 target 类型继续可读。details 使用现有安全 HTTP/TargetResolver/官方结构证据，不改变 monitor 确认计数；只有严格匹配目标且唯一的房间证据才展示资料，外观字段冲突显示未知、不改变 LIVE/ENDED 语义。不能可靠解析时明确说明缺失，字段未知不补假数据。
+
+日常切换仍由用户明确点击开始：活动房间不同则确认停止、等待完成后再 listen；编辑活动目标也先确认停止，再保存和 listen。各步失败保留真实错误，不并行启动两个来源。导航不发切换/停止指令。能力 viewerAccount=false 的旧加载后端会禁用新登录/房间写入/开始入口并提示安全更新，仍保留既有停止与诊断入口；不自动重启。

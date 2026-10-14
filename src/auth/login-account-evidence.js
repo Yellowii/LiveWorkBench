@@ -18,7 +18,7 @@ export class LoginAccountEvidence extends EventEmitter {
       this.lastResponse={endpoint:url.pathname==='/webcast/user/me/'?'webcast-me':'profile-self',httpStatus:200,responseCode,accountShape:body?.data?.user?'nested-user':body?.user?'user':body?.data?'data':'absent',checkedAt:new Date().toISOString()};
       if(body?.status_code===0&&body?.data?.user&&normalized.state==='anonymous')normalized={state:'unknown'};
     }catch{this.counts.invalidResponses++;return this.publish(sequence,{state:'ERROR',reasonCode:'AUTH_OFFICIAL_RESPONSE_INVALID'});}
-    if(normalized.state==='authenticated'){this.counts.confirmed++;return this.publish(sequence,{state:'AUTHENTICATED',source:'official-self-api',httpStatus:200});}
+    if(normalized.state==='authenticated'){this.counts.confirmed++;return this.publish(sequence,{state:'AUTHENTICATED',source:'official-self-api',httpStatus:200,identity:normalized.user||null});}
     if(normalized.state==='anonymous'){this.counts.anonymous++;return this.publish(sequence,{state:'ANONYMOUS',reasonCode:'AUTH_LOGIN_REQUIRED'});}
     if(normalized.state==='error')return this.publish(sequence,{state:'ERROR',reasonCode:'AUTH_OFFICIAL_REJECTED',responseCode});
     this.publish(sequence,{state:'UNKNOWN',reasonCode:'AUTH_OFFICIAL_SHAPE_UNCONFIRMED'});

@@ -489,3 +489,30 @@ GitHub同步未完成：git push origin main首次返回Connection was reset，�
 交接：只读调用新Get-LwOptionalWorkbenchState核对正式C:/project/LiveWorkBench，结果FORMAL_READONLY_NOT_RUNNING_PROVEN；未启动、停止或更新正式18783，未跑真实平台扫码/WSS。本轮实际启停验证针对合成服务，正式目录/账号/历史保留，首次正式双击启动仍由用户执行并核对实际加载版本。下一步回到真实登录与可信WSS主线，不扩展UI或管理工具。
 
 同步补记：实现提交d22bba643bd6d75b38fe3e6d081bcd4ae7097f0f已快进同步到本地主工作区，并成功推送GitHub main（1473ba3→d22bba6），包含第22节此前未同步的UI和交接提交。此前网络推送阻塞已解除，未修改网络设置。正式工作台仍未执行启停；用户现在可双击根目录启动工作台.bat，或工作台管理.bat选择操作。
+
+
+## 24. 单观看账号与独立直播间（2026-10-14）
+
+任务 SINGLE-VIEWER-20261014，owner 本会话→用户；基线 aedb61d8af85d7db6c57ef3ba05f77835482e1dc，主工作区干净；复用已附加隔离 worktree 的 codex/single-viewer 分支，不派工。用户明确撤销多账号名称/记住开关/切换/逐房间绑定，允许最小账号兼容调整，禁止擅自重启18783及采集架构重构。实现已交付，真实平台验收待执行；自动化结果见下。
+
+实现：薄 ViewerAccount 适配现有 LoginManager/AuthProfileStore/LoginVault，唯一内部观看槽位默认自动保存，重新登录用正常可见 Chromium 的新临时上下文；官方 self 证据、DPAPI 保存/读回验证成功后关闭窗口。成功前保留旧凭据。退出同队列清理文件、所有同引用内存会话/有效性/页面报告及记录，持久化退出标记避免重启误选其他旧身份；不调用停止采集。旧唯一凭据原地采用，多个候选由用户选；其他凭据保留，清理勾选与确认分开，选中槽位/同文件别名受保护。仅检查已登记引用，不扫描私有目录。
+
+账号页只保留登录/重新登录、退出两种日常操作，临时窗口 check/close、网络与页面诊断折叠保留。旧列表、名称、rememberLogin、profileAuth 和重复 authPanel 移除。GET /accounts、旧房间 authCheck 保留只读；旧认证写入口引导统一槽位，防止旧 authClear 停止采集。房间统一 targetInput 接 URL/分享文本/明确 ID 前缀，无前缀数字明确待指定类型；现有 TargetResolver/安全HTTP读取严格匹配的房间身份与资料，未知/冲突不猜测。当前资料展示仅本机受认证 REST 的固定白名单；avatar 去查询串，identity 不进入通用投影/WS/日志/导出。
+
+新房间无账号绑定，既有绑定字段不批量改写或重建监控版本。日常跨房间及活动目标编辑显式确认 stop→保存/选择→listen，原 Coordinator/Source 控制串行与单来源规则不改。切页保留节点/草稿/WS/任务；数据、RAW/Proto、历史、Replay、Golden、Hook、日志/网络/资源诊断原入口保留。旧加载后端缺 viewerAccount 能力时提示安全更新、禁用新登录/房间写入/开始，原停止/诊断仍可用，不自动部署。
+
+变更路径：src/auth/viewer-account.js、display-info.js、auth-profile-store.js、login-manager.js、login-account-evidence.js；src/server.js、instance.js、public-projection.js、profiles/profile-store.js、targets/resolver.js、monitor/douyin-adapter.js、api/error-messages.js；public/index.html/app.js；tests/viewer.test.js/accounts.test.js/profile-api.test.js；三个对应 GUI 验证脚本；README、ACCOUNTS/PUBLIC_API/MONITOR_PROFILES 与控件映射 docs/reviews/2026-10-14-single-viewer.md。SourceController、MonitorCoordinator、BrowserSource 策略、RAW/Parser/EventStore/Session、SQLite schema、references 未修改。
+
+验证（全部隔离，本机实际 DPAPI/Edge/回环网络，官方响应与账户数据为合成）：
+
+- 新 viewer 用例先失败后实现通过；覆盖自动保存/读回、重启复用、跨房间读取、清理文件/缓存/记录、退出后不误选、迟到回调、旧多候选选择与不改 vault 字节、旧 profile 引用原地迁移、同文件别名防误删、认证/幂等/隐私、明确 ID 类型及目标匹配资料。旧 LoginManager 生命周期与实际 Chromium 合成官方 self 证据测试保留。
+- 最终设置 LW_CAPTURE_EXE 为现有本机捕获宿主产物，node --test --test-concurrency=4 tests/*.test.js：157/157通过，约162秒，artifacts/viewer-release-tests.txt；Node v24.15.0，代码 fingerprint f0e000a70b13ffe3a4f5a795bc65b0b36cbe1066ae6d15f0c7cfda6cafc5f580。中间旧逐房间 authSave 断言已按新契约更新，authCheck 只读兼容保留；另一次全量有本机网络夹具 ECONNRESET，单独复测及最终完整复跑通过，未修改网络实现。
+- tools/verify-accounts.mjs 实际 Playwright 操作旧凭据选择、取消/确认删除、自动保存、昵称/ID、两房间共用登录态、取消/确认切换（最大同时连接1）、采集中退出仍 CONNECTED 并继续 RAW、无空账号条目与旧后端能力提示；0浏览器错误。tools/verify-profiles.mjs 房间 CRUD、确认监控、网络设置/诊断/资源查询通过。
+- tools/verify-navigation.mjs after 全数据与诊断路径通过：实际回环 WS/RAW/官方 Parser、事件/历史/RAW/Proto/重解析、Replay、59/59 合成 Golden、Hook/网络、日志查询/导出、资源/健康。5导航、首页7按钮；1365/1024/700宽度无溢出/重叠/遮挡，已人工检查单账号与窄屏截图。移除控件按新单账号规格显式列入允许清单，未删除数据或采集诊断功能。
+- 公开扫描201文件0发现、git diff --check通过。报告与截图保存在隔离 worktree 的 artifacts/viewer、artifacts/navigation/after、artifacts/viewer-*.txt，均忽略且不上传。
+
+未验证：真实扫码（需人完成官方验证）、真实账号过期/资料形状、真实分享URL/主播资料及同观看账号实际多房间访问、平台动态 WSS 参数/直连、隐藏浏览器真实兜底/恢复、正式账号迁移及长期采集压力；不能用合成 HTTP/WS/Golden 替代。重启后保存状态可复用不等于当下已官方确认，身份信息在再次确认前不伪造。退出保留活动采集上下文，后续新连接或重连可能需要登录，界面确认与说明已准确列出。
+
+服务边界：任务开始只读观察18783 PID29792；结束前复查已无监听且该PID不存在，停止原因未知，本任务没有执行正式端口/进程启停。仅启停随机端口隔离服务及部署测试自己的夹具；没有修改系统代理/Clash/TUN/DNS/CA、操作伴侣/旧监听或读取正式 Cookie/RAW/数据库。代码提交不代表正式加载版本更新。下一步回真实登录/可信 WSS 主线，不继续扩展 UI；正式启动/重启仍由用户明确安排。
+
+Git同步：全部验收结果已记录；提交/推送结果随后补记。GitHub fetch 两次分别连接重置与443不可达，未调整系统网络。

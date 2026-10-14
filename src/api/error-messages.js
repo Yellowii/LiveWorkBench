@@ -1,9 +1,10 @@
 const meanings={
+  AUTH_VIEWER_MIGRATION_REQUIRED:['存在多个旧登录态，尚未选定观看账号。','进入账号管理，明确选择保留哪一个。'],
   AUTH_LOGIN_BUSY:['另一个账号正在登录。','完成或关闭当前登录窗口，再登录其他账号。'],
   AUTH_LOGIN_OPEN_FAILED:['登录窗口未能打开，已有登录态已保留。','检查浏览器准备状态及账号网络模式后重试。'],
   AUTH_STATE_UNAVAILABLE:['保存的登录态当前无法读取。','重新登录；不要手动复制或上传凭据文件。'],
   AUTH_PROFILE_INVALID:['账号配置格式不正确。','检查名称、记住登录开关和网络设置。'],
-  AUTH_USE_ACCOUNT_MANAGEMENT:['此直播间使用共享账号。','请在账号管理中更新或清除登录态。'],
+  AUTH_USE_ACCOUNT_MANAGEMENT:['旧的多账号或房间登录操作已停用。','请在账号管理中使用统一的观看账号登录、退出或迁移入口。'],
   AUTH_CONFIRMATION_REQUIRED:['官方接口尚未确认已登录。','在登录窗口完成扫码或验证后再试。'],
   STATE_CONFLICT:['配置或采集状态已被更新。','刷新状态后重新操作。'],
   SOURCE_BUSY:['已有直播间正在采集。','先停止当前监听，再开始另一个直播间。'],

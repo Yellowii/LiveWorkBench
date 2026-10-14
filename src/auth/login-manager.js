@@ -1,3 +1,4 @@
+import {displayIdentity} from './display-info.js';
 import {EventEmitter} from 'node:events';
 import {randomUUID} from 'node:crypto';
 import {isDeepStrictEqual} from 'node:util';
@@ -15,13 +16,13 @@ export class LoginManager extends EventEmitter {
   changed(id,value){this.statuses.set(id,value);this.log(value.reasonCode||'AUTH_STATE_CHANGED',{authProfileId:id,state:value.state,operationId:value.operationId});void this.view(id).then(view=>this.emit('account.updated',view)).catch(()=>{});}
   login(id,options={}){return this.serial(()=>this.open(id,options));}
   createAndLogin(input){return this.serial(async()=>{if(this.active)throw new Error('AUTH_LOGIN_BUSY');const item=this.accounts.create(input);return this.open(item.authProfileId);});}
-  async open(id,{patch,expectedVersion}={}){
+  async open(id,{patch,expectedVersion,fresh=false}={}){
     if(this.closed)throw new Error('AUTH_MANAGER_CLOSED');let p=this.accounts.get(id);
     if(expectedVersion!==undefined&&expectedVersion!==p.version)throw new Error('STATE_CONFLICT');
     if(this.active&&this.active.id!==id)throw new Error('AUTH_LOGIN_BUSY');
     if(patch)p=this.accounts.update(id,patch,expectedVersion);
     if(this.active){if(this.active.id===id)return this.view(id);throw new Error('AUTH_LOGIN_BUSY');}
-    let storageState=this.sessions.get(id);if(!storageState)try{storageState=await this.vault.load(p.vaultRef);}catch{this.log('AUTH_STATE_UNAVAILABLE',{authProfileId:id});}
+    let storageState=fresh?null:this.sessions.get(id);if(!fresh&&!storageState)try{storageState=await this.vault.load(p.vaultRef);}catch{this.log('AUTH_STATE_UNAVAILABLE',{authProfileId:id});}
     const client=this.clientFactory(),active={id,client,operationId:randomUUID()};this.active=active;
     this.loadReports.delete(id);
     client.on('diagnostic',entry=>{if(this.active===active&&!this.closed)this.log('AUTH_LOGIN_RESOURCE_DIAGNOSTIC',{authProfileId:id,operationId:active.operationId,...entry});});
@@ -42,7 +43,7 @@ export class LoginManager extends EventEmitter {
       if(!snapshot.cookies.length&&!snapshot.origins.some(x=>x.localStorage.length))throw new Error('AUTH_STATE_EMPTY');
       if(p.rememberLogin){const saved=await this.vault.save(p.vaultRef,snapshot,true);let restored;try{restored=await this.vault.load(p.vaultRef);}catch{throw new Error('AUTH_SAVE_VERIFY_FAILED');}if(saved?.saved!==true||!isDeepStrictEqual(restored,filterState(snapshot)))throw new Error('AUTH_SAVE_VERIFY_FAILED');this.accounts.markSaved(active.id);}
       this.sessions.set(active.id,snapshot);clearTimeout(active.timer);await active.client.close();this.loadReports.set(active.id,active.client.diagnostics?.()||null);this.active=null;
-      this.changed(active.id,{state:'AUTHENTICATED',checkedAt:status.checkedAt,source:'official-self-api',operationId:active.operationId,remembered:p.rememberLogin,saveVerified:p.rememberLogin,cookieCount:snapshot.cookies.length,originCount:snapshot.origins.length,requiresUserAction:false});
+      this.changed(active.id,{state:'AUTHENTICATED',identity:displayIdentity(status.identity),checkedAt:status.checkedAt,source:'official-self-api',operationId:active.operationId,remembered:p.rememberLogin,saveVerified:p.rememberLogin,cookieCount:snapshot.cookies.length,originCount:snapshot.origins.length,requiresUserAction:false});
     }catch(error){this.changed(active.id,{state:'ERROR',reasonCode:error.message==='AUTH_SAVE_VERIFY_FAILED'?'AUTH_SAVE_VERIFY_FAILED':'AUTH_SAVE_FAILED',operationId:active.operationId,requiresUserAction:true});}
   }
   async cancelActive(active,reasonCode){if(this.active!==active)return;this.active=null;clearTimeout(active.timer);await active.client.close();this.loadReports.set(active.id,active.client.diagnostics?.()||null);this.changed(active.id,{state:'UNKNOWN',reasonCode,requiresUserAction:true});}
@@ -50,6 +51,6 @@ export class LoginManager extends EventEmitter {
   check(id){return this.serial(async()=>{this.accounts.get(id);if(this.active?.id===id)await this.active.client.check();else await this.vault.status(this.accounts.get(id).vaultRef);return this.view(id);});}
   update(id,patch,version){return this.serial(async()=>{this.accounts.update(id,patch,version);return this.view(id);});}
   clear(id,version){return this.serial(async()=>{const p=this.accounts.get(id);if(p.version!==version)throw new Error('STATE_CONFLICT');if(this.active?.id===id)await this.cancelActive(this.active,'AUTH_LOGIN_CANCELLED');await this.vault.clear(p.vaultRef);this.sessions.delete(id);this.changed(id,{state:'UNKNOWN',reasonCode:'AUTH_LOGIN_REQUIRED',requiresUserAction:true});return this.view(id);});}
-  async credentialsFor(profile){if(profile.authProfileId){const p=this.accounts.get(profile.authProfileId);return {storageState:this.sessions.get(p.authProfileId)||await this.vault.load(p.vaultRef)};}return {storageState:profile.profileId?await this.vault.load(profile.authRef||profile.profileId):null};}
+  async credentialsFor(profile){if(this.viewer)return this.viewer.credentials();if(profile.authProfileId){const p=this.accounts.get(profile.authProfileId);return {storageState:this.sessions.get(p.authProfileId)||await this.vault.load(p.vaultRef)};}return {storageState:profile.profileId?await this.vault.load(profile.authRef||profile.profileId):null};}
   async close(){this.closed=true;await this.queue.catch(()=>{});if(this.active)await this.cancelActive(this.active,'AUTH_LOGIN_CANCELLED');this.sessions.clear();}
 }

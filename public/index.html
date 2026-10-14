@@ -62,46 +62,16 @@
 <div id="page-accounts" class="page" hidden aria-labelledby="title-accounts">
 <h1 id="title-accounts">账号管理</h1>
 <section id="accountPanel">
-<h2>账号管理</h2>
-<p>无需直播间或来源选择。登录成功且勾选记住登录后自动受保护保存并关闭临时窗口，同一账号可绑定多个直播间。</p>
-<div class="account-layout">
-<div class="account-list">
-<label for="accountSelect">本地账号列表</label>
-<select id="accountSelect" size="6" aria-label="本地账号列表">
-<option value="">新账号</option>
-</select>
-</div>
-<div class="account-detail">
-<div class="actions">
-<label>名称 <input id="accountName" placeholder="本地账号名称">
-</label>
-<label>
-<input type="checkbox" id="accountRemember">记住登录</label>
-<button id="accountLogin">登录 / 重新登录</button>
-<button id="accountCheck">查看状态</button>
-<button id="accountReload">刷新账号</button>
-<button id="accountClose">关闭登录窗口</button>
-</div>
-<p id="accountSummary">新版后端提供独立账号管理。</p>
-<details id="accountAdvanced">
-<summary>账号网络与开发诊断</summary>
-<select id="accountNetworkMode">
-<option value="system">系统现有代理</option>
-<option value="direct">安全直连</option>
-<option value="custom">自定义代理</option>
-</select>
-<input id="accountProxy" placeholder="自定义代理地址；留空保留登记值">
-<pre id="accountState">
-</pre>
-</details>
-<details id="accountDanger">
-<summary>清除登录态</summary>
-<p>同一账号可能被多个直播间共享。清除后后续连接需要重新登录。</p>
-<button id="accountClear">清除保存登录态…</button>
-</details>
-<p>登录或清除保存状态不会关闭正在运行的采集；后续连接读取最新账号设置。</p>
-</div>
-</div>
+<h2>观看账号</h2>
+<p>一个抖音登录身份用于所有直播间。官方确认后自动安全保存，并关闭临时登录窗口。</p>
+<p id="accountSummary">正在读取观看账号状态。</p>
+<img id="viewerAvatar" alt="观看账号头像" width="48" height="48" hidden referrerpolicy="no-referrer">
+<p id="viewerIdentity"></p>
+<div class="actions"><button id="accountLogin">登录抖音</button><button id="accountClear" hidden>退出并清除登录态…</button></div>
+<section id="viewerMigration" hidden><h3>旧登录态迁移</h3><p>请选择要保留为观看账号的登录态。其他保存状态不会自动删除，文件存在不代表当前仍有效。</p><select id="viewerCandidate" aria-label="选择旧登录态"></select><button id="viewerAdopt">使用选中的登录态</button></section>
+<details id="viewerCleanup" hidden><summary>清理保留的旧登录态</summary><p>勾选后删除对应保存凭据和旧记录；此操作不可撤销，不会停止当前采集。</p><div id="viewerCandidates"></div><button id="viewerDelete">删除勾选的旧登录态…</button></details>
+<details id="accountAdvanced"><summary>登录网络与开发诊断</summary><select id="accountNetworkMode"><option value="system">系统现有代理</option><option value="direct">安全直连</option><option value="custom">自定义代理</option></select><input id="accountProxy" placeholder="自定义代理地址；留空保留登记值"><button id="accountCheck">检查当前登录窗口</button><button id="accountReload">刷新登录状态</button><button id="accountClose">关闭临时登录窗口</button><pre id="accountState"></pre></details>
+<p>退出只清除保存与可复用登录态；当前采集浏览器保留。后续新连接或重连可能需要重新登录。</p>
 </section>
 </div>
 <div id="page-rooms" class="page" hidden aria-labelledby="title-rooms">
@@ -115,12 +85,10 @@
 </select>
 <button id="profileReload">刷新配置</button>
 <input id="profileName" placeholder="配置名称">
-<input id="targetInput" placeholder="主播 ID 或完整直播间 URL">
-<label>登录账号 <select id="profileAuth">
-<option value="">暂不绑定（访客）</option>
-</select>
-</label>
+<input id="targetInput" placeholder="分享 URL、完整 URL 或 web_rid:网页房号">
+
 </div>
+<p>数字 ID 请明确使用 web_rid:、uid: 或 roomId: 前缀；无法确认类型时不会猜测。所有房间自动复用同一个观看登录态。</p><img id="roomAvatar" alt="主播头像" width="48" height="48" hidden referrerpolicy="no-referrer"><p id="roomSummary">保存后查询官方目标信息；无法确认的字段保持未知。</p><pre id="roomInfo"></pre>
 <div class="actions">
 <label>
 <input id="profileEnabled" type="checkbox">启用</label>
@@ -134,15 +102,7 @@
 <details id="profileAdvanced">
 <summary>技术身份与连接高级配置</summary>
 <div class="actions">
-<label>输入类型 <select id="targetType">
-<option value="auto">自动识别（数字需指定类型）</option>
-<option value="url">直播/分享 URL</option>
-<option value="web_rid">网页房号 web_rid</option>
-<option value="anchorUid">主播 UID</option>
-<option value="secUid">secUid</option>
-<option value="roomId">实际 roomId</option>
-</select>
-</label>
+
 <label>采集来源 <select id="profileSource">
 <option value="WebSource">WebSource</option>
 <option value="LiveHookSource">LiveHookSource</option>
@@ -319,22 +279,7 @@
 <pre id="hookMatch">
 </pre>
 </section>
-<section id="authPanel">
-<h2>旧配置登录兼容</h2>
-<details id="authAdvanced">
-<summary>展开旧配置兼容操作</summary>
-<p>仅本项目的独立浏览器会话。保存需先启用且官方接口确认登录；DPAPI仅当前Windows用户可解密。保存内容不返回界面。打开可见浏览器会访问独立官方首页，由你手动登录或完成验证，不会操作日常浏览器。</p>
-<label>
-<input type="checkbox" id="persistLogin">允许持久化登录态</label>
-<button id="authOptIn">保存此设置</button>
-<button id="authCheck">检查有效性</button>
-<button id="authLogin">打开独立登录窗口</button>
-<button id="authSave">保存当前登录态</button>
-<button id="authClear">清除保存状态并关闭本项目会话</button>
-<pre id="authState">
-</pre>
-</details>
-</section>
+
 <section id="goldenPanel">
 <h2>真实样本与回归</h2>
 <p>已登记 M0-R01 · 业务 Protobuf · 来源未知 · 原文件只读。不能替代完整 HTTP/WSS 捕获验证。</p>

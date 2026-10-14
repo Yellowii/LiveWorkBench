@@ -22,20 +22,20 @@ class LoginFixture extends EventEmitter{
  confirm(source='official-self-api'){this.emit('status',{state:'AUTHENTICATED',source,checkedAt:new Date().toISOString()});}
 }
 const until=async fn=>{const deadline=Date.now()+10000;while(!await fn()){if(Date.now()>deadline)throw new Error('TEST_TIMEOUT');await new Promise(resolve=>setTimeout(resolve,20));}};
-test('independent login works with no rooms or Source selection, saves only official opt-in evidence and restores shared bindings',async t=>{
+test('watching login works without rooms or source selection, autosaves only official evidence and restores across rooms',async t=>{
  const dir=await fs.mkdtemp(path.join(os.tmpdir(),'lw-independent-accounts-'));let app=await createGateway({dataDir:dir,port:0});t.after(async()=>{await app.close();await fs.rm(dir,{recursive:true,force:true});});
  assert.ok(app.loginManager,'independent account manager required');app.loginManager.clientFactory=()=>new LoginFixture();
  let cookie=(await fetch(app.url)).headers.get('set-cookie').split(';')[0];const post=async(p,body)=>{const res=await fetch(app.url+'/api/v1/'+p,{method:'POST',headers:{Cookie:cookie,Origin:app.url,'Content-Type':'application/json'},body:JSON.stringify({commandId:crypto.randomUUID(),...body})});return {status:res.status,...await res.json()};};
- const opened=await post('accounts',{action:'login',account:{name:'synthetic account',rememberLogin:true}});assert.equal(opened.status,200);const id=opened.data.authProfileId;assert.equal(app.profiles.all().length,0);assert.equal(app.sources.view().selectedSource,'LiveHookSource');assert.equal(app.sources.view().captureState,'STOPPED');
- const repeat=await post('accounts',{action:'login',account:{name:'accidental duplicate',rememberLogin:true}});assert.equal(repeat.status,409);assert.equal(app.accounts.all().length,1);assert.ok(repeat.error.nextAction.includes('当前登录窗口'));
+ const opened=await post('viewer/actions',{action:'login',expectedVersion:(await app.viewer.get()).version});assert.equal(opened.status,200);const id=app.accounts.all()[0].authProfileId;assert.equal(app.profiles.all().length,0);assert.equal(app.sources.view().selectedSource,'LiveHookSource');assert.equal(app.sources.view().captureState,'STOPPED');
+ const repeat=await post('viewer/actions',{action:'login',expectedVersion:(await app.viewer.get()).version});assert.equal(repeat.status,409);assert.equal(app.accounts.all().length,1);assert.ok(repeat.error.nextAction.includes('当前登录窗口'));
  app.loginManager.active.client.confirm('unverified');await new Promise(resolve=>setTimeout(resolve,50));assert.equal((await app.loginManager.view(id)).configured,false);
  app.loginManager.active.client.confirm();await until(async()=>!(app.loginManager.active)&&(await app.loginManager.view(id)).configured);assert.equal((await app.loginManager.view(id)).login.state,'AUTHENTICATED');
  const bytes=await fs.readFile(app.loginManager.vault.file(id));assert.ok(!bytes.includes(Buffer.from('SYNTHETIC_AUTH_SESSION_VALUE')));
- const one=await post('profiles',{profile:{target:{type:'web_rid',value:'123'}}}),two=await post('profiles',{profile:{target:{type:'web_rid',value:'124'},authProfileId:id}});assert.equal(one.data.authProfileId,id);assert.equal(two.data.authProfileId,id);assert.equal((await app.loginManager.view(id)).boundProfileIds.length,2);
+ const one=await post('profiles',{profile:{target:{type:'web_rid',value:'123'}}}),two=await post('profiles',{profile:{target:{type:'web_rid',value:'124'},authProfileId:id}});assert.equal(one.data.authProfileId,null);assert.equal(two.data.authProfileId,null);assert.equal((await app.loginManager.view(id)).boundProfileIds.length,0);
  const response=await (await fetch(app.url+'/api/v1/accounts',{headers:{Cookie:cookie}})).json();assert.ok(!JSON.stringify(response).includes('SYNTHETIC_AUTH_SESSION_VALUE'));assert.equal(app.runtime.store.sessions().length,0);
  await app.close();app=await createGateway({dataDir:dir,port:0});cookie=(await fetch(app.url)).headers.get('set-cookie').split(';')[0];assert.equal((await app.loginManager.view(id)).login.state,'UNKNOWN');
  for(const p of app.profiles.all())assert.equal((await app.loginManager.credentialsFor(p)).storageState.cookies[0].value,'SYNTHETIC_AUTH_SESSION_VALUE');
- const stale=await post('accounts/'+id+'/actions',{action:'clear',expectedVersion:'99'});assert.equal(stale.error.code,'STATE_CONFLICT');assert.equal((await app.loginManager.view(id)).configured,true);
+ const stale=await post('viewer/actions',{action:'logout',expectedVersion:'99'});assert.equal(stale.error.code,'STATE_CONFLICT');assert.equal((await app.loginManager.view(id)).configured,true);
 });
 test('empty authenticated snapshot cannot replace prior credentials or report a remembered login',async t=>{
  const dir=await fs.mkdtemp(path.join(os.tmpdir(),'lw-account-empty-')),runtime=await Runtime.open({dataDir:dir}),accounts=new AuthProfileStore(runtime.store),vault=new LoginVault(dir),manager=new LoginManager({accounts,vault,clientFactory:()=>new LoginFixture()});t.after(async()=>{await manager.close();await runtime.close();await fs.rm(dir,{recursive:true,force:true});});

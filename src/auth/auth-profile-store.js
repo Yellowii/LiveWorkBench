@@ -5,6 +5,7 @@ export class AuthProfileStore {
   constructor(repository){this.repository=repository;}
   all(){return this.repository.getState('accounts-v1')?.items||[];}
   defaultId(){return this.repository.getState('accounts-v1')?.defaultAuthProfileId||null;}
+  remove(ids){const items=this.all().filter(p=>!ids.includes(p.authProfileId));this.save(items,items.some(p=>p.authProfileId===this.defaultId())?this.defaultId():items[0]?.authProfileId||null);}
   get(id){const item=this.all().find(p=>p.authProfileId===id);if(!item)throw new Error('RESOURCE_NOT_FOUND');return item;}
   save(items,defaultAuthProfileId=this.defaultId()){this.repository.setState('accounts-v1',{items,defaultAuthProfileId});}
   validate(input){

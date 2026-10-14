@@ -19,6 +19,7 @@ import {HookTargetMatcher} from './targets/hook-target-matcher.js';
 import {loadedInstance} from './instance.js';
 import {AuthProfileStore} from './auth/auth-profile-store.js';
 import {LoginManager} from './auth/login-manager.js';
+import {ViewerAccount} from './auth/viewer-account.js';
 import {LoginVault} from './auth/login-vault.js';
 import {errorMeaning} from './api/error-messages.js';
 
@@ -29,7 +30,8 @@ export async function createGateway({dataDir,port=18780,settings={}}={}){
   const runtime=await Runtime.open({dataDir:dataDir||path.join(root,'data')}),bridge=new CaptureBridge(runtime),daemon=new LiveHookDaemon(runtime,bridge);await daemon.start();
   const projection=await publicProjection(runtime.dataDir,{allowPrivateDetails:settings.allowPrivateDetails===true}),publicSafe=projection.project;
   const accounts=new AuthProfileStore(runtime.store),loginManager=new LoginManager({accounts,vault:new LoginVault(runtime.dataDir),log:(code,details)=>runtime.log(code,details)});
-  const profiles=new ProfileStore(runtime.store,{accounts});loginManager.profiles=()=>profiles.all();
+  const profiles=new ProfileStore(runtime.store,{accounts,singleViewer:true});loginManager.profiles=()=>profiles.all();
+  const viewer=new ViewerAccount(loginManager,runtime.store,()=>profiles.all());
   const sources=new SourceController(runtime,bridge,settings,{loginManager,profiles}),monitor=new LiveMonitor(profiles);
   loginManager.on('account.updated',data=>runtime.emit('account.updated',data));
   const hookMatcher=new HookTargetMatcher(profiles);runtime.captureTargets=hookMatcher;sources.hookMatcher=hookMatcher;
@@ -41,7 +43,7 @@ export async function createGateway({dataDir,port=18780,settings={}}={}){
   hookMatcher.on('match.updated',data=>{daemon.targetObserved(data);runtime.emit('hook.match.updated',data);coordinator.changed();});
   const exportsProjection=await publicProjection(runtime.dataDir),logExports=new LogExports(runtime,exportsProjection.project);
   const token=randomUUID();const commands=new Map(),jobs=new Set();let url;
-  const ok=(res,data,status=200)=>{res.writeHead(status,{'Content-Type':'application/json; charset=utf-8','Cache-Control':'no-store'});res.end(JSON.stringify({schemaVersion:'1',requestId:randomUUID(),data:publicSafe(data),serverTime:new Date().toISOString()}));};
+  const ok=(res,data,status=200)=>{res.writeHead(status,{'Content-Type':'application/json; charset=utf-8','Cache-Control':'no-store'});res.end(JSON.stringify({schemaVersion:'1',requestId:randomUUID(),data:data?.viewerDisplay===true?{...publicSafe(data),identity:data.identity}:data?.targetDisplay===true?{...publicSafe(data),roomInfo:data.roomInfo}:publicSafe(data),serverTime:new Date().toISOString()}));};
   const fail=(res,code,status=400)=>{res.writeHead(status,{'Content-Type':'application/json','Cache-Control':'no-store'});res.end(JSON.stringify({schemaVersion:'1',error:{code,...errorMeaning(code),retryable:false}}));};
   const authorized=req=>(req.headers.cookie||'').split(';').some(x=>x.trim()===`lw_session=${token}`);
   const operation=(kind,fn)=>{const item={operationId:randomUUID(),kind,status:'running',createdAt:new Date().toISOString(),processed:0};runtime.operations.set(item.operationId,item);const job=new Promise(resolve=>setImmediate(resolve)).then(async()=>{try{item.result=await fn(item);item.status=item.cancelled?'cancelled':'complete';}catch(e){item.status='failed';item.error={code:['R01_NOT_CONFIGURED','INPUT_PATH_ESCAPE'].includes(e.message)?e.message:'OPERATION_FAILED'};runtime.log(item.error.code,{operationId:item.operationId});}item.updatedAt=new Date().toISOString();runtime.emit('operation.updated',item);});jobs.add(job);job.finally(()=>jobs.delete(job));return item;};
@@ -52,7 +54,7 @@ export async function createGateway({dataDir,port=18780,settings={}}={}){
       const u=new URL(req.url,url||'http://127.0.0.1');
       if(!u.pathname.startsWith('/api/')){
         const assets={'/':['index.html','text/html'],'/app.js':['app.js','text/javascript'],'/app.css':['app.css','text/css']};const asset=assets[u.pathname];if(!asset)return fail(res,'RESOURCE_NOT_FOUND',404);
-        const headers={'Content-Type':asset[1]+'; charset=utf-8','Content-Security-Policy':"default-src 'self'; connect-src 'self'; script-src 'self'; style-src 'self'; frame-ancestors 'none'",'Cache-Control':'no-store'};
+        const headers={'Content-Type':asset[1]+'; charset=utf-8','Content-Security-Policy':"default-src 'self'; connect-src 'self'; script-src 'self'; style-src 'self'; img-src 'self' https://*.douyinpic.com https://*.byteimg.com https://*.ibyteimg.com; frame-ancestors 'none'",'Cache-Control':'no-store'};
         if(u.pathname==='/')headers['Set-Cookie']=`lw_session=${token}; HttpOnly; SameSite=Strict; Path=/`;
         const bytes=await fs.readFile(path.join(publicDir,asset[0]));res.writeHead(200,headers);res.end(bytes);return;
       }
@@ -60,6 +62,7 @@ export async function createGateway({dataDir,port=18780,settings={}}={}){
       if(req.headers.origin&&req.headers.origin!==url)return fail(res,'FORBIDDEN',403);
       const p=u.pathname;
       if(req.method==='GET'){
+        if(p==='/api/v1/viewer')return ok(res,{...await viewer.get(),viewerDisplay:true});
         if(p==='/api/v1/accounts')return ok(res,await loginManager.list());
         if(p==='/api/v1/profiles')return ok(res,{items:profiles.list().map(item=>({...item,monitor:monitor.view(item.profileId)}))});
         if(p==='/api/v1/monitor')return ok(res,{items:monitor.list(),platformEvidenceOnly:true});
@@ -68,7 +71,7 @@ export async function createGateway({dataDir,port=18780,settings={}}={}){
         if(p==='/api/v1/system/status')return ok(res,{instance,profiles:profiles.list(),monitor:monitor.list(),coordinator:coordinator.view(),accounts:{count:accounts.all().length,loginWindowOpen:Boolean(loginManager.active)},backendReady:true,selectedSource:sources.view().selectedSource,sourceControl:sources.view(),capture:sources.view().selectedSource==='WebSource'?sources.currentWeb().status:bridge.status,daemon:daemon.status,sessions:runtime.store.sessions(),metrics:runtime.metrics,privacy:{mode:projection.mode,projectionVersion:projection.version},liveEnvironmentAuthorized:Boolean(settings.certificatePath)});
         if(p==='/api/v1/health')return ok(res,{status:'ok',storage:'sqlite-wal-full',parser:'official',gatewayWebsocket:socketHub.view()});
         if(p==='/api/v1/capture/gaps')return ok(res,runtime.gaps.page({limit:u.searchParams.get('limit')}));
-        if(p==='/api/v1/capabilities')return ok(res,{...sources.capabilities(),features:{accounts:true,networkPolicy:true,browserMetrics:true,profiles:true,monitor:true,eventHighWatermark:true,signedCursors:true,eventSummaries:true,protoTrace:true,rawPaging:true,captureGapTrace:true,reparse:true,replayPhysicalIsolation:true},limits:{eventPage:200,frontCache:500},replay:{implemented:true},r01:{available:Boolean(settings.r01Root),inputFormat:'business-payload'},lan:{enabled:false}});
+        if(p==='/api/v1/capabilities')return ok(res,{...sources.capabilities(),features:{viewerAccount:true,accounts:false,networkPolicy:true,browserMetrics:true,profiles:true,monitor:true,eventHighWatermark:true,signedCursors:true,eventSummaries:true,protoTrace:true,rawPaging:true,captureGapTrace:true,reparse:true,replayPhysicalIsolation:true},limits:{eventPage:200,frontCache:500},replay:{implemented:true},r01:{available:Boolean(settings.r01Root),inputFormat:'business-payload'},lan:{enabled:false}});
         if(p==='/api/v1/sources')return ok(res,{...sources.view(),items:['LiveHookSource','WebSource']});
         if(p==='/api/v1/hook/status')return ok(res,{...bridge.status,daemon:daemon.status,profileMatch:hookMatcher.view()});
         if(p==='/api/v1/events'){const page=runtime.store.events({limit:u.searchParams.get('limit'),cursor:u.searchParams.get('cursor'),mode:u.searchParams.get('mode'),namespace:u.searchParams.get('namespace'),method:u.searchParams.get('method'),afterSeq:u.searchParams.get('afterSeq')});return ok(res,{...page,items:page.items.map(event=>({...event,payload:{decodeStatus:event.payload?.decodeStatus,official:{content:event.payload?.official?.content||null},extensions:{lifecycleCandidate:event.payload?.extensions?.lifecycleCandidate||null}},detailAvailable:true}))});}
@@ -97,16 +100,8 @@ export async function createGateway({dataDir,port=18780,settings={}}={}){
       if(commands.size>1000){const removable=[...commands].find(([,v])=>v.finished);if(removable)commands.delete(removable[0]);else return fail(res,'SOURCE_BUSY',409);}
       commands.set(body.commandId,command);
       let result,status=200;
-      if(p==='/api/v1/accounts'){
-        if(body.action&&body.action!=='login')throw new Error('CAPABILITY_UNAVAILABLE');result=body.action==='login'?await loginManager.createAndLogin(body.account):await loginManager.view(accounts.create(body.account).authProfileId);
-      }else if(/^\/api\/v1\/accounts\/[^/]+\/actions$/.test(p)){
-        const id=decodeURIComponent(p.split('/')[4]),item=accounts.get(id);
-        if(body.action==='update')result=await loginManager.update(id,body.patch,body.expectedVersion);
-        else if(body.action==='clear')result=await loginManager.clear(id,body.expectedVersion);
-        else if(body.action==='login'){if(body.expectedVersion!==item.version)throw new Error('STATE_CONFLICT');result=await loginManager.login(id,{patch:body.patch,expectedVersion:body.expectedVersion});}
-        else if(body.action==='check')result=await loginManager.check(id);
-        else if(body.action==='close')result=await loginManager.cancel(id);
-        else throw new Error('CAPABILITY_UNAVAILABLE');
+      if(p==='/api/v1/viewer/actions'){result={...await viewer.action(body),viewerDisplay:true};}
+      else if(p==='/api/v1/accounts'||/^\/api\/v1\/accounts\/[^/]+\/actions$/.test(p)){throw new Error('AUTH_USE_ACCOUNT_MANAGEMENT');
       }else if(p==='/api/v1/profiles'){
         result=profiles.create(body.profile);monitor.sync();
       }else if(/^\/api\/v1\/profiles\/[^/]+\/actions$/.test(p)){
@@ -117,11 +112,10 @@ export async function createGateway({dataDir,port=18780,settings={}}={}){
         else if(body.action==='start')result=await coordinator.start(id);
         else if(body.action==='listen')result=await coordinator.listen(id,body.expectedVersion);
         else if(body.action==='stop')result=await coordinator.manualStop();
-        else if(body.action==='authCheck')result=await sources.authStatus(profiles.get(id));
+        else if(body.action==='authCheck'){const auth=await viewer.get();result={configured:auth.configured,validity:auth.authenticated?'AUTHENTICATED':'UNKNOWN',account:{state:auth.login.state}};}
+        else if(['authSave','authClear','login'].includes(body.action))throw new Error('AUTH_USE_ACCOUNT_MANAGEMENT');
         else if(body.action==='networkCheck'){const profile=profiles.get(id),diagnostic=await monitor.adapter.probe(profile);result={profileId:id,networkPolicy:{mode:profile.networkPolicy?.mode||'system'},network:diagnostic.network||null,errorCode:diagnostic.errorCode||null,queryState:diagnostic.state,missingConditions:diagnostic.missingConditions||[],monitorStateUnchanged:true};}
-        else if(body.action==='authSave'){const p=profiles.get(id);if(body.expectedVersion!==p.version)throw new Error('STATE_CONFLICT');result=await sources.saveLogin(p);}
-        else if(body.action==='authClear'){const p=profiles.get(id);if(body.expectedVersion!==p.version)throw new Error('STATE_CONFLICT');result=await sources.clearLogin(p);}
-        else if(body.action==='login'){const p=profiles.get(id);if(body.expectedVersion!==p.version)throw new Error('STATE_CONFLICT');result=await sources.loginProfile(p);}
+        else if(body.action==='details'){const diagnostic=await monitor.adapter.probe(profiles.get(id));result={targetDisplay:true,roomInfo:diagnostic.roomInfo||null,resolved:diagnostic.resolved||null,state:diagnostic.state,errorCode:diagnostic.errorCode||null,missingConditions:diagnostic.missingConditions||[]};}
         else if(body.action==='resolve')result=await monitor.adapter.resolver.resolve(profiles.get(id).target,{timeoutMs:profiles.get(id).timeoutMs,networkPolicy:profiles.get(id).networkPolicy||{mode:'system'}});
         else throw new Error('CAPABILITY_UNAVAILABLE');monitor.sync();
       }else if(p==='/api/v1/capture/actions'){
@@ -150,7 +144,7 @@ export async function createGateway({dataDir,port=18780,settings={}}={}){
   try{await new Promise((resolve,reject)=>{server.once('error',reject);server.listen(port,'127.0.0.1',resolve);});}catch(error){await daemon.close();await sources.close();await runtime.close();throw error;}url=`http://127.0.0.1:${server.address().port}`;
   runtime.log('GATEWAY_STARTED');
   monitor.sync();
-  return {runtime,bridge,daemon,sources,profiles,monitor,coordinator,accounts,loginManager,url,server,wss,socketHub,async close(){for(const op of runtime.operations.values())op.cancelled=true;await coordinator.close();await monitor.close();await loginManager.close();await daemon.close();await sources.close();socketHub.close();await new Promise(resolve=>server.close(resolve));await Promise.allSettled([...jobs]);await runtime.close();}};
+  return {runtime,bridge,daemon,sources,profiles,monitor,coordinator,accounts,loginManager,viewer,url,server,wss,socketHub,async close(){for(const op of runtime.operations.values())op.cancelled=true;await coordinator.close();await monitor.close();await loginManager.close();await daemon.close();await sources.close();socketHub.close();await new Promise(resolve=>server.close(resolve));await Promise.allSettled([...jobs]);await runtime.close();}};
 }
 if(process.argv[1]&&path.resolve(process.argv[1])===fileURLToPath(import.meta.url)){
   let settings={};try{settings=JSON.parse(await fs.readFile(path.join(root,'.local/settings.json'),'utf8'));}catch{}

@@ -117,3 +117,8 @@ references 中源码和官方 API 文档已经存在，但本地存在、静态�
 应用内 networkPolicy 支持 system/direct/custom，监控、目标解析、WSS 与浏览器共享策略。系统模式只读已有静态代理，自定义支持 HTTP/HTTPS CONNECT、SOCKS5 域名请求；直连拒绝 Fake-IP 并固定公共 DNS 地址，不修改系统环境。保存模式和独立诊断见工作台及 [NETWORK_TRANSPORT](docs/contracts/NETWORK_TRANSPORT.md)。
 
 已有18783宿主需要更新时，用户可手动运行 `powershell -NoProfile -File tools/restart-dev-workbench.ps1 -ExpectedPid <界面PID> -ExpectedCommit <界面完整Commit>`。脚本先核对实际加载版本、PID、Node入口和采集STOPPED，再停止该自有宿主、沿用同数据目录于当前终端启动；状态变化时拒绝操作。它不由应用自动执行，不停止其他端口或修改系统环境。TLS模拟测试另需Python3及cryptography，可通过LW_PYTHON指定可执行路径；临时证书不进入系统信任。
+
+
+观看账号现已收敛为一个登录身份，与所有直播间独立。账号页点击“登录抖音”，在正常 Chromium 窗口扫码，官方确认后自动保护保存并关闭临时窗口；重启可复用保存状态，当前有效性仍以官方确认结果为准。重新登录不覆盖尚未确认的新状态；“退出并清除登录态”同时清除文件、内存与对应记录，不停止当前采集，后续新连接可能需要重新登录。旧多个保存状态需明确选择保留一个，其余默认保留，清理需确认。
+
+房间统一输入接受分享/完整 URL 与 web_rid:、uid:、roomId:、secUid: 等明确前缀；无前缀数字不会猜测类型。更换房间复用同一观看登录态，开始不同房间前确认停止旧监听再连接。可靠官方证据可展示目标 URL、身份与房间资料；无法确认的字段明确未知。见 [观看账号约束](docs/contracts/ACCOUNTS.md)。当前运行进程不会因代码更新自动重启；旧后端未加载新能力时界面提示安全更新并保留停止/诊断入口。

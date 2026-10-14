@@ -15,7 +15,7 @@ export async function publicProjection(dataDir,{allowPrivateDetails=false}={}){
   const project=(value,field='',native=false)=>{
     if(Array.isArray(value))return value.map(item=>project(item,field,native));
     if(value&&typeof value==='object')return Object.fromEntries(Object.entries(value)
-      .filter(([name])=>!/cookie|token|password|secret|credential|authorization|file_?path|payload_?base64|^key$/i.test(name))
+      .filter(([name])=>!/cookie|token|password|secret|credential|authorization|file_?path|payload_?base64|^key$|^identity$/i.test(name))
       .map(([name,item])=>[name,project(item,name,native||name==='official')]));
     if(typeof value==='string'&&(/^[A-Z]:[\\/]/i.test(value)||/^\\\\/.test(value)||/^https?:\/\//i.test(value)))return '[location]';
     if(value===null||value===undefined||allowPrivateDetails)return value;

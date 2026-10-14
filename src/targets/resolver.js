@@ -5,7 +5,7 @@ export class TargetResolver{
  classify({type='auto',value}={}){
   if(typeof value!=='string'||!value.trim()||value.length>2048)throw new Error('TARGET_INVALID');value=value.trim();
   const result={status:'PENDING_MAPPING',anchorUid:null,secUid:null,web_rid:null,roomId:null,missingConditions:['platform-room-and-owner-evidence']};
-  if(type==='auto'){type=value.startsWith('https://')?'url':/^MS4wLjAB[A-Za-z0-9_-]+$/.test(value)?'secUid':'ambiguous';}
+  if(type==='auto'){const prefix=value.match(/^(web_rid|anchorUid|uid|roomId|secUid):\s*(.+)$/i);if(prefix){const types={web_rid:'web_rid',anchoruid:'anchorUid',uid:'anchorUid',roomid:'roomId',secuid:'secUid'};return this.classify({type:types[prefix[1].toLowerCase()],value:prefix[2]});}const urls=value.match(/https:\/\/[^\s<>"，。]+/g);if(urls?.length===1)value=urls[0];else if(urls?.length>1)throw new Error('TARGET_INVALID');type=value.startsWith('https://')?'url':/^MS4wLjAB[A-Za-z0-9_-]+$/.test(value)?'secUid':'ambiguous';}
   if(type==='ambiguous')return {...result,status:'PENDING_TYPE',missingConditions:['explicit-id-type']};
   if(['anchorUid','web_rid','roomId'].includes(type)){if(!numeric(value))throw new Error('TARGET_INVALID');return {...result,[type]:value,status:type==='web_rid'?'RESOLVED_PAGE':'PENDING_MAPPING',missingConditions:type==='web_rid'?result.missingConditions:['stable-page-mapping']};}
   if(type==='secUid'){if(!/^[A-Za-z0-9_-]{12,256}$/.test(value))throw new Error('TARGET_INVALID');return {...result,secUid:value};}
@@ -17,6 +17,6 @@ export class TargetResolver{
   throw new Error('TARGET_INVALID');
  }
  async resolve(target,options){const result=this.classify(target);if(result.status!=='PENDING_REDIRECT')return result;
-  const response=await this.http.get(target.value,options);const final=this.classify({type:'url',value:response.url});return final.status==='PENDING_REDIRECT'?{...result,status:'PENDING_MAPPING'}:final;
+  const response=await this.http.get((target.value.match(/https:\/\/[^\s<>"，。]+/g)||[])[0]||target.value,options);const final=this.classify({type:'url',value:response.url});return final.status==='PENDING_REDIRECT'?{...result,status:'PENDING_MAPPING'}:final;
  }
 }

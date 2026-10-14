@@ -12,7 +12,7 @@ test('profile API authenticates, masks input, rejects stale edits and exposes mo
  const response=await post('profiles',{profile:{name:'synthetic profile',target:{type:'web_rid',value:'123'}}});assert.equal(response.status,200);
  const p=(await response.json()).data;assert.ok(p.profileId);assert.equal(p.target.value,undefined);
  const auth=await post('profiles/'+p.profileId+'/actions',{action:'authCheck'});assert.equal(auth.status,200);assert.equal((await auth.json()).data.validity,'UNKNOWN');
- const denied=await post('profiles/'+p.profileId+'/actions',{action:'authSave',expectedVersion:'1'});assert.equal(denied.status,409);assert.equal((await denied.json()).error.code,'AUTH_PERSIST_NOT_ENABLED');
+ const denied=await post('profiles/'+p.profileId+'/actions',{action:'authSave',expectedVersion:'1'});assert.equal(denied.status,400);assert.equal((await denied.json()).error.code,'AUTH_USE_ACCOUNT_MANAGEMENT');
  const edited=await post('profiles/'+p.profileId+'/actions',{action:'update',expectedVersion:'1',patch:{enabled:true}});assert.equal(edited.status,200);
  assert.equal((await post('profiles/'+p.profileId+'/actions',{action:'update',expectedVersion:'1',patch:{enabled:false}})).status,409);
  app.monitor.adapter={probe:async()=>({state:'LIVE',anchorUid:'456',roomId:'9876543210123456789',web_rid:'123',source:'synthetic'})};
