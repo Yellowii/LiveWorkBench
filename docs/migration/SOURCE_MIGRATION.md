@@ -300,3 +300,8 @@ douyinprotobuf@e9e6cec的BrowserLive/AccountMonitor/createLoginContext经tools/s
 | 后台兜底、媒体与回收 | 既有 BrowserLive v5 + 第一方 BrowserSource/LiveStreamPolicy/SourceController | 真实流请求拦截14次；该目标无头 SDK 空体仍失败；串行暂停其 context，真实原生恢复稳定后关闭独占进程 |
 
 本轮实时与合成证据在 STATUS 27 分开。不同目标、长期挂机、平台后续签名变化与所有流协议逐型实测尚未完成；不扩大 M0/伴侣恢复的通过范围。references 未变更。
+# 2026-10-14 官方消息展示规则转写
+
+用户指定 cdn-chunks-20261008 的8个Webpack插件、3个辅助块与7份CSS通过已有清单定位。只读静态核查，不运行第三方分块，不下载/提交原JS/CSS/资源；21份指定输入（包含3份清单/分析文档）哈希和定位记录在 [message-plugin-sources.json](message-plugin-sources.json)。规则、字段、中文解释、未确认依赖见 [转写记录](../reviews/2026-10-14-message-mappings.md)。
+
+实现为第一方src/messages与独立简易页面，纯查询转换复用现有官方Parser反射/事件/RAW/Proto索引，不移植播放器、Worker、活动接口或完整插件系统。礼物目录与分类函数未闭合，不建立固定礼物ID/价格表；表情目录未获取，不猜资源映射。原生字段保持事实，未知枚举/依赖显式标注。真实事件抽样与合成GUI验证在STATUS28分开记录，不将静态源码视为业务验收。

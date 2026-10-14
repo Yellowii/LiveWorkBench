@@ -9,12 +9,14 @@ import {chromium} from 'playwright-core';
 import {WebSocketServer} from 'ws';
 import {createGateway} from '../src/server.js';
 import {WebSource} from '../src/web-source.js';
+import {WebConnectionResolver} from '../src/capture/websource/connection-resolver.js';
 const dir=await fs.mkdtemp(path.join(os.tmpdir(),'lw-viewer-ui-')),app=await createGateway({dataDir:dir,port:0});
 const state={cookies:[{name:'synthetic',value:'SYNTHETIC_UI_SESSION',domain:'.douyin.com',path:'/',expires:-1,httpOnly:true,secure:true,sameSite:'Lax'}],origins:[]};
 class Session extends EventEmitter{async open(options){this.options=options;this.context={storageState:async()=>structuredClone(state)};}async close(){}async check(){}confirm(){this.emit('status',{state:'AUTHENTICATED',source:'official-self-api',checkedAt:new Date().toISOString(),identity:{id:'900',nickname:'synthetic viewer',avatar:''}});}}
 app.loginManager.clientFactory=()=>new Session();const a=app.accounts.create({name:'synthetic legacy a'}),b=app.accounts.create({name:'synthetic legacy b'});for(const p of[a,b])await app.loginManager.vault.save(p.vaultRef,state,true);const bytesB=await fs.readFile(app.loginManager.vault.file(b.vaultRef));
 const wss=new WebSocketServer({host:'127.0.0.1',port:0});await new Promise(r=>wss.once('listening',r));let maxPeers=0;wss.on('connection',()=>{maxPeers=Math.max(maxPeers,wss.clients.size);});
-app.sources.web=new WebSource(app.runtime,{allowLocalTest:true,mode:'test'});app.sources.connectionResolver.directProvider=async()=>({url:'ws://127.0.0.1:'+wss.address().port,roomId:'100',anchorUid:'200',expiresAt:Date.now()+60000});
+app.sources.web=new WebSource(app.runtime,{allowLocalTest:true,mode:'test'});app.sources.connectionResolver=new WebConnectionResolver({allowLocalTest:true,mode:'test',directProvider:async()=>({url:'ws://127.0.0.1:'+wss.address().port+'/?room_id=100',roomId:'100',anchorUid:'200',expiresAt:Date.now()+60000})});
+app.sources.resolveProfile=async profile=>({roomId:'100',anchorUid:'200',web_rid:profile.target.value.endsWith('124')?'124':'123',checkedAt:new Date().toISOString(),parameterDiscovery:'http'});
 app.monitor.adapter={probe:async profile=>({state:'LIVE',roomId:'100',anchorUid:'200',web_rid:profile.target.value.endsWith('124')?'124':'123',source:'synthetic',roomInfo:{url:'https://live.douyin.com/123',nickname:'synthetic anchor',title:'synthetic room',anchorUid:'200',roomId:'100',web_rid:'123',avatar:null}})};
 const browser=await chromium.launch({executablePath:process.env.LW_BROWSER||'C:/Program Files (x86)/Microsoft/Edge/Application/msedge.exe',headless:true}),page=await browser.newPage(),errors=[];page.on('pageerror',e=>errors.push(e.message));
 const output=path.resolve('artifacts/viewer');await fs.mkdir(output,{recursive:true});

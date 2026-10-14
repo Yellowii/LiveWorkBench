@@ -2,7 +2,7 @@
 
 本次用户明确授权的展示层增量，基线 c8613b6。原始 RAW、Proto、官方 JSON、EventStore、去重和场次不修改。
 
-`GET /api/v1/local/messages` 接受现有 limit/cursor/mode/namespace/method/afterSeq，复用签名快照分页，默认 mode=live，最大200。返回 MessageView 与原有分页字段。`GET /api/v1/local/messages/{eventId}` 返回 view、official（安全投影）、schema（实际存在的 JSON 路径、当前 Parser 字段编号/类型/嵌套父类型、根字典）、raw、protos。限制字段500、深度12；原生安全投影限制4096节点/14层/数组80项，截断明确标注。RAW只含元数据/处理链，不公开文件、原始字节或可用签名URL。
+`GET /api/v1/local/messages` 接受现有 limit/cursor/mode/namespace/method/afterSeq，复用签名快照分页，默认 mode=live，最大200。另支持 beforeEventId：从指定已存事件之前开始历史快照，必须匹配查询域，不能与 cursor/afterSeq 同用，否则 CURSOR_MISMATCH；后续仍用返回的签名 cursor。此入口用于实时缓存淘汰后的连续历史读取。返回 MessageView 与原有分页字段。`GET /api/v1/local/messages/{eventId}` 返回 view、official（安全投影）、schema（实际存在的 JSON 路径、当前 Parser 字段编号/类型/嵌套父类型、根字典）、raw、protos。限制字段500、深度12；原生安全投影限制4096节点/14层/数组前80项/对象前200项，节点和深度超限显示截断标记。这是有界展示，不是完整JSON导出。RAW只含元数据/处理链，不公开文件、原始字节或可用签名URL。
 
 两个接口除现有 loopback Host、会话 Cookie、Origin 检查外，还要求 loopback peer、`X-LW-Local-View: 1`，浏览器 Fetch-Site 只能 same-origin/none。不提供 CORS、导出或可读WS。未知字符串默认隐藏；仅文案字段白名单和标量保留，嵌入网络地址/明显凭据字符串清理。资源单独经过HTTPS图片域、无查询/凭据校验；默认不加载图片，用户可在本地启用。无法识别的正文中人为粘贴的无标签秘密无法从普通文字语义识别，故这些响应仍严格限本机认证读取，不复用为外部消费者数据。
 

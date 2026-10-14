@@ -30,6 +30,7 @@ test('local projection blocks credentials, embedded URLs, opaque JSON and untrus
  const credentialUrl=new URL('https://p3.douyinpic.com/a');credentialUrl.username='synthetic';credentialUrl.password='synthetic';
  for(const u of ['javascript:alert(1)','http://p3.douyinpic.com/a','https://p3.douyinpic.com.evil.test/a',credentialUrl.href,'https://127.0.0.1/a','https://p3.douyinpic.com/a?signature=synthetic'])assert.equal(resourceUrl(u),null);
  assert.equal(resourceUrl('https://p3.douyinpic.com/a.png'),'https://p3.douyinpic.com/a.png');
+ assert.deepEqual(localOfficial({'https://example.invalid/?x=private':1,'private arbitrary map key':2}),{});
 });
 test('unknown, invalid and malformed input degrade locally without mutating original facts',()=>{
  const v=messageView(event('FutureMessage',{status:7,content:'原生可读文本',opaque:'SYN_SECRET'}));assert.equal(v.summary,'原生可读文本');assert.equal(v.category,'other');

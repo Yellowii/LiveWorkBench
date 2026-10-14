@@ -2,7 +2,14 @@ import {messageView,mappingVersion} from './message-view.js';
 import {localOfficial} from './privacy.js';
 import {messageFields} from './dictionary.js';
 export function messagePage(runtime,params){
- const page=runtime.store.events({limit:params.get('limit')||50,cursor:params.get('cursor'),mode:params.get('mode')||'live',namespace:params.get('namespace'),method:params.get('method'),afterSeq:params.get('afterSeq')});
+ const mode=params.get('mode')||'live',namespace=params.get('namespace'),method=params.get('method'),anchorId=params.get('beforeEventId');let cursor=params.get('cursor');
+ if(anchorId){
+  if(cursor||params.has('afterSeq'))throw Error('CURSOR_MISMATCH');
+  const anchor=runtime.store.event(anchorId);
+  if(!anchor||anchor.mode!==mode||(namespace&&anchor.runtimeNamespace!==namespace)||(method&&anchor.eventType!==method))throw Error('CURSOR_MISMATCH');
+  cursor=runtime.store.cursors.encode({filters:{kind:'events',mode,namespace:namespace||null,method:method||null,afterSeq:null},before:String(anchor.eventSeq),snapshot:runtime.store.eventHighWatermark()});
+ }
+ const page=runtime.store.events({limit:params.get('limit')||50,cursor,mode,namespace,method,afterSeq:params.get('afterSeq')});
  return {...page,items:page.items.map(messageView),mappingVersion,scope:'authenticated-local-only'};
 }
 export function messageDetail(runtime,id,publicSafe){

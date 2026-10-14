@@ -1,5 +1,6 @@
 import {localOfficial,resourceUrl,safeText} from './privacy.js';
-export const mappingVersion='message-view-20261014-a1';
+import {activityView} from './activities.js';
+export const mappingVersion='message-view-20261014-b1';
 const shortType=value=>typeof value==='string'&&/^(?:Webcast)?[A-Za-z][A-Za-z0-9]{0,100}$/.test(value)?value.replace(/^Webcast/,''):'UnknownMessage';
 const decimal=value=>/^(?:0|[1-9]\d{0,39})$/.test(String(value))?String(value):null;
 const positive=value=>decimal(value)&&BigInt(value)>0n?String(value):null;
@@ -23,6 +24,7 @@ function convert(e){
  };
  const nativeText=()=>rich(raw.common?.display_text,'common.display_text')||safeText(d.content)||safeText(d.common?.describe);
  const actor=d.user?{name:safeText(d.user.nickname)||'未提供昵称',badges:[]}:null;
+ if(actor&&d.user?.user_attr?.is_admin===true)actor.badges.push('管理员（本条标记）');
  addImage(raw.user?.avatar_thumb,'avatar','user.avatar_thumb');
  for(const image of (Array.isArray(raw.user?.badge_image_list)?raw.user.badge_image_list:[]).slice(0,3))addImage(image,'badge','user.badge_image_list');
  const view={messageType:type,category:'other',label:'其他消息',icon:'•',summary:'',actor,content:{},resources,fields:[],provenance:[],mappingVersion,mappingStatus:'mapped',eventId:e.eventId||null,eventSeq:e.eventSeq||null,rawRefs:e.rawRefs||[],captureId:e.captureId||null,runtimeNamespace:e.runtimeNamespace||null,mode:e.mode||null,time:e.occurredAt||e.receivedAt||e.persistedAt||null};
@@ -50,9 +52,13 @@ function convert(e){
  }else if(type==='MemberMessage'){
   Object.assign(view,{category:'member',label:'成员 / 入场',icon:'人'});view.content.action=decimal(d.action);view.summary=nativeText()||safeText(d.action_description)||'成员消息（动作含义未确认）';
  }else view.summary=nativeText();
+ const activity=activityView(type,d,nativeText);
+ if(activity){Object.assign(view,{category:activity.category,label:activity.label,icon:activity.icon,summary:activity.summary});view.content.activity=activity.activity;notes.push('仅表示本条事件时点，不代表当前参与资格、领取或中奖结果');}
+ if(type==='LuckyBoxMessage')addImage(raw.lucky_icon,'inline','lucky_icon');
+ if(type==='ShortTouchAreaMessage')addImage({url_list:[raw.short_touch_area_data?.short_touch_info?.img_url]},'inline','short_touch_area_data.short_touch_info.img_url');
  if(!view.summary){view.mappingStatus='fallback';const values=Object.entries(d).filter(([,v])=>typeof v==='boolean'||typeof v==='number'||typeof v==='string'&&/^-?\d+$/.test(v)).slice(0,5);view.summary=`${type}${values.length?' · '+values.map(([k,v])=>`${k}=${v}`).join('，'):' · 暂无可靠可读内容'}`;}
  view.summary=view.summary.slice(0,2400);view.content.text=view.summary;
  for(const key of ['count','total','action','repeat_count','group_count','combo_count','repeat_end','style'])if(d[key]!==undefined)view.fields.push({path:key,value:d[key],confidence:'official-field',meaning:'具体解释见统一详情；不推断缺失业务语义'});
- view.provenance=[{source:source[view.category],confidence:source[view.category]?'static-source':'unknown',scope:'展示规则；不等于真实业务验收',notes}];
+ view.provenance=[{source:activity?.source||source[view.category],sourceVersion:'cdn-chunks-20261008',confidence:activity?.source||source[view.category]?'static-source':'unknown',scope:'展示规则；不等于真实业务验收',notes}];
  return view;
 }

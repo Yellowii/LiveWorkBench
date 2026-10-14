@@ -546,14 +546,6 @@ Git同步：实现及验收提交551a8f30e473bbe31d50eadab3f768e5bf129b62已快�
 
 实现d038024（Pace）与6eb4a07（单房间正常窗口）均已推送GitHub main；网络临时push失败后普通重试与ls-remote核对恢复，未变更代理/DNS。后续仅追加本交接文档，不为文档提交重启正在采集的18783。当前问题已在真实平台实证接通，下一步继续可信直连与后台模式/恢复主线，不扩展UI。
 
-## 28. 实时弹幕独立展示层（2026-10-14，进行中）
-
-owner本会话→用户；基线c8613b6，复用已附加隔离worktree的codex/readable-messages，未派工。明确文件清单静态分析，无CDN下载/执行第三方分块，来源目录严格只读。正式18783只读核对PID41096/6eb4a075，RAW1480/事件2528；没有启停服务或浏览器。
-
-A增量已实现并通过针对性验证：src/messages纯MessageView/隐私过滤/字典定位/查询；Gateway本机会话与专用头受控REST；public/messages独立导航、虚拟列表500缓存、分类、历史游标、自动跟随、5类统一详情。Chat/Emoji/特权、Gift原始数量、Like、Member原生文案可读，未知动作/分类不猜。没有修改官方Parser/RAW/EventStore/SessionManager/采集规则；默认公共接口/WS/日志/导出保持脱敏。
-
-A验证：7项新增单元/API测试通过；tools/verify-messages.mjs通过实际Edge GUI、520条合成官方编码→RAW→Parser→事件、中文/XSS、字段号/类型、RAW/Proto链、500缓存历史/虚拟DOM、切页草稿、持续新增及1440/1024/700截图，0页面错误。截图人工检查宽屏通过。来源哈希/规则与接口见MESSAGE_VIEW.md和2026-10-14-message-mappings.md；报告截图仅忽略artifacts/messages。尚未执行真实记录验证、B增量及最终完整回归；当前不能标整个任务完成。
-
 ## 27. HTTP 参数发现、原生 WSS 与静默兜底修复（2026-10-14）
 
 基线本地 main 0ae7d11，复用已附加隔离 worktree，本轮单会话完成，没有派工或架构重审。开始时只读确认18783为PID41096、实际加载6eb4a075、fingerprint df83684705110d79b3cab3c21bdd7d01781b86429f972423a1ac7d2104dd55da、STOPPED；与Git HEAD不同。整个任务不重启/停止该服务，不写正式配置/凭据/SQLite，不操作旧监听、伴侣或系统代理/DNS/TUN/CA。隔离真实采集前确认正式STOPPED，期间守卫正式状态；测试仅结束自己创建的实例/连接/浏览器。
@@ -577,3 +569,21 @@ A验证：7项新增单元/API测试通过；tools/verify-messages.mjs通过实�
 交接：当前目标原生HTTP/WSS初连、RAW/Proto/事件、ACK/心跳、参数刷新重连、媒体请求拦截、暂停浏览器后原生稳定释放为验证通过。更多真实直播间切换、长期挂机/限流/真实凭据过期、完整5分钟周期、所有媒体协议仍待实测；现有跨目标占用门控保留，本轮未证明任意两个仍在播房间可切换。18783未加载本轮修复，仍是上述旧实例；需要用户另行允许安全加载，不因本轮代码提交而重启。下一步留在真实登录/WSS主线，不继续UI扩展。私有报告、真实RAW/SQLite/账号、Cookie/Token/签名URL和签名原始资源不提交。
 
 最终验证补记：npm test 178/178通过（128.1秒；artifacts/native-final-release.txt），GUI两工具通过，额外Chromium暂停/排空/关闭后的内存状态及版本取消竞态已通过。check:public公开210文件0发现，git diff --check通过；提交前只读确认正式PID41096/6eb4a075/fingerprint不变，STOPPED、inputs1480/events2528未受测试影响。固定签名原始文件与所有真实报告均确认被Git忽略；已保存认证、references和核心Parser/RAW/EventStore/SessionManager/Runtime/LoginManager无差异。
+
+## 28. 实时弹幕独立展示层（2026-10-14—15，第一版及合成回归验证通过）
+
+owner本会话→用户；基线c8613b6，复用已附加隔离worktree的codex/readable-messages，未派工。明确文件清单静态分析，无CDN下载/执行第三方分块，来源目录严格只读。正式18783只读核对PID41096/6eb4a075，RAW1480/事件2528；没有启停服务或浏览器。
+
+A增量已实现并通过针对性验证：src/messages纯MessageView/隐私过滤/字典定位/查询；Gateway本机会话与专用头受控REST；public/messages独立导航、虚拟列表500缓存、分类、历史游标、自动跟随、5类统一详情。Chat/Emoji/特权、Gift原始数量、Like、Member原生文案可读，未知动作/分类不猜。没有修改官方Parser/RAW/EventStore/SessionManager/采集规则；默认公共接口/WS/日志/导出保持脱敏。
+
+A增量提交5d05697：7项新增单元/API测试通过；tools/verify-messages.mjs当时通过实际Edge GUI、520条合成官方编码→RAW→Parser→事件、中文/XSS、字段号/类型、RAW/Proto链、500缓存历史/虚拟DOM、切页草稿、持续新增及1440/1024/700截图，0页面错误。
+
+B增量实现：新增activities纯转换，管理员权限操作/成员任免、红包通知/刷新/结束、福袋状态/参与/开奖结果、ShortTouch更新/移除；对应分类、文字卡片及静态来源可信等级。仅展示事件当时事实，不推断实际领取/中奖、权限枚举或缺失礼物分类。七份CSS只参考已核对的尺寸/排列/视觉角色并独立实现，无原始插件/CSS/资源入库。旧后端能力不足时禁用新入口，不请求不存在的脚本；账号、房间、数据和开发诊断入口保留。发现并修复实时缓存超过500条后的历史游标跳段：当前最旧事件作为起点，服务端验证域后签发快照游标。
+
+真实已有记录：tools/verify-message-records.mjs以只读SQLite、每类最多12条抽样，50条（Chat12、Emoji2、Gift12、Like12、Member12），50可读/0转换失败/0未匹配字段，原JSON未改且均有RAW引用。本地报告artifacts/messages/real-records-report.json只记录统计，不上传正文/昵称。没有新增真实采集；管理员、红包、福袋、活动卡及特权消息没有抽到真实样本，不能以源码线索或合成结果代替真实业务验收。
+
+既有GUI回归：verify-accounts、verify-profiles、verify-navigation after均通过，0页面错误；包含账号迁移选择/自动保存/清除、同观看态配置、房间编辑、监听控制、RAW/Proto/reparse、Replay、59条合成Golden、日志、网络/Hook/资源。账号脚本仅修正过时夹具的本地WSS参数/身份发现，不修改生产模块，亦不证明任意两个真实开播房间可切换。最终全量与新增GUI结果在本节验证补记。
+
+边界与交接：新实现只在src/messages、Gateway只读接口/能力、实例指纹、public展示与测试/文档；官方Parser、RAW、EventStore、SessionManager、SourceController及登录/监控模块无差异。来源目录指定21个文件哈希复核未变。2026-10-15只读复查18783已无监听，原PID41096不存在，退出原因未核查；本任务没有停止/重启正式服务或关闭采集浏览器。提交不会自动加载功能。第一版交付后停止扩展UI，等待用户依据实际展示调整；真实扫码/长期WSS/更多房间验收仍与本轮合成验证分开。
+
+最终验证补记：npm test 190/190通过，0跳过，133.65秒（artifacts/messages-release-tests.txt）；新增历史用例先复现720/520边界错误，修复后通过。最终tools/verify-messages.mjs通过1171条合成RAW/事件，640条离页补查、500缓存淘汰后连续历史、真实隔离Replay引擎/详情、表情图片默认关闭及显式启用、9种管理员/活动路径、旧后端能力降级，0页面错误。1440/1024/700截图已生成，宽/窄截图人工核查；按钮边界、重叠和点击命中检查0发现。一次GUI脚本在历史模式切回live后错误等待屏外最新行超时，改为实际点击“回到最新”，复跑通过，未掩盖产品异常。公开扫描228文件0发现；git diff --check通过。报告及截图在忽略artifacts/messages，原始插件/资源、真实记录/SQLite/账号凭据均未入提交。

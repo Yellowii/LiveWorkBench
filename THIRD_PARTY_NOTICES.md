@@ -1,5 +1,7 @@
 # Third-party provenance
 
+Readable message presentation independently implements statically verified field/display rules from the user-supplied `cdn-chunks-20261008` snapshot. The eight selected plugins, three auxiliary chunks and seven CSS files remain read-only local references; no original chunk, CSS body or media asset is redistributed or executed. Exact hashes and bounded rule locations are recorded in `docs/migration/message-plugin-sources.json`, with confidence and unresolved dependencies in `docs/reviews/2026-10-14-message-mappings.md`. Static rules do not constitute real-platform business acceptance or a license grant.
+
 Selected code was extracted from local references on 2026-10-12.
 
 - `src/capture/BarrageGrab`: ape-byte/DouyinBarrageGrab commit c9343da287cf77ce637c11e32333b2a511cd62e9, MIT. License retained at `src/capture/LICENSE.DouyinBarrageGrab`. Mature proxy, HTTP/WSS, protobuf models and gzip implementation retained. First-party changes remove automatic system-proxy/certificate/installation mutation, add RAW ACK IPC, replace entry point and bind loopback. Original Program/Forms remain compiled dependencies, are not the entry point, and are not invoked.

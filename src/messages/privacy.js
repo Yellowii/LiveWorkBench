@@ -16,7 +16,7 @@ export function localOfficial(value){
   if(--left<0||depth>14)return '[展示截断]';
   if(v===null||v===undefined)return null;
   if(Array.isArray(v))return v.slice(0,80).map(x=>visit(x,key,depth+1));
-  if(typeof v==='object'){const out={};for(const [k,x]of Object.entries(v).slice(0,200)){if(!sensitive.test(k)&&!['__proto__','constructor','prototype'].includes(k))out[k]=visit(x,k,depth+1);}return out;}
+  if(typeof v==='object'){const out={};for(const [k,x]of Object.entries(v).slice(0,200)){if(/^[A-Za-z0-9_]{1,100}$/.test(k)&&!sensitive.test(k)&&!['__proto__','constructor','prototype'].includes(k))out[k]=visit(x,k,depth+1);}return out;}
   if(typeof v==='number')return Number.isFinite(v)?v:null;
   if(typeof v==='boolean')return v;
   if(typeof v==='string'){if(/^-?\d{1,40}$/.test(v))return v;return readable.has(key)?safeText(v):'[未公开文本]';}
