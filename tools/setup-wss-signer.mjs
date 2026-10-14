@@ -1,0 +1,10 @@
+import fs from 'node:fs/promises';
+import https from 'node:https';
+import {SIGNER_HASH} from '../src/capture/websource/native-signer.js';
+import {createHash} from 'node:crypto';
+const at=process.argv.indexOf('--source');let bytes;
+if(at>=0)bytes=await fs.readFile(process.argv[at+1]);
+else if(process.argv.includes('--fetch'))bytes=await new Promise((resolve,reject)=>{https.get('https://raw.githubusercontent.com/saermart/DouyinLiveWebFetcher/40a904bdb0561a5a9c958a95634a29681cc4fbf4/sign.js',{timeout:15000},res=>{if(res.statusCode!==200){res.resume();reject(new Error('SIGNER_DOWNLOAD_FAILED'));return;}const parts=[];let size=0;res.on('data',b=>{if((size+=b.length)>1024*1024)res.destroy(new Error('SIGNER_TOO_LARGE'));else parts.push(b);});res.on('end',()=>resolve(Buffer.concat(parts)));res.on('error',reject);}).on('timeout',function(){this.destroy(new Error('SIGNER_DOWNLOAD_TIMEOUT'));}).on('error',reject);});
+else throw new Error('SIGNER_SOURCE_REQUIRED');
+if(createHash('sha256').update(bytes).digest('hex')!==SIGNER_HASH)throw new Error('SIGNER_SOURCE_CHANGED');
+await fs.writeFile(new URL('../src/parser/wss-sign-v1.js',import.meta.url),bytes);console.log(JSON.stringify({prepared:true,sha256:SIGNER_HASH,sourceCommit:'40a904bdb0561a5a9c958a95634a29681cc4fbf4',redistribution:'not-granted; local ignored asset only'}));

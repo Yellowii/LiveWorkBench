@@ -545,3 +545,27 @@ Git同步：实现及验收提交551a8f30e473bbe31d50eadab3f768e5bf129b62已快�
 这次真实验证覆盖已保存观看态复用、真实开播结构兼容、正常窗口官方WSS、RAW先保存/官方解析/事件持久化和查询的当前房间路径。它是browser采集，不是尚未实现的纯Node真实WSS直连provider。长期恢复/压力、其他房间与无头模式成功仍未验收；媒体限制配置保留，但实际blockedMedia=0、unclassifiedMedia=2，不能声明本目标的媒体优化已验证。私有诊断与真实RAW/SQLite不上传，公开视频帧/头像/签名URL不写公共进度。
 
 实现d038024（Pace）与6eb4a07（单房间正常窗口）均已推送GitHub main；网络临时push失败后普通重试与ls-remote核对恢复，未变更代理/DNS。后续仅追加本交接文档，不为文档提交重启正在采集的18783。当前问题已在真实平台实证接通，下一步继续可信直连与后台模式/恢复主线，不扩展UI。
+
+## 27. HTTP 参数发现、原生 WSS 与静默兜底修复（2026-10-14）
+
+基线本地 main 0ae7d11，复用已附加隔离 worktree，本轮单会话完成，没有派工或架构重审。开始时只读确认18783为PID41096、实际加载6eb4a075、fingerprint df83684705110d79b3cab3c21bdd7d01781b86429f972423a1ac7d2104dd55da、STOPPED；与Git HEAD不同。整个任务不重启/停止该服务，不写正式配置/凭据/SQLite，不操作旧监听、伴侣或系统代理/DNS/TUN/CA。隔离真实采集前确认正式STOPPED，期间守卫正式状态；测试仅结束自己创建的实例/连接/浏览器。
+
+实现：新 http-room-discovery/native-parameters/native-signer 补生产 directProvider；使用唯一观看态、按域/path/过期时间发送Cookie，严格核对官方房间/owner和odin.user_unique_id。每次连接/重连重新HTTP发现、调用固定哈希本地资源签名，并再次核对凭据；不缓存签名URL，不造访客ID、历史cursor/internal_ext/wrds_v。30秒expiresAt仅本地新鲜度限制。签名来源与准备见 THIRD_PARTY_NOTICES、tools/setup-wss-signer.mjs；资源只本地忽略，不上传未知许可源码。原LiveClient v6的心跳/ACK/等待RAW持久化/有限重连复用；Parser、RAW、EventStore、SessionManager未改。WebSource只补操作元数据和准确失败码。
+
+控制：人工listen可用新鲜、匹配的HTTP身份证据尝试，不等待周期LIVE确认数，不伪造LIVE/MonitorEvent；自动规则保持。原生失败仅按browserFallback启用隐藏兜底，旧browserHeadless=false不会让direct自动弹窗；显式browser诊断和登录仍可正常窗口。RAW/凭据/身份错误不逃避。后台5分钟探测恢复，先关闭浏览器context/WSS，单独保留进程待原生30秒/至少两包/近期输入稳定，再释放；90秒不稳定回退。stop/关闭/配置变化撤销任务，版本变化也释放已暂停的浏览器。转换不换全局来源，不结束/新建同场，未知消息缺口保留。既有异房间SOURCE_ROOM_BUSY与单活动来源规则未放宽。
+
+媒体根因与修复：原策略遗漏HTML/Pace中的stream_url，且真实声明是HTTP地址、Chromium升级HTTPS后不匹配。现在在HTML/room响应交给脚本前学习匹配本房间的地址，支持SDK嵌套stream_data、FLV/HLS/DASH与关联分片；保留普通资源/鉴权/弹幕WSS和完整登录页。记录真实请求/阻断/失败/未分类/完成的浏览器响应字节。字节范围不含route.fetch参数传输、未完成传输和WSS，不计算节省带宽；未采样null。关闭后内存不沿用旧采样。没有增加UI入口，只在既有状态文本显示实际模式/原因。
+
+真实平台（独立私有live数据，不是合成测试）：
+
+- 先做受限连接试验，再落实纯HTTP provider。生产同路径的隔离Gateway经人工listen：browserLaunches=0，CONNECTED；RAW 5→8→10，Proto 26→46→52，事件8→9，全部事件room匹配；实际ACK4→8、heartbeat1→2。受控终止自己的socket后RECOVERING，记录WEB_CONNECTION_INTERRUPTED/unknown-range，重新HTTP发现/签名后CONNECTED。没有浏览器负责接收或保持窗口。
+- 独立无头媒体复核：修复前blocked=0、两次未分类媒体；修复后14次真实流请求在下载前阻断，mediaResponses=0、unclassifiedMedia=0、mediaPolicyGaps=0，knownStreamTargets=26。约32.2MB是当时完成的浏览器响应计量，不是节省量。FLV/HLS/DASH全部类型逐型验收仍未完成。
+- 该目标官方无头SDK弹幕初始化仍HTTP200空体（26次），RAW/事件0，准确标BROWSER_IM_FETCH_EMPTY，不称验证码或SDK捕获成功。另一次受控中断、将隔离配置重试限为1，实际进入无头兜底；提前调用同一恢复探测入口，浏览器context关闭/进程保留；真实原生稳定后进程关闭，RAW7→14、目标关联仍正确，记录两次模式转换unknown-range。此验证覆盖恢复执行和释放，不等于已经等待完整5分钟周期或长期恢复验收。
+
+自动化/GUI（合成输入）：npm test 全量记录于忽略 artifacts；最后结果在本节交接补记。新增用例先失败后修复；原生参数新鲜度/身份冲突、明确无头兜底、停止/版本竞态、RAW失败不逃避、真实回环WS/Chromium暂停排空与释放均覆盖。tools/verify-profiles.mjs、tools/verify-navigation.mjs after通过：账号、房间编辑、监听/停止、RAW/Proto/reparse、Replay、59条合成Golden、日志/网络/Hook/资源均实际GUI点击，0页面错误/0布局发现，1365/1024/700截图人工核查。59合成Golden不冒充真实平台输入。
+
+变更边界：src/capture/websource新增三模块、src/auth/request-cookies、SafeDouyinHttp/监控只增身份证据读取；SourceController/Coordinator/WebSource/BrowserSource薄适配；既有状态文案；固定资源准备、指纹、相关测试/GUI工具与文档。没有新前端框架或管理系统。
+
+交接：当前目标原生HTTP/WSS初连、RAW/Proto/事件、ACK/心跳、参数刷新重连、媒体请求拦截、暂停浏览器后原生稳定释放为验证通过。更多真实直播间切换、长期挂机/限流/真实凭据过期、完整5分钟周期、所有媒体协议仍待实测；现有跨目标占用门控保留，本轮未证明任意两个仍在播房间可切换。18783未加载本轮修复，仍是上述旧实例；需要用户另行允许安全加载，不因本轮代码提交而重启。下一步留在真实登录/WSS主线，不继续UI扩展。私有报告、真实RAW/SQLite/账号、Cookie/Token/签名URL和签名原始资源不提交。
+
+最终验证补记：npm test 178/178通过（128.1秒；artifacts/native-final-release.txt），GUI两工具通过，额外Chromium暂停/排空/关闭后的内存状态及版本取消竞态已通过。check:public公开210文件0发现，git diff --check通过；提交前只读确认正式PID41096/6eb4a075/fingerprint不变，STOPPED、inputs1480/events2528未受测试影响。固定签名原始文件与所有真实报告均确认被Git忽略；已保存认证、references和核心Parser/RAW/EventStore/SessionManager/Runtime/LoginManager无差异。

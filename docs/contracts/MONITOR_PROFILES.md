@@ -56,3 +56,13 @@ HookTargetMatcher使用已提交RAW的成功伴侣HTTP room/create owner作为�
 ### 单房间正常浏览器窗口（2026-10-14）
 
 明确配置 browserHeadless=false 时，既有浏览器兜底传递 headless=false，使用正常 Chromium 窗口；默认 true，未修改房间仍为原后台模式。仅增加窗口选择布尔值，仍需原 browserFallback/connectionMode 允许，不改变来源选择、身份验证、单活动来源、RAW先保存、音视频限制或系统代理。用户授权本次直接操作，真实平台复核无头窗口弹幕初始化HTTP200空体、正常窗口返回Protobuf并建立匹配路径的WSS；这只解释该房间实际行为，不笼统认定验证码或无头模式普遍不可用。
+
+### 原生参数与静默兜底修订（2026-10-14）
+
+最新用户要求覆盖上述自动兜底窗口偏好：direct 的自动 browserFallback 强制无头；只有显式 connectionMode=browser 并设置 browserHeadless=false 才允许正常诊断窗口，登录窗口仍保持完整正常行为。原生 provider 通过同一观看态的受限 HTTP 请求确认实际 room/owner 和官方 odin 设备身份，每次连接/重连调用固定哈希本地签名资源；缺资源/身份冲突明确失败，不用缓存签名或历史 cursor/internal_ext。签名准备、来源与实际验收见 STATUS 27 和 THIRD_PARTY_NOTICES。
+
+人工 listen 使用新鲜、匹配当前目标的 HTTP 身份尝试连接，允许未达到周期 LIVE 确认数；不写入虚假 LIVE/MonitorEvent。自动选择、ENDED 停止、配置版本、来源占用与场次规则仍保留。HTTP 凭据按 cookie 域/path/有效期匹配；签名完成后再次检查观看凭据，退出后禁止用已清除快照建立新连接。
+
+原生终止失败仅按 browserFallback 许可切入无头；RAW/凭据/身份错误不逃避。每五分钟探测参数恢复，先暂停浏览器 context/WSS，原生稳定至少30秒、至少两包且30秒内有输入才释放独占浏览器；90秒不稳定则串行回退。stop/关闭/配置变化撤销恢复任务。内部模式转换不自动改全局来源或结束场次，记录 unknown-range 消息缺口。FAILED 浏览器处于恢复任务时仍保留协调器的目标归属，以维持 END/手动 stop 的安全控制。
+
+后台媒体策略先在页面/room 响应交给脚本前学习本目标流地址，支持内嵌 Pace/Next、SDK stream_data、HTTP 地址升级 HTTPS 及关联分片。普通 JS/CSS/图片/字体/XHR/鉴权/WSS 不按媒体限制。networkBytes/mediaNetworkBytes 仅完成 HTTP 响应的测量，未采样为 null，不包含未完成传输/WSS，也不估算节省字节。imFetchEmptyResponses、streamDiscoveryFailures 和未分类媒体均如实输出。

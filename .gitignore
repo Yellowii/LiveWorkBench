@@ -58,5 +58,6 @@
 /src/parser/wire.js
 /src/parser/vendor/
 /src/parser/live.js
+/src/parser/wss-sign-v1.js
 /src/parser/live-raw-first*.js
 /src/parser/browser-vendor/

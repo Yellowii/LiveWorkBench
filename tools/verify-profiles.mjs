@@ -9,6 +9,8 @@ const dir=await fs.mkdtemp(path.join(os.tmpdir(),'lw-profiles-ui-')),app=await c
 const browser=await chromium.launch({executablePath:process.env.LW_BROWSER||'C:/Program Files (x86)/Microsoft/Edge/Application/msedge.exe',headless:true});
 const page=await browser.newPage(),errors=[];page.on('pageerror',e=>errors.push(e.message));
 app.monitor.adapter={probe:async()=>({state:'UNKNOWN',errorCode:'SYNTHETIC_OFFLINE'})};
+app.sources.resolveProfile=async()=>({roomId:'9876543210123456789',anchorUid:'456',web_rid:'123',checkedAt:new Date().toISOString(),parameterDiscovery:'http'});
+app.sources.connectionResolver.directProvider=async()=>{throw new Error('WEB_DYNAMIC_PARAMETERS_UNAVAILABLE');};
 try{
  await page.goto(app.url);await openGuiPage(page,'rooms');await expandGuiPanel(page,'profileAdvanced');await page.waitForFunction(()=>!document.getElementById('profileSave').disabled);
  await page.locator('#profileName').fill('synthetic GUI');await page.locator('#targetInput').fill('web_rid:123');await page.locator('#profileEnabled').check();await page.locator('#profileSave').click();

@@ -9,6 +9,7 @@ import {Runtime} from '../src/runtime.js';
 import {LoginVault} from '../src/auth/login-vault.js';
 import {WebSocketServer} from 'ws';
 import {WebSource} from '../src/web-source.js';
+import {WebConnectionResolver} from '../src/capture/websource/connection-resolver.js';
 import {LoginBrowserSession} from '../src/auth/login-browser-session.js';
 import {chromium} from 'playwright-core';
 import http from 'node:http';
@@ -49,7 +50,7 @@ test('independent login and credential clear leave an actual active WSS capture 
 });
 test('one explicit listen intent selects its configured idle source and confirms before capture; background monitoring still cannot switch',async t=>{
  const dir=await fs.mkdtemp(path.join(os.tmpdir(),'lw-room-intent-')),app=await createGateway({dataDir:dir,port:0}),wss=new WebSocketServer({host:'127.0.0.1',port:0});await new Promise(resolve=>wss.once('listening',resolve));t.after(async()=>{await app.close();for(const peer of wss.clients)peer.terminate();await new Promise(resolve=>wss.close(resolve));await fs.rm(dir,{recursive:true,force:true});});
- app.sources.web=new WebSource(app.runtime,{allowLocalTest:true,mode:'test'});app.sources.connectionResolver.directProvider=async()=>({url:'ws://127.0.0.1:'+wss.address().port,expiresAt:Date.now()+30000,roomId:'100',anchorUid:'200'});app.monitor.adapter={probe:async()=>({state:'LIVE',roomId:'100',anchorUid:'200',web_rid:'123',source:'synthetic'})};
+ app.sources.web=new WebSource(app.runtime,{allowLocalTest:true,mode:'test'});app.sources.connectionResolver=new WebConnectionResolver({allowLocalTest:true,mode:'test',directProvider:async()=>({url:'ws://127.0.0.1:'+wss.address().port+'/?room_id=100',expiresAt:Date.now()+30000,roomId:'100',anchorUid:'200'})});app.sources.resolveProfile=async()=>({roomId:'100',anchorUid:'200',web_rid:'123',checkedAt:new Date().toISOString(),parameterDiscovery:'http'});app.monitor.adapter={probe:async()=>({state:'LIVE',roomId:'100',anchorUid:'200',web_rid:'123',source:'synthetic'})};
  const profile=app.profiles.create({enabled:true,target:{type:'web_rid',value:'123'}});await app.monitor.check(profile.profileId);await app.monitor.check(profile.profileId);await app.coordinator.evaluate();assert.equal(app.sources.view().selectedSource,'LiveHookSource');
  const cookie=(await fetch(app.url)).headers.get('set-cookie').split(';')[0],response=await fetch(app.url+'/api/v1/profiles/'+profile.profileId+'/actions',{method:'POST',headers:{Cookie:cookie,Origin:app.url,'Content-Type':'application/json'},body:JSON.stringify({commandId:crypto.randomUUID(),action:'listen',expectedVersion:'1'})});assert.equal(response.status,200);assert.equal(app.sources.view().selectedSource,'WebSource');await until(()=>app.sources.web.status.captureState==='CONNECTED');assert.equal(wss.clients.size,1);
 });

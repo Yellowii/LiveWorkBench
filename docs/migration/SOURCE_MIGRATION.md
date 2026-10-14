@@ -289,3 +289,14 @@ douyinprotobuf@e9e6cec的BrowserLive/AccountMonitor/createLoginContext经tools/s
 2026-10-13独立账号增量复用同一AccountMonitor/createLoginContext，第一方LoginBrowserSession仅持有独立官方首页窗口与受控网络策略，LoginManager负责官方确认后按用户opt-in自动DPAPI保存/窗口释放及共享引用。没有调用上游.env明文保存类，不改四原资源，未另复制SDK/签名实现。接口/证据见ACCOUNTS与STATUS17；真实扫码和平台动态连接发现仍待，不把合成官方响应当真实鉴权通过。
 
 合成验证位置：tests/monitor、profile-api、coordinator、automatic-source、browser-source、hook-profile、monitor-session.test.js；实际Edge网络事件/回环WS/DPAPI属于受控离线集成，不是平台生产验收。完整状态与剩余项见STATUS第15节。
+
+## 2026-10-14 原生 WSS 参数补齐
+
+| 能力 | 来源与负责位置 | 验收范围 |
+| --- | --- | --- |
+| 真实 HTTP 房间/观看设备身份 | 官方当前 Pace/Next 数据；第一方 http-room-discovery.js、native-parameters.js，复用既有 TargetResolver/SafeDouyinHttp 和观看 vault | 当前目标独立 HTTP → Node WSS，无 Chromium；不是主播 UID 替代设备 ID |
+| 每次连接动态签名 | saermart/DouyinLiveWebFetcher@40a904bdb0561a5a9c958a95634a29681cc4fbf4/sign.js；哈希/本地忽略/准备入口见 THIRD_PARTY_NOTICES；第一方 native-signer.js | 平台接受初连与参数刷新后的重连；不复制旧例的固定 cursor/internal_ext/身份，不上传签名脚本 |
+| 原生接收/心跳/ACK/RAW | 继续复用固定 douyinprotobuf LiveClient raw-first-v6、现有 RAW/官方 Parser/Proto/EventStore | 实际 ACK/heartbeat、RAW/Proto 增长、unknown-range 中断记录；核心模块没有重写 |
+| 后台兜底、媒体与回收 | 既有 BrowserLive v5 + 第一方 BrowserSource/LiveStreamPolicy/SourceController | 真实流请求拦截14次；该目标无头 SDK 空体仍失败；串行暂停其 context，真实原生恢复稳定后关闭独占进程 |
+
+本轮实时与合成证据在 STATUS 27 分开。不同目标、长期挂机、平台后续签名变化与所有流协议逐型实测尚未完成；不扩大 M0/伴侣恢复的通过范围。references 未变更。

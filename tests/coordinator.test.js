@@ -36,3 +36,10 @@ test('direct connection resolver never invents signatures; browser fallback is e
  const config=await resolver.resolve({connectionMode:'direct',browserFallback:true},{roomId:'100',anchorUid:'200',web_rid:'123'});assert.equal(config.kind,'browser');assert.equal(config.roomUrl,'https://live.douyin.com/123');
  await assert.rejects(()=>resolver.resolve({connectionMode:'browser'},{roomId:'100',anchorUid:'200'}),/TARGET_MAPPING_REQUIRED/);
 });
+test('explicit listen attempts a freshly matched room without LIVE confirmation; automatic selection stays blocked',async t=>{
+ const f=await fixture(t);f.sources.state.selectedSource='WebSource';const p=f.profiles.create({target:{type:'web_rid',value:'123'},enabled:true,autoStart:true});
+ f.monitor.adapter={probe:async()=>({state:'UNKNOWN',errorCode:'MONITOR_EVIDENCE_UNAVAILABLE'})};
+ f.sources.resolveProfile=async()=>({roomId:'100',anchorUid:'200',web_rid:'123',queryState:'UNKNOWN',confirmedState:'UNKNOWN',parameterDiscovery:'http'});
+ await f.coordinator.evaluate();assert.equal(f.counts().starts,0);
+ await f.coordinator.listen(p.profileId,p.version);assert.equal(f.counts().starts,1);assert.equal(f.monitor.view(p.profileId).confirmedState,'UNKNOWN');
+});

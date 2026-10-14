@@ -12,6 +12,7 @@ Windows 本地直播工作台。默认 LiveHookSource，WebSource 由人工选�
 npm ci
 npm run setup:parser -- --fetch
 npm run setup:websource -- --fetch
+npm run setup:wss-signer -- --fetch
 npm run setup:browser -- --fetch
 npm run build:capture
 npm test

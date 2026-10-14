@@ -11,6 +11,7 @@
     "test": "node --test --test-concurrency=4 tests/*.test.js",
     "setup:parser": "node tools/setup-parser.mjs",
     "setup:websource": "node tools/setup-websource.mjs",
+    "setup:wss-signer": "node tools/setup-wss-signer.mjs",
     "setup:browser": "node tools/setup-browser.mjs",
     "check:public": "node tools/check-public.mjs",
     "build:capture": "powershell -NoProfile -ExecutionPolicy Bypass -File tools/build-capture.ps1"

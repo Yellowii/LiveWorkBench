@@ -1,7 +1,7 @@
 import {EventEmitter} from 'node:events';
 import {randomUUID} from 'node:crypto';
 const signalKey=(p,s)=>JSON.stringify([p.profileId,p.version,s.stateVersion,s.anchorUid,s.roomId]);
-const terminal=new Set(['BROWSER_MEDIA_POLICY_GAP','BROWSER_VERIFICATION_REQUIRED','BROWSER_AUTH_OR_ACCESS_REQUIRED','BROWSER_PLATFORM_RATE_LIMITED','WEB_DYNAMIC_PARAMETERS_UNAVAILABLE','WEB_DYNAMIC_PARAMETERS_EXPIRED','WEB_HANDSHAKE_OR_POLICY_BLOCKED','TARGET_MAPPING_REQUIRED','TARGET_IDENTITY_UNRESOLVED','BROWSER_NOT_PREPARED','LIVEHOOK_ENVIRONMENT_NOT_READY']);
+const terminal=new Set(['WEB_RETRY_LIMIT_REACHED','AUTH_LOGIN_REQUIRED','AUTH_STATE_CHANGED','TARGET_IDENTITY_CHANGED','BROWSER_MEDIA_POLICY_GAP','BROWSER_VERIFICATION_REQUIRED','BROWSER_AUTH_OR_ACCESS_REQUIRED','BROWSER_PLATFORM_RATE_LIMITED','BROWSER_IM_FETCH_EMPTY','BROWSER_WSS_NOT_OBSERVED','BROWSER_WSS_TIMEOUT','WEB_DYNAMIC_PARAMETERS_UNAVAILABLE','WEB_DYNAMIC_PARAMETERS_EXPIRED','WEB_DYNAMIC_PARAMETERS_INVALID','WEB_SIGNATURE_PROVIDER_UNAVAILABLE','WEB_HANDSHAKE_OR_POLICY_BLOCKED','TARGET_MAPPING_REQUIRED','TARGET_IDENTITY_UNRESOLVED','BROWSER_NOT_PREPARED','LIVEHOOK_ENVIRONMENT_NOT_READY']);
 export class MonitorCoordinator extends EventEmitter{
  constructor({profiles,monitor,sources,onPlatformEvidence=()=>{},log=()=>{}}){super();this.profiles=profiles;this.monitor=monitor;this.sources=sources;this.onPlatformEvidence=onPlatformEvidence;this.log=log;this.queue=Promise.resolve();this.closed=false;this.state=profiles.repository.getState('coordinator-v1')||{active:null,suppressed:{},attempts:{},history:[],reason:null};
   this.changed=()=>{if(this.closed)return;clearTimeout(this.timer);this.timer=setTimeout(()=>this.evaluate().catch(()=>{if(!this.closed)this.record('COORDINATOR_FAILED');}),30);this.timer.unref();};monitor.on('monitor.updated',this.changed);
@@ -11,19 +11,20 @@ export class MonitorCoordinator extends EventEmitter{
  record(code,details={}){this.state.reason=code;this.state.history.push({operationId:randomUUID(),code,...details,at:new Date().toISOString()});this.state.history=this.state.history.slice(-100);this.log(code,details);this.save();}
  serialize(fn){const task=this.queue.catch(()=>{}).then(()=>{if(this.closed)throw new Error('COORDINATOR_CLOSED');return fn();});this.queue=task;return task;}
  evaluate(){return this.serialize(()=>this.run());}
- async run(choice){
+ async run(choice,manualEvidence){
   const source=this.sources.view(),active=this.state.active;
   if(active){let p;try{p=this.profiles.get(active.profileId);}catch{}const evidence=this.sources.hookEndedEvidence?.(p)||this.monitor.view(active.profileId);
    if(source.selectedSource!==active.sourceType){this.state.active=null;this.record('PROFILE_SOURCE_CHANGED',{profileId:active.profileId});return;}
    if(p?.autoStop&&evidence.queryState==='ENDED'&&evidence.confirmedState==='ENDED'&&evidence.roomId===active.roomId&&evidence.anchorUid===active.anchorUid){await this.sources.stopProfile(active.sourceVersion);this.onPlatformEvidence({...evidence,origin:'monitor',profileId:p.profileId});this.state.active=null;this.record('PROFILE_ENDED_STOP',{profileId:p.profileId});return;}
    if(!['STOPPED','FAILED'].includes(source.captureState))return this.view();
+   if(source.captureState==='FAILED'&&source.recoveryPending)return this.view();
    if(source.captureState==='FAILED'&&terminal.has(this.sources.failureReason?.())){const attempt=this.state.attempts[active.profileId];if(attempt)attempt.terminal=true;this.state.active=null;this.record(this.sources.failureReason(),{profileId:active.profileId});return this.view();}
    if(p&&!p.autoReconnect){this.record('PROFILE_RECONNECT_DISABLED',{profileId:p.profileId});return;}this.state.active=null;this.save();
   }
   const adoptExisting=source.selectedSource==='LiveHookSource'&&source.captureState==='CONNECTED'&&this.profiles.all().some(p=>this.sources.adoptable?.(p));
   if(!choice&&this.state.requestedProfileId){const p=this.profiles.all().find(x=>x.profileId===this.state.requestedProfileId);if(p?.version===this.state.requestedProfileVersion)choice=p.profileId;else{this.state.requestedProfileId=null;this.state.requestedProfileVersion=null;}}
   if(!['STOPPED','FAILED'].includes(source.captureState)&&!adoptExisting){this.state.reason='SOURCE_BUSY';this.save();return this.view();}
-  const candidates=this.profiles.all().filter(p=>p.enabled&&(choice?p.profileId===choice:p.autoStart)&&p.sourceType===source.selectedSource).map(p=>({p,s:this.sources.hookEvidence?.(p)||this.monitor.view(p.profileId)})).filter(({p,s})=>s.confirmedState==='LIVE'&&s.queryState==='LIVE'&&s.profileVersion===p.version&&s.roomId&&s.anchorUid&&Date.now()-Date.parse(s.checkedAt)<p.pollMs*2&&this.state.suppressed[p.profileId]!==signalKey(p,s));
+  const candidates=this.profiles.all().filter(p=>p.enabled&&(choice?p.profileId===choice:p.autoStart)&&p.sourceType===source.selectedSource).map(p=>({p,s:manualEvidence&&p.profileId===choice?manualEvidence:this.sources.hookEvidence?.(p)||this.monitor.view(p.profileId)})).filter(({p,s})=>(manualEvidence&&p.profileId===choice||s.confirmedState==='LIVE'&&s.queryState==='LIVE')&&s.profileVersion===p.version&&s.roomId&&s.anchorUid&&Date.now()-Date.parse(s.checkedAt)<p.pollMs*2&&this.state.suppressed[p.profileId]!==signalKey(p,s));
   candidates.sort((a,b)=>b.p.priority-a.p.priority);
   if(!candidates.length){this.state.reason='NO_MATCHING_READY_PROFILE';this.save();return this.view();}
   if(!choice&&candidates.length>1&&candidates[0].p.priority===candidates[1].p.priority){this.record('PROFILE_SELECTION_REQUIRED',{profileIds:candidates.filter(x=>x.p.priority===candidates[0].p.priority).map(x=>x.p.profileId)});return this.view();}
@@ -33,7 +34,7 @@ export class MonitorCoordinator extends EventEmitter{
   try{
    const result=await this.sources.startProfile(p,{...s,operationId:op.operationId,monitorOperationId:s.operationId},source.stateVersion,()=>this.profiles.get(p.profileId).version===p.version);
    this.state.active={profileId:p.profileId,profileVersion:p.version,anchorUid:s.anchorUid,roomId:s.roomId,stateVersion:s.stateVersion,sourceType:p.sourceType,sourceVersion:result.stateVersion};this.record('PROFILE_LISTEN_STARTED',{profileId:p.profileId});
-  }catch(error){const code=/^(?:WEB_|BROWSER_|LIVEHOOK_|SOURCE_|STATE_|TARGET_|PROFILE_)[A-Z_]+$/.test(error.message)?error.message:'PROFILE_START_FAILED';op.terminal=terminal.has(code);op.nextAt=Date.now()+Math.min(3600000,p.cooldownMs*2**Math.min(op.count-1,6));this.record(code,{profileId:p.profileId});}
+  }catch(error){const code=/^(?:AUTH_|WEB_|BROWSER_|LIVEHOOK_|SOURCE_|STATE_|TARGET_|PROFILE_)[A-Z_]+$/.test(error.message)?error.message:'PROFILE_START_FAILED';op.terminal=terminal.has(code);op.nextAt=Date.now()+Math.min(3600000,p.cooldownMs*2**Math.min(op.count-1,6));this.record(code,{profileId:p.profileId});}
   return this.view();
  }
  start(id){return this.serialize(async()=>{const p=this.profiles.get(id);delete this.state.suppressed[id];delete this.state.attempts[id];if(!p.enabled)throw new Error('PROFILE_DISABLED');return this.run(id);});}
@@ -45,6 +46,10 @@ export class MonitorCoordinator extends EventEmitter{
   if(source.selectedSource!==p.sourceType)await this.sources.action({action:'switch',sourceType:p.sourceType,expectedVersion:source.stateVersion});
   this.state.requestedProfileId=id;this.state.requestedProfileVersion=p.version;delete this.state.suppressed[id];delete this.state.attempts[id];this.record('PROFILE_LISTEN_REQUESTED',{profileId:id});
   if(!this.sources.hookEvidence?.(p))for(let n=0;n<p.confirmations;n++){const evidence=await this.monitor.check(id);if(this.profiles.get(id).version!==p.version)throw new Error('STATE_CONFLICT');if(evidence.queryState==='UNKNOWN'||evidence.confirmedState==='LIVE'&&evidence.profileVersion===p.version)break;}
+  if(p.sourceType==='WebSource'&&this.sources.resolveProfile){
+   const identity=await this.sources.resolveProfile(p);if(this.profiles.get(id).version!==p.version)throw new Error('STATE_CONFLICT');
+   return this.run(id,{...this.monitor.view(id),...identity,profileVersion:p.version});
+  }
   return this.run(id);
  });}
  suppress(){this.state.requestedProfileId=null;this.state.requestedProfileVersion=null;for(const p of this.profiles.all()){const s=this.monitor.view(p.profileId);if(s.confirmedState==='LIVE')this.state.suppressed[p.profileId]=signalKey(p,s);}this.state.active=null;this.record('PROFILE_MANUAL_STOP');}

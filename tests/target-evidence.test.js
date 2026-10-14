@@ -7,7 +7,8 @@ import {WebConnectionResolver} from '../src/capture/websource/connection-resolve
 test('browser fallback keeps headless default and allows explicit normal window without changing source selection',async()=>{
  const resolver=new WebConnectionResolver(),evidence={roomId:'100',anchorUid:'200',web_rid:'123'},profile={connectionMode:'direct',browserFallback:true};
  assert.equal((await resolver.resolve(profile,evidence)).headless,true);
- assert.equal((await resolver.resolve({...profile,browserHeadless:false},evidence)).headless,false);
+ assert.equal((await resolver.resolve({...profile,browserHeadless:false},evidence)).headless,true);
+ assert.equal((await resolver.resolve({...profile,connectionMode:'browser',browserHeadless:false},evidence)).headless,false);
  await assert.rejects(()=>resolver.resolve({...profile,browserFallback:false},evidence),/WEB_DYNAMIC_PARAMETERS_UNAVAILABLE/);
 });
 

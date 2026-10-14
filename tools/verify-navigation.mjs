@@ -10,6 +10,7 @@ import {chromium} from 'playwright-core';
 import {WebSocketServer} from 'ws';
 import {createGateway} from '../src/server.js';
 import {WebSource} from '../src/web-source.js';
+import {WebConnectionResolver} from '../src/capture/websource/connection-resolver.js';
 
 const phase=process.argv[2]||'after',after=phase==='after';
 assert.ok(['before','after'].includes(phase));
@@ -52,7 +53,8 @@ class LoginFixture extends EventEmitter{
 }
 app.loginManager.clientFactory=()=>new LoginFixture();
 app.sources.web=new WebSource(app.runtime,{allowLocalTest:true,mode:'test'});
-app.sources.connectionResolver.directProvider=async()=>({url:`ws://127.0.0.1:${wss.address().port}`,roomId:'100',anchorUid:'200',expiresAt:Date.now()+60000});
+app.sources.connectionResolver=new WebConnectionResolver({allowLocalTest:true,mode:'test',directProvider:async()=>({url:`ws://127.0.0.1:${wss.address().port}/?room_id=100`,roomId:'100',anchorUid:'200',expiresAt:Date.now()+60000})});
+app.sources.resolveProfile=async()=>({roomId:'100',anchorUid:'200',web_rid:'123',checkedAt:new Date().toISOString(),parameterDiscovery:'http'});
 app.monitor.adapter={resolver:{resolve:async()=>({classification:'synthetic',roomId:'100',anchorUid:'200',web_rid:'123'})},probe:async()=>({state:'LIVE',roomId:'100',anchorUid:'200',web_rid:'123',source:'synthetic',network:{mode:'direct',route:'direct',dns:'verified-and-pinned-public',connectionState:'connected'}})};
 let peers=0;
 wss.on('connection',ws=>{peers++;ws.send(encode('PushFrame',{payload:encode('Response',{messages:[{method:'WebcastChatMessage',payload:encode('ChatMessage',{common:{room_id:'100',msg_id:'9001'},content:'synthetic navigation capture'}),msg_id:'9001'}]})}));});
