@@ -65,3 +65,5 @@ DOMAIN_POLICY_DENIED、LOGIN_MEDIA_BLOCKED与HTTP_ERROR、PROXY_CONNECTION_FAILE
 统一房间输入为 auto，接受单个可信 HTTPS URL（包括分享文本内一个 URL）或明确 web_rid:/uid:/anchorUid:/roomId:/secUid: 前缀。无前缀数字返回 PENDING_TYPE，不猜 UID 为网页房号。已有显式 target 类型继续可读。details 使用现有安全 HTTP/TargetResolver/官方结构证据，不改变 monitor 确认计数；只有严格匹配目标且唯一的房间证据才展示资料，外观字段冲突显示未知、不改变 LIVE/ENDED 语义。不能可靠解析时明确说明缺失，字段未知不补假数据。
 
 日常切换仍由用户明确点击开始：活动房间不同则确认停止、等待完成后再 listen；编辑活动目标也先确认停止，再保存和 listen。各步失败保留真实错误，不并行启动两个来源。导航不发切换/停止指令。能力 viewerAccount=false 的旧加载后端会禁用新登录/房间写入/开始入口并提示安全更新，仍保留既有停止与诊断入口；不自动重启。
+
+停止后的Web目标接续（2026-10-15）：历史未结束场次不是活动连接占用。startProfile仅在STOPPED/FAILED、目标参数验证通过时排空旧Web/Browser输入并取消恢复计划，再次检查配置版本后递增sourceEpoch、绑定已验证的新房间。仍在连接时拒绝SOURCE_BUSY；旧epoch输入先保存RAW后拒绝发布，新epoch的异房间输入仍拒绝。保留旧SessionManager场次，不制造下播，不因换房新建旧房间场次；返回旧房间继续其原sessionId。LiveHook既有流收养与身份约束不放宽。

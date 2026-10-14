@@ -9,6 +9,7 @@ const meanings={
   AUTH_CONFIRMATION_REQUIRED:['官方接口尚未确认已登录。','在登录窗口完成扫码或验证后再试。'],
   STATE_CONFLICT:['配置或采集状态已被更新。','刷新状态后重新操作。'],
   SOURCE_BUSY:['已有直播间正在采集。','先停止当前监听，再开始另一个直播间。'],
+  SOURCE_ROOM_BUSY:['当前房间身份仍被旧目标占用。','核对当前来源与活动房间；停止后仍出现时请保留此错误码排查，不必反复扫码。'],
   SOURCE_SELECTION_MISMATCH:['当前活动来源与直播间配置不同。','使用该配置的开始监听命令，或在诊断区手动选择来源。'],
   PROFILE_DISABLED:['该直播间配置尚未启用。','启用并保存配置后开始监听。'],
   TARGET_MAPPING_REQUIRED:['尚未获得可靠的直播间映射。','填写当前有效的完整直播间 URL，再检测。'],

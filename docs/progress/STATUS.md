@@ -587,3 +587,17 @@ B增量实现：新增activities纯转换，管理员权限操作/成员任免�
 边界与交接：新实现只在src/messages、Gateway只读接口/能力、实例指纹、public展示与测试/文档；官方Parser、RAW、EventStore、SessionManager、SourceController及登录/监控模块无差异。来源目录指定21个文件哈希复核未变。2026-10-15只读复查18783已无监听，原PID41096不存在，退出原因未核查；本任务没有停止/重启正式服务或关闭采集浏览器。提交不会自动加载功能。第一版交付后停止扩展UI，等待用户依据实际展示调整；真实扫码/长期WSS/更多房间验收仍与本轮合成验证分开。
 
 最终验证补记：npm test 190/190通过，0跳过，133.65秒（artifacts/messages-release-tests.txt）；新增历史用例先复现720/520边界错误，修复后通过。最终tools/verify-messages.mjs通过1171条合成RAW/事件，640条离页补查、500缓存淘汰后连续历史、真实隔离Replay引擎/详情、表情图片默认关闭及显式启用、9种管理员/活动路径、旧后端能力降级，0页面错误。1440/1024/700截图已生成，宽/窄截图人工核查；按钮边界、重叠和点击命中检查0发现。一次GUI脚本在历史模式切回live后错误等待屏外最新行超时，改为实际点击“回到最新”，复跑通过，未掩盖产品异常。公开扫描228文件0发现；git diff --check通过。报告及截图在忽略artifacts/messages，原始插件/资源、真实记录/SQLite/账号凭据均未入提交。
+
+## 29. 停止后换房被旧场次占用误拦截（2026-10-15，实现待正式加载）
+
+owner本会话→用户；基线f5aa98c，复用隔离worktree的codex/stopped-room-switch，无派工。只读Gateway确认18783 PID53028实际加载f5aa98c、dirty=false、STOPPED，coordinator.active=null、reason=SOURCE_ROOM_BUSY；选中目标queryState/confirmedState均LIVE、无检测错误。历史仅一个未结束场次，captureState=INTERRUPTED，roomId与当前目标不同。观看凭据configured=true、有效性UNKNOWN不是已确认失效。本轮未操作正式采集、服务启停或浏览器。
+
+根因：Runtime为连续场次恢复activeRoom；SourceController.startProfile在检查实际连接前，用该历史roomId无条件拒绝新房间，因此尚未执行WSS参数provider就报SOURCE_ROOM_BUSY。UI未映射此码，只显示“状态未确认”。此前账号GUI使用两个配置但相同roomId，未覆盖不同房间身份；STATUS27/28已将真实跨房间验收列为未完成，本轮补足该边界。
+
+最小修复：仅SourceController的Web startProfile在STOPPED/FAILED且连接参数确认后，停止并排空旧Web/Browser、取消恢复计划，二次校验配置有效性，递增epoch并切换接收目标；保留旧场次且不造下播。活动连接仍拒绝，LiveHook身份门控不变。Runtime/SessionManager/Parser/RAW/EventStore/登录/监控/数据库结构无改动。首页补明确占用提示及未知错误码，API错误字典同步。
+
+验证：tests/room-handoff.test.js三项先复现失败后通过，覆盖重启恢复后的换房、回旧房保留sessionId、旧epoch及同epoch异房间RAW保留但不发布、活动连接/无效身份拒绝、排空中配置变化拒绝；相关26/26通过。tools/verify-room-handoff.mjs实际Edge点击两个不同roomId，真实回环WSS收取3条合成RAW/官方解析事件，最多1连接、旧场次保留、停止后换房及确认切换、实时弹幕显示、错误提示可见均通过，0页面错误。脚本仅将隔离临时库输入放入live域以覆盖真实门控，不是抖音真实验收。截图及报告在忽略artifacts/room-handoff；全量结果待本节补记。
+
+待完成：正式18783加载修复并重新尝试当前目标后，才能确认真实WSS、RAW/事件连续增长。用户明确禁止擅自重启，必须在代码与回归就绪后取得本次更新授权；本轮没有据UNKNOWN要求重新扫码，也没有清空历史场次、修改系统网络或绕过单活动来源。
+
+最终回归：npm test 193/193通过，0跳过，134.68秒（artifacts/room-handoff-full.txt）；GUI报告artifacts/room-handoff-gui.txt，截图人工检查通过。check:public 230文件0发现，git diff --check通过。提交前只读复查正式仍PID53028/f5aa98c/STOPPED/SOURCE_ROOM_BUSY，无活动coordinator；目标LIVE、历史场次INTERRUPTED且身份不同。修复代码可合入，正式加载和真实跨房间WSS验收仍待用户授权，不把回环测试写成平台成功。
