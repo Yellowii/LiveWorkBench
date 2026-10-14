@@ -588,7 +588,7 @@ B增量实现：新增activities纯转换，管理员权限操作/成员任免�
 
 最终验证补记：npm test 190/190通过，0跳过，133.65秒（artifacts/messages-release-tests.txt）；新增历史用例先复现720/520边界错误，修复后通过。最终tools/verify-messages.mjs通过1171条合成RAW/事件，640条离页补查、500缓存淘汰后连续历史、真实隔离Replay引擎/详情、表情图片默认关闭及显式启用、9种管理员/活动路径、旧后端能力降级，0页面错误。1440/1024/700截图已生成，宽/窄截图人工核查；按钮边界、重叠和点击命中检查0发现。一次GUI脚本在历史模式切回live后错误等待屏外最新行超时，改为实际点击“回到最新”，复跑通过，未掩盖产品异常。公开扫描228文件0发现；git diff --check通过。报告及截图在忽略artifacts/messages，原始插件/资源、真实记录/SQLite/账号凭据均未入提交。
 
-## 29. 停止后换房被旧场次占用误拦截（2026-10-15，实现待正式加载）
+## 29. 停止后换房被旧场次占用误拦截（2026-10-15，修复及当前真实目标验证通过）
 
 owner本会话→用户；基线f5aa98c，复用隔离worktree的codex/stopped-room-switch，无派工。只读Gateway确认18783 PID53028实际加载f5aa98c、dirty=false、STOPPED，coordinator.active=null、reason=SOURCE_ROOM_BUSY；选中目标queryState/confirmedState均LIVE、无检测错误。历史仅一个未结束场次，captureState=INTERRUPTED，roomId与当前目标不同。观看凭据configured=true、有效性UNKNOWN不是已确认失效。本轮未操作正式采集、服务启停或浏览器。
 
@@ -601,3 +601,9 @@ owner本会话→用户；基线f5aa98c，复用隔离worktree的codex/stopped-r
 待完成：正式18783加载修复并重新尝试当前目标后，才能确认真实WSS、RAW/事件连续增长。用户明确禁止擅自重启，必须在代码与回归就绪后取得本次更新授权；本轮没有据UNKNOWN要求重新扫码，也没有清空历史场次、修改系统网络或绕过单活动来源。
 
 最终回归：npm test 193/193通过，0跳过，134.68秒（artifacts/room-handoff-full.txt）；GUI报告artifacts/room-handoff-gui.txt，截图人工检查通过。check:public 230文件0发现，git diff --check通过。提交前只读复查正式仍PID53028/f5aa98c/STOPPED/SOURCE_ROOM_BUSY，无活动coordinator；目标LIVE、历史场次INTERRUPTED且身份不同。修复代码可合入，正式加载和真实跨房间WSS验收仍待用户授权，不把回环测试写成平台成功。
+
+真实验收补记：用户随后明确“允许，不用问我”，授权本次更新与当前目标重试。执行tools/deploy-dev-workbench.ps1 -Action Update，核对旧实例STOPPED/无登录窗口，经构建、stdio及隔离Runtime预检，从PID53028/f5aa98c安全更新为PID41524，实际加载c6ddfc3cde43ab4869b888d5eea8ed907b6ca633，正式数据目录及观看凭据保留。经受认证Gateway对原请求目标发送listen，旧SOURCE_ROOM_BUSY消失；使用既有观看态，HTTP身份发现与原生参数就绪，随后真实WSS CONNECTED，无需重新扫码或启动采集浏览器。
+
+三个真实快照（UTC 2026-10-14 21:09:10—21:09:41，本地2026-10-15）：RAW输入66→105→140，官方解析事件310→406→489，failed=0、rawPending=0、webDecode队列0；每次最新20条当前epoch事件均匹配活动目标，并可生成本机可读展示。抽查真实事件RAW处理链含对应protoId/eventId。采集BrowserSource全程STOPPED/BROWSER_NOT_RUNNING。另用独立无头Edge仅访问本地工作台，实际选择当前配置、打开实时弹幕及RAW/处理链，页面CONNECTED/原生WSS、9条可视行、0页面错误；仅关闭测试自己的本地工作台浏览器，正式WSS保持运行。
+
+私有统计与真实GUI截图在忽略的.local/room-handoff-acceptance，不上传消息正文、用户身份或凭据。此验证证明停止状态下从旧房间转向当前不同真实房间、原生WSS/RAW/官方解析/事件/GUI可用；长期稳定及真实平台来回切换多轮未做，单连接及返回旧sessionId由上述隔离回归覆盖。交接时保留正式采集，不为本次文档提交再次重启；运行代码仍为c6ddfc3。后续按用户已授权范围继续操作，不重复征询同一次更新/重试。
