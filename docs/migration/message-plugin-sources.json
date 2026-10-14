@@ -1,0 +1,183 @@
+{
+  "snapshot": "cdn-chunks-20261008",
+  "confidence": "static-source-only",
+  "locations": "zero-based JavaScript string offsets, first occurrence; not business verification",
+  "files": [
+    {
+      "file": "files/DanmakuPlugin.7c702aa1.js",
+      "sha256": "c03ce4a34900b50fe6a75fce7bb58e95694799bc5ecdb314159a349fce0446a5",
+      "bytes": 29456,
+      "locations": {
+        "rtf_content_v2": 22440,
+        "emoji_content": 12115,
+        "repeat_count": 2644,
+        "gift.icon": 3130,
+        "giftList": 2427
+      }
+    },
+    {
+      "file": "files/CanvasDanmakuPlugin.364e9be4.js",
+      "sha256": "642a946a52c16c111edab450cce78fb9eda7cd4f8bbda2631b7d5f5921798b35",
+      "bytes": 35075,
+      "locations": {
+        "rtf_content_v2": 21120,
+        "emoji_content": 23548,
+        "repeat_count": 22838,
+        "giftList": 22390
+      }
+    },
+    {
+      "file": "files/GiftTrayPlugin.64f99f29.js",
+      "sha256": "4eaa42de49ac2f9bbea8e30fc54e142779f41b5609e4557783abd7a99c097ab7",
+      "bytes": 15190,
+      "locations": {
+        "tray.combo": 5536
+      }
+    },
+    {
+      "file": "files/GiftMenuPlugin.277c15b4.js",
+      "sha256": "2427ac8202b9dac468b0a1845dbb43b92d6b5a5d86633f7ee4b3006b72543406",
+      "bytes": 2550,
+      "locations": {
+        "giftList": 1150
+      }
+    },
+    {
+      "file": "files/AdminPrivilegePlugin.3e987bfa.js",
+      "sha256": "946763ac88a799d2ece768430f27c9fb544c403d83fa3838ab94063bdc99cf3f",
+      "bytes": 2082,
+      "locations": {
+        "AdminPrivilegeMessage": 721,
+        "payload.data.op": 846,
+        "MemberMessage": 1283
+      }
+    },
+    {
+      "file": "files/ShortTouchPlugin.e0f9c39f.js",
+      "sha256": "dff023e1eb26e1db2685a553ed0e1592b977e3e9bc129efe27b24b43d5616b79",
+      "bytes": 20128,
+      "locations": {
+        "ShortTouchAreaMessage": 10837,
+        "short_touch_area_data": 14308
+      }
+    },
+    {
+      "file": "files/RedPacketShortTouchPlugin.f3e74f45.js",
+      "sha256": "d6f79e1dfd90ab65b38735cf38a7984f344ea8a2e536c93d85c56467cde87dc5",
+      "bytes": 31080,
+      "locations": {
+        "LuckyBoxMessage": 23084,
+        "LuckyBoxEndMessage": 23106
+      }
+    },
+    {
+      "file": "files/LotteryShortTouchPlugin.dff12b10.js",
+      "sha256": "15bc716f4281544496194e3b1ef55a38e66d342ba2e1c74e0f56c9bf850f892c",
+      "bytes": 31095,
+      "locations": {
+        "LotteryEventNewMessage": 5583,
+        "lottery_status": 20427,
+        "Inprogress:1": 17430
+      }
+    },
+    {
+      "file": "files/RoomMessageConsume.e41a863a.js",
+      "sha256": "afeb6ae5ba23e197319a16d303c0cb5b2d79c04a64c0c65507a31f283f765170",
+      "bytes": 17595,
+      "locations": {
+        "repeat_end": 1454,
+        "giftList": 1197,
+        "MemberMessage": 5232
+      }
+    },
+    {
+      "file": "files/LiveLike.bfb78734.js",
+      "sha256": "4405dd526a67d5519cac493fe37a23d7c800d85ba34464442469df6446fc92e3",
+      "bytes": 9702,
+      "locations": {
+        "LikeMessage": 3199
+      }
+    },
+    {
+      "file": "files/EnterAndLeave.f83e5ae5.js",
+      "sha256": "84b9f3b83df3d6781e47b8e1a98fcd11b3402776e8985f93b896afa2978aac9a",
+      "bytes": 5338,
+      "locations": {}
+    },
+    {
+      "file": "css/DanmakuPlugin.bf02df37.css",
+      "sha256": "5076ed7913f09f79d4f1796e3484a4baf6db73330e7954e0dc3752a807059f24",
+      "bytes": 4710,
+      "locations": {
+        "display:flex": 248,
+        "border-radius": 456
+      }
+    },
+    {
+      "file": "css/CanvasDanmakuPlugin.1b4b60ef.css",
+      "sha256": "ee657e32762fd5ff5ab29002ca996baed24dfffb17b7ff1aada0102989f484be",
+      "bytes": 157,
+      "locations": {}
+    },
+    {
+      "file": "css/GiftTrayPlugin.ad979c7b.css",
+      "sha256": "314dd645330365e3c9b038ab7ba1041b4a4d736551f6a7a00f8a48f57c1f900e",
+      "bytes": 5439,
+      "locations": {
+        "display:flex": 25,
+        "border-radius": 3077
+      }
+    },
+    {
+      "file": "css/GiftMenuPlugin.99b3f6cb.css",
+      "sha256": "a2105f7917c0434fc22811178cf553e067a89d3a572be22b553a55228a73a567",
+      "bytes": 1106,
+      "locations": {
+        "display:flex": 315,
+        "border-radius": 818
+      }
+    },
+    {
+      "file": "css/ShortTouchPlugin.2cbc2ed8.css",
+      "sha256": "5b9fbf745f5b8b2db9c7a4d72a2e2edbc6741d21632a31360f225115c6044a63",
+      "bytes": 2323,
+      "locations": {
+        "display:flex": 64,
+        "border-radius": 1501
+      }
+    },
+    {
+      "file": "css/RedPacketShortTouchPlugin.390ecbfa.css",
+      "sha256": "5c9b7ae72c57b831efc14906fee7a665fbb36663d4b960396b6b965aeab973ae",
+      "bytes": 10139,
+      "locations": {
+        "display:flex": 654,
+        "border-radius": 321
+      }
+    },
+    {
+      "file": "css/LotteryShortTouchPlugin.9d6a7ee6.css",
+      "sha256": "0b68d82520739594dc353ce60966466db0e6a5f7ccd1bf6e1406fd064bfd576b",
+      "bytes": 1004,
+      "locations": {
+        "display:flex": 363,
+        "border-radius": 235
+      }
+    },
+    {
+      "file": "plugin-list.csv",
+      "sha256": "f996ea5d80a0b887a3f9625ade406795542263c526ccb6817facb0fc684fafb4",
+      "bytes": 18734
+    },
+    {
+      "file": "css-list.csv",
+      "sha256": "afec73d5d5b5ec2dc15e7e54fc05fc0f2986f249b246badd9dbf99b1401986ac",
+      "bytes": 43530
+    },
+    {
+      "file": "模块分析.md",
+      "sha256": "7dd8c8747ccba53b7a675f865bc929e924cc38164ed0807fcba7618671d68429",
+      "bytes": 101952
+    }
+  ]
+}

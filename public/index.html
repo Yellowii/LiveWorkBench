@@ -5,6 +5,8 @@
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <title>LiveWorkbench 简易工作台</title>
 <link rel="stylesheet" href="/app.css">
+<link rel="stylesheet" href="/messages.css">
+<script type="module" src="/messages.js"></script>
 <script type="module" src="/app.js">
 </script>
 </head>
@@ -14,6 +16,7 @@
 <p>本地简易工作台</p>
 <nav aria-label="主导航">
 <button type="button" data-page="workbench" aria-controls="page-workbench" aria-current="page">工作台</button>
+<button type="button" data-page="messages" aria-controls="page-messages">实时弹幕</button>
 <button type="button" data-page="accounts" aria-controls="page-accounts">账号管理</button>
 <button type="button" data-page="rooms" aria-controls="page-rooms">直播间</button>
 <button type="button" data-page="data" aria-controls="page-data">数据记录</button>
@@ -26,6 +29,27 @@
 <p>本机运行 · 回放与实时数据隔离</p>
 </header>
 <main>
+<div id="page-messages" class="page" hidden aria-labelledby="title-messages">
+<h1 id="title-messages">实时弹幕</h1>
+<p>仅在本机认证工作台展示可读内容。原始记录保留；回放数据单独查看。</p>
+<div class="actions">
+<label>数据范围 <select id="mvMode"><option value="live">实时与历史</option><option value="replay">隔离回放</option></select></label>
+<label>分类 <select id="mvCategory"><option value="">全部</option><option value="chat">弹幕 / 表情</option><option value="gift">礼物</option><option value="like">点赞</option><option value="member">成员 / 入场</option><option value="other">其他</option></select></label>
+<label><input type="checkbox" id="mvFollow" checked>自动跟随</label>
+<label><input type="checkbox" id="mvImages">显示消息图片</label>
+<button id="mvOlder">更早记录</button><button id="mvLatest">回到最新</button>
+</div>
+<p id="mvStatus" role="status">等待打开实时弹幕</p>
+<div class="mv-layout">
+<section class="mv-main" aria-label="实时消息列表"><div id="mvScroll" tabindex="0"><div id="mvRows"></div></div></section>
+<section class="mv-detail" aria-label="选中消息详情"><h2 id="mvTitle">选中一条消息查看详情</h2>
+<nav class="mv-tabs" aria-label="消息详情标签"><button data-mv-tab="content" aria-pressed="true">内容</button><button data-mv-tab="json" aria-pressed="false">官方 JSON</button><button data-mv-tab="proto" aria-pressed="false">Proto 字典</button><button data-mv-tab="mapping" aria-pressed="false">中文映射</button><button data-mv-tab="raw" aria-pressed="false">RAW / 处理链</button></nav>
+<div id="mvFieldLocator" hidden><label>JSON 字段定位 <select id="mvField"></select></label><p id="mvFieldInfo"></p></div>
+<div id="mv-content"></div><div id="mv-json" hidden><p>官方解析结果的本机安全投影，敏感字段隐藏；完整原始事实仍在本地存储。</p><pre id="mvJson"></pre></div>
+<div id="mv-proto" hidden><p>字段号和类型取自当前加载的官方 Parser；中文解释独立维护。嵌套字段可通过上方路径定位。</p><pre id="mvProto"></pre></div>
+<div id="mv-mapping" hidden><pre id="mvMapping"></pre></div>
+<div id="mv-raw" hidden><pre id="mvRaw"></pre></div>
+</section></div></div>
 <div id="page-workbench" class="page" aria-labelledby="title-workbench">
 <h1 id="title-workbench">工作台</h1>
 <section id="coordinatePanel">

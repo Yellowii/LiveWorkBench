@@ -87,7 +87,7 @@ try{
  await page.goto(app.url);await page.waitForFunction(()=>document.getElementById('connection').textContent==='实时增量已连接');
  await screenshot('initial');
  initialButtonCount=await page.locator('button:visible').count();
- if(after){assert.equal(await page.locator('[data-page]').count(),5);assert.equal(await page.locator('#profileStart').isVisible(),true);assert.equal(await page.locator('#captureStart').isVisible(),false);assert.equal(await page.locator('#accountLogin').isVisible(),false);}
+ if(after){assert.equal(await page.locator('[data-page]').count(),6);assert.equal(await page.locator('#profileStart').isVisible(),true);assert.equal(await page.locator('#captureStart').isVisible(),false);assert.equal(await page.locator('#accountLogin').isVisible(),false);}
  await go('accounts');await page.locator('#accountLogin').click();await page.waitForFunction(()=>document.getElementById('accountSummary').textContent.includes('扫码'));app.loginManager.active.client.confirm();await page.waitForFunction(()=>document.getElementById('accountSummary').textContent.includes('已登录'));assert.equal((await app.loginManager.list()).items[0].configured,true);
  await openDetails('accountAdvanced');await page.locator('#accountReload').click();
  const account=app.accounts.all()[0];

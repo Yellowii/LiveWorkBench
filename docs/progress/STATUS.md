@@ -546,6 +546,14 @@ Git同步：实现及验收提交551a8f30e473bbe31d50eadab3f768e5bf129b62已快�
 
 实现d038024（Pace）与6eb4a07（单房间正常窗口）均已推送GitHub main；网络临时push失败后普通重试与ls-remote核对恢复，未变更代理/DNS。后续仅追加本交接文档，不为文档提交重启正在采集的18783。当前问题已在真实平台实证接通，下一步继续可信直连与后台模式/恢复主线，不扩展UI。
 
+## 28. 实时弹幕独立展示层（2026-10-14，进行中）
+
+owner本会话→用户；基线c8613b6，复用已附加隔离worktree的codex/readable-messages，未派工。明确文件清单静态分析，无CDN下载/执行第三方分块，来源目录严格只读。正式18783只读核对PID41096/6eb4a075，RAW1480/事件2528；没有启停服务或浏览器。
+
+A增量已实现并通过针对性验证：src/messages纯MessageView/隐私过滤/字典定位/查询；Gateway本机会话与专用头受控REST；public/messages独立导航、虚拟列表500缓存、分类、历史游标、自动跟随、5类统一详情。Chat/Emoji/特权、Gift原始数量、Like、Member原生文案可读，未知动作/分类不猜。没有修改官方Parser/RAW/EventStore/SessionManager/采集规则；默认公共接口/WS/日志/导出保持脱敏。
+
+A验证：7项新增单元/API测试通过；tools/verify-messages.mjs通过实际Edge GUI、520条合成官方编码→RAW→Parser→事件、中文/XSS、字段号/类型、RAW/Proto链、500缓存历史/虚拟DOM、切页草稿、持续新增及1440/1024/700截图，0页面错误。截图人工检查宽屏通过。来源哈希/规则与接口见MESSAGE_VIEW.md和2026-10-14-message-mappings.md；报告截图仅忽略artifacts/messages。尚未执行真实记录验证、B增量及最终完整回归；当前不能标整个任务完成。
+
 ## 27. HTTP 参数发现、原生 WSS 与静默兜底修复（2026-10-14）
 
 基线本地 main 0ae7d11，复用已附加隔离 worktree，本轮单会话完成，没有派工或架构重审。开始时只读确认18783为PID41096、实际加载6eb4a075、fingerprint df83684705110d79b3cab3c21bdd7d01781b86429f972423a1ac7d2104dd55da、STOPPED；与Git HEAD不同。整个任务不重启/停止该服务，不写正式配置/凭据/SQLite，不操作旧监听、伴侣或系统代理/DNS/TUN/CA。隔离真实采集前确认正式STOPPED，期间守卫正式状态；测试仅结束自己创建的实例/连接/浏览器。

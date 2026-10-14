@@ -1,0 +1,10 @@
+// Explicit files only, read-only source access. Writes hashes/locations, never third-party bodies.
+import fs from 'node:fs/promises';
+import path from 'node:path';
+import {createHash} from 'node:crypto';
+const source=process.argv[2];if(!source)throw Error('Provide the authorized cdn-chunks-20261008 directory');
+const js=['DanmakuPlugin.7c702aa1.js','CanvasDanmakuPlugin.364e9be4.js','GiftTrayPlugin.64f99f29.js','GiftMenuPlugin.277c15b4.js','AdminPrivilegePlugin.3e987bfa.js','ShortTouchPlugin.e0f9c39f.js','RedPacketShortTouchPlugin.f3e74f45.js','LotteryShortTouchPlugin.dff12b10.js','RoomMessageConsume.e41a863a.js','LiveLike.bfb78734.js','EnterAndLeave.f83e5ae5.js'];
+const css=['DanmakuPlugin.bf02df37.css','CanvasDanmakuPlugin.1b4b60ef.css','GiftTrayPlugin.ad979c7b.css','GiftMenuPlugin.99b3f6cb.css','ShortTouchPlugin.2cbc2ed8.css','RedPacketShortTouchPlugin.390ecbfa.css','LotteryShortTouchPlugin.9d6a7ee6.css'];
+const cues=['rtf_content_v2','emoji_content','repeat_count','repeat_end','tray.combo','gift.icon','giftList','AdminPrivilegeMessage','payload.data.op','ShortTouchAreaMessage','short_touch_area_data','LuckyBoxMessage','LuckyBoxEndMessage','LotteryEventNewMessage','lottery_status','Inprogress:1','LikeMessage','MemberMessage','display:flex','border-radius'];
+const records=[];for(const [dir,names]of [['files',js],['css',css],['',['plugin-list.csv','css-list.csv','模块分析.md']]])for(const name of names){const bytes=await fs.readFile(path.join(source,dir,name)),text=bytes.toString('utf8');records.push({file:[dir,name].filter(Boolean).join('/'),sha256:createHash('sha256').update(bytes).digest('hex'),bytes:bytes.length,locations:dir?Object.fromEntries(cues.filter(c=>text.includes(c)).map(c=>[c,text.indexOf(c)])):undefined});}
+const output=path.resolve('docs/migration/message-plugin-sources.json');await fs.writeFile(output,JSON.stringify({snapshot:'cdn-chunks-20261008',confidence:'static-source-only',locations:'zero-based JavaScript string offsets, first occurrence; not business verification',files:records},null,2)+'\n');console.log('Audited explicit source files:',records.length);

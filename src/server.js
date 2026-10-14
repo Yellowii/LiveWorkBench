@@ -22,6 +22,7 @@ import {LoginManager} from './auth/login-manager.js';
 import {ViewerAccount} from './auth/viewer-account.js';
 import {LoginVault} from './auth/login-vault.js';
 import {errorMeaning} from './api/error-messages.js';
+import {messagePage,messageDetail} from './messages/query.js';
 
 const root=path.resolve(path.dirname(fileURLToPath(import.meta.url)),'..');
 const publicDir=path.join(root,'public');
@@ -53,7 +54,7 @@ export async function createGateway({dataDir,port=18780,settings={}}={}){
       if(!req.headers.host?.match(/^(127\.0\.0\.1|localhost):\d+$/))return fail(res,'FORBIDDEN',403);
       const u=new URL(req.url,url||'http://127.0.0.1');
       if(!u.pathname.startsWith('/api/')){
-        const assets={'/':['index.html','text/html'],'/app.js':['app.js','text/javascript'],'/app.css':['app.css','text/css']};const asset=assets[u.pathname];if(!asset)return fail(res,'RESOURCE_NOT_FOUND',404);
+        const assets={'/':['index.html','text/html'],'/app.js':['app.js','text/javascript'],'/app.css':['app.css','text/css'],'/messages.js':['messages.js','text/javascript'],'/messages.css':['messages.css','text/css']};const asset=assets[u.pathname];if(!asset)return fail(res,'RESOURCE_NOT_FOUND',404);
         const headers={'Content-Type':asset[1]+'; charset=utf-8','Content-Security-Policy':"default-src 'self'; connect-src 'self'; script-src 'self'; style-src 'self'; img-src 'self' https://*.douyinpic.com https://*.byteimg.com https://*.ibyteimg.com; frame-ancestors 'none'",'Cache-Control':'no-store'};
         if(u.pathname==='/')headers['Set-Cookie']=`lw_session=${token}; HttpOnly; SameSite=Strict; Path=/`;
         const bytes=await fs.readFile(path.join(publicDir,asset[0]));res.writeHead(200,headers);res.end(bytes);return;
@@ -62,6 +63,12 @@ export async function createGateway({dataDir,port=18780,settings={}}={}){
       if(req.headers.origin&&req.headers.origin!==url)return fail(res,'FORBIDDEN',403);
       const p=u.pathname;
       if(req.method==='GET'){
+        if(p==='/api/v1/local/messages'||/^\/api\/v1\/local\/messages\/[^/]+$/.test(p)){
+          // Deliberate local read, never reused by public WS, logs, export or card consumers.
+          if(req.headers['x-lw-local-view']!=='1'||!['127.0.0.1','::ffff:127.0.0.1','::1'].includes(req.socket.remoteAddress)||(req.headers['sec-fetch-site']&&!['same-origin','none'].includes(req.headers['sec-fetch-site'])))return fail(res,'FORBIDDEN',403);
+          const data=p==='/api/v1/local/messages'?messagePage(runtime,u.searchParams):messageDetail(runtime,decodeURIComponent(p.split('/').at(-1)),publicSafe);
+          res.writeHead(200,{'Content-Type':'application/json; charset=utf-8','Cache-Control':'no-store','X-Content-Type-Options':'nosniff'});res.end(JSON.stringify({schemaVersion:'1',requestId:randomUUID(),data,serverTime:new Date().toISOString()}));return;
+        }
         if(p==='/api/v1/viewer')return ok(res,{...await viewer.get(),viewerDisplay:true});
         if(p==='/api/v1/accounts')return ok(res,await loginManager.list());
         if(p==='/api/v1/profiles')return ok(res,{items:profiles.list().map(item=>({...item,monitor:monitor.view(item.profileId)}))});
@@ -71,7 +78,7 @@ export async function createGateway({dataDir,port=18780,settings={}}={}){
         if(p==='/api/v1/system/status')return ok(res,{instance,profiles:profiles.list(),monitor:monitor.list(),coordinator:coordinator.view(),accounts:{count:accounts.all().length,loginWindowOpen:Boolean(loginManager.active)},backendReady:true,selectedSource:sources.view().selectedSource,sourceControl:sources.view(),capture:sources.view().selectedSource==='WebSource'?sources.currentWeb().status:bridge.status,daemon:daemon.status,sessions:runtime.store.sessions(),metrics:runtime.metrics,privacy:{mode:projection.mode,projectionVersion:projection.version},liveEnvironmentAuthorized:Boolean(settings.certificatePath)});
         if(p==='/api/v1/health')return ok(res,{status:'ok',storage:'sqlite-wal-full',parser:'official',gatewayWebsocket:socketHub.view()});
         if(p==='/api/v1/capture/gaps')return ok(res,runtime.gaps.page({limit:u.searchParams.get('limit')}));
-        if(p==='/api/v1/capabilities')return ok(res,{...sources.capabilities(),features:{viewerAccount:true,accounts:false,networkPolicy:true,browserMetrics:true,profiles:true,monitor:true,eventHighWatermark:true,signedCursors:true,eventSummaries:true,protoTrace:true,rawPaging:true,captureGapTrace:true,reparse:true,replayPhysicalIsolation:true},limits:{eventPage:200,frontCache:500},replay:{implemented:true},r01:{available:Boolean(settings.r01Root),inputFormat:'business-payload'},lan:{enabled:false}});
+        if(p==='/api/v1/capabilities')return ok(res,{...sources.capabilities(),features:{messageView:true,viewerAccount:true,accounts:false,networkPolicy:true,browserMetrics:true,profiles:true,monitor:true,eventHighWatermark:true,signedCursors:true,eventSummaries:true,protoTrace:true,rawPaging:true,captureGapTrace:true,reparse:true,replayPhysicalIsolation:true},limits:{eventPage:200,frontCache:500},replay:{implemented:true},r01:{available:Boolean(settings.r01Root),inputFormat:'business-payload'},lan:{enabled:false}});
         if(p==='/api/v1/sources')return ok(res,{...sources.view(),items:['LiveHookSource','WebSource']});
         if(p==='/api/v1/hook/status')return ok(res,{...bridge.status,daemon:daemon.status,profileMatch:hookMatcher.view()});
         if(p==='/api/v1/events'){const page=runtime.store.events({limit:u.searchParams.get('limit'),cursor:u.searchParams.get('cursor'),mode:u.searchParams.get('mode'),namespace:u.searchParams.get('namespace'),method:u.searchParams.get('method'),afterSeq:u.searchParams.get('afterSeq')});return ok(res,{...page,items:page.items.map(event=>({...event,payload:{decodeStatus:event.payload?.decodeStatus,official:{content:event.payload?.official?.content||null},extensions:{lifecycleCandidate:event.payload?.extensions?.lifecycleCandidate||null}},detailAvailable:true}))});}
