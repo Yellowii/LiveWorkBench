@@ -6,7 +6,7 @@ const count=x=>typeof x==='number'&&Number.isFinite(x)?x:null;
 // Scalar-only snapshots: never serialize errors, platform bodies, URLs, env or account state.
 export class RunDiagnostics{
  constructor(app,{directory=path.join(app.runtime.dataDir,'diagnostics'),intervalMs=15000,maxBytes=512*1024,files=6,processEvents=true}={}){
-  this.app=app;this.directory=directory;this.maxBytes=maxBytes;this.files=files;this.failureCount=0;this.startedAt=new Date().toISOString();this.file=path.join(directory,'runtime.jsonl');fs.mkdirSync(directory,{recursive:true});
+  this.app=app;this.directory=directory;this.maxBytes=maxBytes;this.files=files;this.failureCount=0;this.startedAt=new Date().toISOString();this.file=path.join(directory,'runtime.jsonl');try{fs.mkdirSync(directory,{recursive:true});}catch{this.failureCount++;}
   this.delay=monitorEventLoopDelay({resolution:20});this.delay.enable();this.write('START',{commit:app.instance?.commit||null,fingerprint:app.instance?.codeFingerprint||null});
   this.listener=x=>this.write('TRANSITION',{capture:code(x?.captureState),reason:code(x?.reason),selected:code(x?.selectedSource)});app.runtime.on('source.updated',this.listener);
   this.logListener=x=>{if(x?.level==='error'||x?.level==='warn')this.write('PIPELINE_WARNING',{code:code(x.code)});};app.runtime.on('log.appended',this.logListener);
