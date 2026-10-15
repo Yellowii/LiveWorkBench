@@ -1,6 +1,6 @@
 import {localOfficial,resourceUrl,safeText} from './privacy.js';
 import {activityView} from './activities.js';
-export const mappingVersion='message-view-20261015-stage1';
+export const mappingVersion='message-view-20261015-fidelity2';
 const shortType=value=>typeof value==='string'&&/^(?:Webcast)?[A-Za-z][A-Za-z0-9]{0,100}$/.test(value)?value.replace(/^Webcast/,''):'UnknownMessage';
 const decimal=value=>/^(?:0|[1-9]\d{0,39})$/.test(String(value))?String(value):null;
 const positive=value=>decimal(value)&&BigInt(value)>0n?String(value):null;
@@ -22,6 +22,12 @@ function convert(e){
   const pattern=safeText(text.default_pattern);
   return (pattern?pattern.replace(/\{(\d+)(?::[^}]*)?\}/g,(_,i)=>pieces[Number(i)]??'[未识别片段]'):pieces.join('')).slice(0,2000);
  };
+ const runs=(pieces,field,kind='inline')=>(Array.isArray(pieces)?pieces:[]).slice(0,60).flatMap((p,i)=>{
+  const out=[];if(p.string_value)out.push({type:'text',text:safeText(p.string_value)});
+  if(p.image_value?.image){const url=p.image_value.image.url_list?.map(resourceUrl).find(Boolean);if(url){addImage(p.image_value.image,kind,`${field}.pieces[${i}].image_value.image`);out.push({type:'image',url,alt:'[图片]'});}else out.push({type:'text',text:'[图片不可用]'});}
+  if(p.user_value?.user)out.push({type:'text',text:safeText(p.user_value.left_additional_content)+safeText(p.user_value.user.nickname)+safeText(p.user_value.right_additional_content)});
+  return out.length?out:[{type:'text',text:'[未识别片段]'}];
+ });
  const nativeText=()=>rich(raw.common?.display_text,'common.display_text')||safeText(d.content)||safeText(d.common?.describe);
  const actor=d.user?{id:decimal(raw.user?.id_str||raw.user?.id),name:safeText(d.user.nickname)||'未提供昵称',badges:[]}:null;
  if(actor&&d.user?.user_attr?.is_admin===true)actor.badges.push('管理员（本条标记）');
@@ -32,20 +38,29 @@ function convert(e){
   Object.assign(view,{category:'chat',label:type==='EmojiChatMessage'?'表情':type==='ScreenChatMessage'?'管理弹幕':type==='PrivilegeScreenChatMessage'?'特权弹幕':'弹幕',icon:'聊'});
   view.summary=rich(raw.rtf_content_v2,'rtf_content_v2')||safeText(d.content)||rich(raw.emoji_content,'emoji_content','emoji')||safeText(d.default_content)||nativeText();
   if(type==='ScreenChatMessage'&&actor)actor.badges.push('管理弹幕');
-  if(type==='PrivilegeScreenChatMessage')view.content.style=decimal(d.style); // Style enum dependency not verified.
+  view.content.runs=type==='EmojiChatMessage'?runs(raw.emoji_content?.pieces,'emoji_content','emoji'):runs(raw.rtf_content_v2?.pieces,'rtf_content_v2');
+  if(!view.content.runs.length)view.content.runs=[{type:'text',text:view.summary}];
+  if(type==='PrivilegeScreenChatMessage'){
+   view.content.style=decimal(d.style);view.content.privilegeStyle=({1:'base',2:'advanced',3:'supreme'})[view.content.style]||'unknown';
+   notes.push('特权样式枚举：426.e4be7020.js模块217785；仅视觉等级，不推断用户权益');
+  }
  }else if(type==='GiftMessage'){
   Object.assign(view,{category:'gift',label:'礼物',icon:'礼'});
   const name=safeText(d.gift?.name)||null,repeatCount=positive(d.repeat_count),groupCount=positive(d.group_count),comboCount=positive(d.combo_count);
   const comboState=Number(d.repeat_end)===1?'ended':raw.gift?.combo===true&&Number(d.repeat_end)===0?'ongoing':'unknown';
-  view.content.gift={name,repeatCount,groupCount,comboCount,comboState,giftId:decimal(d.gift_id||d.gift?.id),groupId:decimal(d.group_id)};
-  addImage(raw.gift?.icon,'gift','gift.icon');
-  view.summary=rich(raw.tray_display_text,'tray_display_text')||safeText(d.gift?.describe)||(name?`送出${name}`:nativeText()||'收到礼物消息（名称未提供）');
+  const trayText=rich(raw.tray_display_text,'tray_display_text'),displayCount=repeatCount||comboCount;
+  view.content.gift={name,repeatCount,groupCount,comboCount,comboState,giftId:decimal(d.gift_id||d.gift?.id),groupId:decimal(d.group_id),displayCount,trayText:trayText||(name?'送出'+name:''),trayEligible:Number(d.repeat_end||0)===0&&Boolean(displayCount&&name&&actor?.id),trayType:decimal(raw.tray_info?.tray_type)};
+  addImage(raw.gift?.image?.url_list?.some(resourceUrl)?raw.gift.image:raw.gift?.icon,'gift',raw.gift?.image?.url_list?.some(resourceUrl)?'gift.image':'gift.icon');
+  addImage(raw.tray_info?.tray_base_img,'trayBackground','tray_info.tray_base_img');
+  addImage(raw.tray_info?.tray_dynamic_img,'giftDynamic','tray_info.tray_dynamic_img');
+  view.summary=trayText||safeText(d.gift?.describe)||(name?`送出${name}`:nativeText()||'收到礼物消息（名称未提供）');
   if(repeatCount)view.summary+=` · 重复数量 ${repeatCount}`;
   if(groupCount)view.summary+=` · 组数 ${groupCount}`;
   if(comboCount)view.summary+=` · 连击字段 ${comboCount}`;
   if(comboState==='ended')view.summary+=' · 连击结束';
   if(comboState==='ongoing')view.summary+=' · 连击中';
   notes.push('group/repeat/combo 为单条消息字段，不相加，不推断最终赠送总数；礼物分类依赖未确认');
+  notes.push('托盘repeat/combo及tray_info映射来自426.e4be7020.js模块508899；结束通知仅保留在列表/详情，不新建或续期托盘');
  }else if(type==='LikeMessage'){
   Object.assign(view,{category:'like',label:'点赞',icon:'赞'});view.content.count=positive(d.count);view.content.total=decimal(d.total);
   view.summary=nativeText()||`点赞${view.content.count?' ×'+view.content.count:''}`;

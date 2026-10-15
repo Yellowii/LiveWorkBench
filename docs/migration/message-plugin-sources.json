@@ -178,6 +178,25 @@
       "file": "模块分析.md",
       "sha256": "7dd8c8747ccba53b7a675f865bc929e924cc38164ed0807fcba7618671d68429",
       "bytes": 101952
+    },
+    {
+      "file": "files/426.e4be7020.js",
+      "sha256": "58a39c0b017ab019c6f3b2494f139d4ede4d57f6ed53a4ae024afa189c76ee60",
+      "bytes": 79000,
+      "locations": {
+        "privilegeEnum217785": 32950,
+        "giftAdapter508899": 35446
+      },
+      "scope": "targeted static dependency read; no original script execution"
+    },
+    {
+      "file": "files/live-canvas-danmaku.88b4e7e3.js",
+      "sha256": "9d8f1e8de2629c2eb2865680cbd455fb77040ff0f7900584b78562db8764db37",
+      "bytes": 33323,
+      "locations": {
+        "duration": 1143
+      },
+      "scope": "targeted static dependency read; no original script execution"
     }
   ]
 }

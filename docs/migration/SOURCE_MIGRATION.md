@@ -305,3 +305,6 @@ douyinprotobuf@e9e6cec的BrowserLive/AccountMonitor/createLoginContext经tools/s
 用户指定 cdn-chunks-20261008 的8个Webpack插件、3个辅助块与7份CSS通过已有清单定位。只读静态核查，不运行第三方分块，不下载/提交原JS/CSS/资源；21份指定输入（包含3份清单/分析文档）哈希和定位记录在 [message-plugin-sources.json](message-plugin-sources.json)。规则、字段、中文解释、未确认依赖见 [转写记录](../reviews/2026-10-14-message-mappings.md)。
 
 实现为第一方src/messages与独立简易页面，纯查询转换复用现有官方Parser反射/事件/RAW/Proto索引，不移植播放器、Worker、活动接口或完整插件系统。礼物目录与分类函数未闭合，不建立固定礼物ID/价格表；表情目录未获取，不猜资源映射。原生字段保持事实，未知枚举/依赖显式标注。真实事件抽样与合成GUI验证在STATUS28分开记录，不将静态源码视为业务验收。
+
+
+2026-10-15视觉第二轮：借助原analysis模块索引局部读取426.e4be7020.js模块217785/508899及live-canvas-danmaku运行库。补齐特权枚举、富文本位置、托盘字段/结束过滤与原CSS对照；原文件/JS执行仍禁止，静态映射及局部GUI不等于官方运行还原。详见message-stage审查第二轮；模块120740相关礼物类型/冠名枚举等仍未闭合。

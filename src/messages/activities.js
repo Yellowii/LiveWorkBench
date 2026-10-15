@@ -18,6 +18,9 @@ export function activityView(type,d,nativeText){
   if(type==='LotteryEventNewMessage'){status=lotteryStates[number(d.lottery_status)]||'状态未确认';summary=['福袋 · '+status,safeText(d.award_name),safeText(d.award_description),nativeText()].filter(Boolean).join(' · ');extra={statusValue:number(d.lottery_status),drawTime:number(d.lottery_draw_time),currentTime:number(d.lottery_current_time),prizeType:number(d.prize_type),prizeCount:number(d.prize_count),luckyCount:number(d.lucky_count)};}
   else if(type==='LotteryCandidateEventMessage'){status=d.participate_success===true?'participated':'unknown';summary=d.participate_success===true?'福袋参与成功消息':'福袋候选消息 · 未确认参与成功';}
   else {status='result';summary=`福袋开奖结果已收到 · 结果用户数 ${Array.isArray(d.user_ids)?d.user_ids.length:0}`;extra={resultListMayBeTruncated:Array.isArray(d.user_ids)&&d.user_ids.length>=80};}
+  const current=number(d.lottery_current_time),draw=number(d.lottery_draw_time);
+  const remaining=current&&current!=='0'&&draw?BigInt(draw)-BigInt(current):null;
+  extra.observedRemainingSeconds=remaining!==null&&remaining>=0n&&remaining<=86400n?Number(remaining):null;
   return {category:'lottery',label:'福袋 / 抽奖',icon:'福',summary,activity:{lotteryId:number(d.lottery_id),status,...extra},source:'LotteryShortTouchPlugin.dff12b10.js'};
  }
  if(type==='ShortTouchAreaMessage'){

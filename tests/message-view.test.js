@@ -2,7 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import {messageView} from '../src/messages/message-view.js';
 import {localOfficial,resourceUrl} from '../src/messages/privacy.js';
-import {messageFields} from '../src/messages/dictionary.js';
+import {messageFields,fieldAt} from '../src/messages/dictionary.js';
 import {OfficialParser} from '../src/parser/index.js';
 const event=(type,official)=>({eventId:'test-event',eventSeq:'1',eventType:'Webcast'+type,mode:'live',runtimeNamespace:'live',rawRefs:['raw-test'],payload:{decodeStatus:'decoded',official}});
 test('chat, rich pieces, emoji and privilege preserve readable text without executing markup',()=>{
@@ -42,4 +42,6 @@ test('dictionary resolves exact nested JSON path to official field numbers; unkn
  const parser=await OfficialParser.open(),out=messageFields(parser.native,'WebcastChatMessage',{user:{nickname:'test'},content:'test',unverified:1});
  assert.equal(out.fields.find(x=>x.path==='content').number,3);const nick=out.fields.find(x=>x.path==='user.nickname');assert.equal(nick.number,3);assert.equal(nick.type,'string');assert.match(nick.label,/昵称/);
  assert.equal(out.fields.find(x=>x.path==='unverified').number,null);assert.equal(out.fields.find(x=>x.path==='unverified').confidence,'unknown');
+ assert.match(fieldAt(parser.native,'WebcastPrivilegeScreenChatMessage','/style').label,/1基础\/2高级\/3至尊/);
+ assert.match(fieldAt(parser.native,'WebcastGiftMessage','/tray_info/tray_dynamic_img').label,/动态图/);
 });

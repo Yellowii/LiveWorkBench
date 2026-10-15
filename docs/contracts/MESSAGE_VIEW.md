@@ -15,3 +15,5 @@ MessageView：messageType、category、label/icon、summary、actor、content、
 映射来源：[指定插件静态规则](../reviews/2026-10-14-message-mappings.md)及[快照哈希](../migration/message-plugin-sources.json)。中文注释来自第一方独立解释，未确认者明确未知；字段号必须来自运行中官方Parser，不能用命名近似猜测。新页面能力不代表18783已更新。
 
 2026-10-15 舞台首批：`public/message-stage.js`、`stage-model.js`、`stage-resources.js` 独立负责Canvas、DOM和有界展示时钟/资源缓存，共用本机MessageView，不进入采集链。actor增加可确认的数字ID，gift增加groupId以避免跨人/跨组更新。只实现普通/通用特权弹幕、礼物托盘和福袋；其他类别仍走列表详情。`GET /api/v1/local/assets/{lottery-icon|gift-tray-bg}` 仅允许固定本地PNG、会话及同源loopback图片读取，不接受路径，不支持外部脚本。私有原图不入Git。静态依据、未还原项与截图见 [三组件核查](../reviews/2026-10-15-message-stage.md)。
+
+2026-10-15 第二轮映射 `message-view-20261015-fidelity2`：content.runs保存有界、有序的纯文本/已校验图片片段；content.privilegeStyle使用静态核实的base/advanced/supreme，其他为unknown。gift新增displayCount/trayText/trayEligible/trayType；resources新增trayBackground/giftDynamic。trayEligible只决定托盘展示，repeat_end原始事件与详情不丢弃；递增数量才更新同组托盘。activity.observedRemainingSeconds仅为有效平台draw/current时间之差（0—86400秒），不承诺当前倒计时。新增字段向后兼容；旧运行服务无这些字段时页面降级，不把磁盘新代码当作已加载的新映射。官方Parser与原始JSON不变。
