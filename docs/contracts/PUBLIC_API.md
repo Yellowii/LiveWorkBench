@@ -246,7 +246,7 @@ Replay读取SHA256不符返回RAW_HASH_MISMATCH/409并标failed，不生成该�
 
 ### 单观看账号兼容增量（2026-10-14）
 
-capabilities.features.viewerAccount=true，accounts=false 表示多账号写入已收敛；GET /accounts 仍可只读诊断。GET /viewer 返回 version/configured/authenticated/identity/login/windowOpen/networkPolicy/pageLoad/migration/clearImpact，不返回凭据。POST /viewer/actions 沿用 commandId 与 expectedVersion，login 可含 networkPolicy，adopt 含 candidateId，cleanup 含 candidateIds；logout/check/close 无其他必需参数。多个旧凭据未选定时 AUTH_VIEWER_MIGRATION_REQUIRED；旧账号/房间认证写命令 AUTH_USE_ACCOUNT_MANAGEMENT，均有中文下一步。
+capabilities.features.viewerAccount=true，accounts=false 表示多账号写入已收敛；GET /accounts 仍可只读诊断。GET /viewer 返回 version/configured/authenticated/identity/lastVerifiedAt/savedAt/login/windowOpen/networkPolicy/pageLoad/migration/clearImpact，不返回凭据。POST /viewer/actions 沿用 commandId 与 expectedVersion，login 可含 networkPolicy，adopt 含 candidateId，cleanup 含 candidateIds；logout/check/close 无其他必需参数。多个旧凭据未选定时 AUTH_VIEWER_MIGRATION_REQUIRED；旧账号/房间认证写命令 AUTH_USE_ACCOUNT_MANAGEMENT，均有中文下一步。
 
 Profile actions 新增 details：安全查询目标，不修改 monitor 场次证据/确认状态，返回 state/resolved/errorCode/missingConditions 与 roomInfo（可靠证据缺失时 null）。仅本机受认证 viewer.identity/roomInfo 展示固定、校验后的资料；所有其他 REST、WS、日志/导出继续原投影，具体白名单边界见 ACCOUNTS v2。不启用 LAN，不改变 RAW/事件契约。
 # 2026-10-14 本机可读展示增量

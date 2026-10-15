@@ -43,10 +43,10 @@
 <section class="mv-detail" aria-label="选中消息详情"><h2 id="mvTitle">选中一条消息查看详情</h2>
 <nav class="mv-tabs" aria-label="消息详情标签"><button data-mv-tab="content" aria-pressed="true">内容</button><button data-mv-tab="json" aria-pressed="false">官方 JSON</button><button data-mv-tab="proto" aria-pressed="false">Proto 字典</button><button data-mv-tab="mapping" aria-pressed="false">中文映射</button><button data-mv-tab="raw" aria-pressed="false">RAW / 处理链</button></nav>
 <div id="mvFieldLocator" hidden><label>JSON 字段定位 <select id="mvField"></select></label><p id="mvFieldInfo"></p></div>
-<div id="mv-content"></div><div id="mv-json" hidden><p>官方解析结果的本机安全投影，敏感字段隐藏；完整原始事实仍在本地存储。</p><pre id="mvJson"></pre></div>
+<div id="mv-content"></div><div id="mv-json" hidden><p>完整原生业务 JSON（本机认证访问）。点击字段查看 Proto；展开后每页显示100项。中文解释和增强映射独立展示。</p><div id="mvJson" class="json-tree"></div></div>
 <div id="mv-proto" hidden><p>字段号和类型取自当前加载的官方 Parser；中文解释独立维护。嵌套字段可通过上方路径定位。</p><pre id="mvProto"></pre></div>
 <div id="mv-mapping" hidden><pre id="mvMapping"></pre></div>
-<div id="mv-raw" hidden><pre id="mvRaw"></pre></div>
+<div id="mv-raw" hidden><pre id="mvRaw"></pre><div id="mvBinary"></div></div>
 </section></div></div>
 <div id="page-workbench" class="page" aria-labelledby="title-workbench">
 <h1 id="title-workbench">工作台</h1>
@@ -69,6 +69,7 @@
 </section>
 <section>
 <h2>账号摘要</h2>
+<img id="dashboardAvatar" alt="观看账号真实头像" width="48" height="48" hidden referrerpolicy="no-referrer"><p id="dashboardIdentity"></p><p id="dashboardVerification"></p><p id="dashboardAvatarStatus"></p>
 <p id="dashboardAccounts">正在读取账号状态</p>
 <a href="#accounts" data-open-page="accounts">管理账号与登录</a> · <a href="#rooms" data-open-page="rooms">管理直播间</a>
 </section>
@@ -88,11 +89,11 @@
 <p>一个抖音登录身份用于所有直播间。官方确认后自动安全保存，并关闭临时登录窗口。</p>
 <p id="accountSummary">正在读取观看账号状态。</p>
 <img id="viewerAvatar" alt="观看账号头像" width="48" height="48" hidden referrerpolicy="no-referrer">
-<p id="viewerIdentity"></p>
-<div class="actions"><button id="accountLogin">登录抖音</button><button id="accountClear" hidden>退出并清除登录态…</button></div>
+<p id="viewerIdentity"></p><p id="viewerVerification"></p><p id="viewerAvatarStatus"></p>
+<div class="actions"><button id="accountLogin">登录抖音</button><button id="accountCheck">验证登录状态</button><button id="accountClear" hidden>退出并清除登录态…</button></div>
 <section id="viewerMigration" hidden><h3>旧登录态迁移</h3><p>请选择要保留为观看账号的登录态。其他保存状态不会自动删除，文件存在不代表当前仍有效。</p><select id="viewerCandidate" aria-label="选择旧登录态"></select><button id="viewerAdopt">使用选中的登录态</button></section>
 <details id="viewerCleanup" hidden><summary>清理保留的旧登录态</summary><p>勾选后删除对应保存凭据和旧记录；此操作不可撤销，不会停止当前采集。</p><div id="viewerCandidates"></div><button id="viewerDelete">删除勾选的旧登录态…</button></details>
-<details id="accountAdvanced"><summary>登录网络与开发诊断</summary><select id="accountNetworkMode"><option value="system">系统现有代理</option><option value="direct">安全直连</option><option value="custom">自定义代理</option></select><input id="accountProxy" placeholder="自定义代理地址；留空保留登记值"><button id="accountCheck">检查当前登录窗口</button><button id="accountReload">刷新登录状态</button><button id="accountClose">关闭临时登录窗口</button><pre id="accountState"></pre></details>
+<details id="accountAdvanced"><summary>登录网络与开发诊断</summary><select id="accountNetworkMode"><option value="system">系统现有代理</option><option value="direct">安全直连</option><option value="custom">自定义代理</option></select><input id="accountProxy" placeholder="自定义代理地址；留空保留登记值"><button id="accountReload">刷新登录状态</button><button id="accountClose">关闭临时登录窗口</button><pre id="accountState"></pre></details>
 <p>退出只清除保存与可复用登录态；当前采集浏览器保留。后续新连接或重连可能需要重新登录。</p>
 </section>
 </div>

@@ -10,7 +10,7 @@ import {queryOfficialProfile} from './official-account-query.js';
 // A login window owns no capture source, room, recorder or upstream barrage client.
 export class LoginBrowserSession extends EventEmitter {
   constructor({launchBrowser=options=>chromium.launch(options),prepareContext=async()=>{},transport=new NetworkTransport()}={}){super();this.launchBrowser=launchBrowser;this.prepareContext=prepareContext;this.transport=transport;}
-  async open({storageState,networkPolicy}={}){
+  async open({storageState,networkPolicy,headless=false}={}){
     const {AccountMonitor,normalizeAccount}=await import('../parser/browser-vendor/account.js');
     const {createLoginContext}=await import('../parser/browser-vendor/login-config.js');
     const candidates=[process.env.BROWSER_EXECUTABLE,'C:/Program Files/Google/Chrome/Application/chrome.exe','C:/Program Files (x86)/Microsoft/Edge/Application/msedge.exe'].filter(Boolean);let executablePath;
@@ -18,7 +18,7 @@ export class LoginBrowserSession extends EventEmitter {
     if(!executablePath)throw new Error('BROWSER_NOT_PREPARED');
     this.network=await this.transport.browserRoute('https://live.douyin.com/',networkPolicy||{mode:'system'});
     try{
-      this.browser=await this.launchBrowser({executablePath,headless:false,...this.network.launch});
+      this.browser=await this.launchBrowser({executablePath,headless,...this.network.launch});
       this.context=await createLoginContext(this.browser,{storageState});
       this.loadDiagnostics=new LoginLoadDiagnostics(this.context,entry=>this.emit('diagnostic',entry));
       this.context.on('response',response=>{const url=new URL(response.url());if(response.status()===200&&url.hostname==='live.douyin.com'&&response.request().resourceType()==='document'){this.network.diagnostic.connectionState='page-response-received';this.network.diagnostic.errorCode=null;}});

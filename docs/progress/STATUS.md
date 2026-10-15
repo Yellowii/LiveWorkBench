@@ -621,3 +621,14 @@ owner本会话→用户；基线f5aa98c，复用隔离worktree的codex/stopped-r
 - 验证：`node --test tests/parser-loader-lifetime.test.js`通过；诊断/消息API/来源针对回归9/9通过。全套195项中194通过，部署cold-start一项遇到 `PROCESS_SCAN_UNAVAILABLE`；相同单项重跑通过（Windows查询瞬态问题，未改部署脚本）。私有报告 `artifacts/stability-full.txt`、`stability-deploy-recheck.txt`。
 - 长测：`node --max-old-space-size=512 tools/soak-workbench.mjs 21600 artifacts/soak-six-hour-20261015` 于北京时间08:05:08启动，独立PID52860，真实回环WS + 合成官方编码消息 + RAW/解析/事件链，每10分钟触发断线重连。6秒冒烟实际7.09秒通过。六小时测试进行中，不能标为长期通过；报告保存在该目录，不提交真实数据。24小时及真实平台长测未执行。
 - 交接：P0代码已实现，六小时结果待补；继续P1账号持久展示/官方复验和完整本机业务JSON，再做限定三种P2舞台组件。不会重启正式18783。
+
+## 31. 2026-10-15 P1 单观看账号资料与完整本机业务详情
+
+- 第一方登录适配新增最小资料缓存（现有runtime_state，无数据库schema变化），保存官方成功响应的头像/昵称/抖音号/用户ID/时间。重启仅恢复资料和历史验证时间，当前认证状态仍为UNKNOWN；退出清除缓存、内存和凭据。`displayAvatar`保留可信图片CDN所需查询参数。账号页和工作台摘要直接展示资料、保存状态及当前验证结果，内部JSON仍折叠。
+- “验证登录状态”复用现有官方self证据链，在临时无头登录上下文中读取保存凭据；不接管采集、不重写凭据、不打开可见窗口。正常扫码窗口仍完整可见。首次真实探测页面初始化异常、没有self响应，45秒超时正确保留UNKNOWN；第二次以及GUI按钮重试收到官方profile-self HTTP200/status_code=0。不能将间歇性页面失败写成已修复。
+- 真实GUI验收：仅复制选中账号的DPAPI凭据到私有隔离数据目录，08:22:56官方确认；昵称/抖音号/平台ID均存在，真实头像naturalWidth=100且加载成功。截图 `artifacts/p1-real-preview/real-account-verified.png` 含私人资料，不上传。正式18783与正式凭据未修改。持久恢复、失败不覆盖历史成功时间、清除资料使用合成测试；本轮未要求重新扫码或退出真实账号。
+- 本机受认证 `/local/messages/:id` 的official现在直接来自持久事件的原生业务对象，不再套用localOfficial的字符串/字段/数组截断。消息摘要仍有长度限制；不改变原始事实。树按展开分页构建DOM，长字符串分段显示；完整对象只在选择消息时读取，不是推送到公开WS/日志/导出。
+- 新增字段JSON Pointer精确定位 `/field?path=...`，独立于有界字段概览；无法映射显式unknown。新增关联事件的 `/binary?rawId=...&protoId=...&offset=...&limit=...`，每页最多64KiB；只允许关联业务Proto或非HTTP业务RAW，不接受任意文件路径。UI RAW页可翻页查看hex/base64。哈希来自持久索引，分片读取不冒充重新校验整个文件。
+- 安全：沿用loopback、会话、同源和本机显式请求头；原生对象只从event.payload.official取值，不读取认证存储。昵称、正文、资源URL和未知业务字段不再人为隐藏，所有前端内容均textContent。映射失败不影响原始JSON读取。
+- 验证：账号针对性10/10；消息本机API/身份3/3；大数组1200项、10万字字符串、未知字段、URL完整性、越权字节拒绝与Proto定位回归通过。既有MessageView GUI完整回归通过（1171条合成输入，历史分页/Replay隔离/XSS/三种宽度，0页面异常）。另只读选择100条真实历史事件及关联RAW复制到隔离目录，真实JSON/Proto/RAW GUI通过，截图real-json.png、real-raw.png；不是新增真实采集或长期平台验收。
+- 正式服务未启动；隔离预览PID37568，地址记录于私有preview.json。P0六小时进程仍运行，结果待补。下一阶段限定三类视觉组件。

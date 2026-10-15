@@ -1,3 +1,4 @@
+import {nativeTree} from './native-tree.js';
 // Local readable views only. No payload is sent to public sockets or diagnostic exports.
 const $=id=>document.getElementById(id),height=84,maxCache=500;
 let rows=[],cursor=null,historyAnchor=null,high='0',busy=false,generation=0,detailGeneration=0,selected=null,detail=null,tab='content',pending=null,initialized=false;
@@ -56,19 +57,27 @@ function renderContent(){
  for(const p of v.provenance)body.append(node('p',`${p.source||'未确认来源'} · ${p.confidence} · ${p.notes.join('；')}`));
 }
 async function select(id){
- const gen=++detailGeneration;selected=id;detail=null;for(const id of ['mv-content','mvJson','mvProto','mvMapping','mvRaw'])$(id).replaceChildren();$('mvFieldLocator').hidden=true;render();$('mvTitle').textContent='读取消息详情…';
+ const gen=++detailGeneration;selected=id;detail=null;for(const id of ['mv-content','mvJson','mvProto','mvMapping','mvRaw','mvBinary'])$(id).replaceChildren();$('mvFieldLocator').hidden=true;render();$('mvTitle').textContent='读取消息详情…';
  try{const data=await read('/'+encodeURIComponent(id));if(gen!==detailGeneration)return;detail=data;$('mvTitle').textContent=data.view.label+' · 消息详情';renderContent();
-  $('mvJson').textContent=JSON.stringify(data.official,null,2);$('mvProto').textContent=JSON.stringify({parserVersion:data.parserVersion,rootType:data.schema.rootType,fields:data.schema.dictionary},null,2);
+  nativeTree($('mvJson'),data.official,async path=>{try{const field=await read('/'+encodeURIComponent(id)+'/field?'+new URLSearchParams({path}));if(gen===detailGeneration)fieldInfo(field);}catch(e){$('mvFieldInfo').textContent=e.message;}});$('mvProto').textContent=JSON.stringify({parserVersion:data.parserVersion,rootType:data.schema.rootType,fields:data.schema.dictionary},null,2);
   $('mvMapping').textContent=JSON.stringify({provenance:data.view.provenance,fields:data.schema.fields,truncated:data.schema.truncated},null,2);
   $('mvRaw').textContent=JSON.stringify({eventId:data.view.eventId,rawRefs:data.view.rawRefs,raw:data.raw,protos:data.protos,traceTruncated:data.traceTruncated},null,2);
+  renderBinary(data,id,gen);
   $('mvField').replaceChildren(...data.schema.fields.map(f=>{const option=node('option',f.path);option.value=f.path;return option;}));showField();showTab(tab);
  }catch(e){if(gen===detailGeneration)$('mvTitle').textContent=e.message;}
 }
-function showField(){const f=detail?.schema.fields.find(f=>f.path===$('mvField').value);$('mvFieldInfo').textContent=f?`${f.path} → ${f.parentType||'类型未确认'} / #${f.number??'未知'} / ${f.type||'类型未确认'}${f.repeated?' / repeated':''}${f.keyType?' / map<'+f.keyType+'>':''} · ${f.label} · ${f.confidence}`:'当前字段无可靠对应关系';}
+function fieldInfo(f){$('mvFieldInfo').textContent=f?`${f.path||'$'} → ${f.parentType||'类型未确认'} / #${f.number??'未知'} / ${f.type||'类型未确认'}${f.repeated?' / repeated':''}${f.keyType?' / map<'+f.keyType+'>':''} · ${f.label} · ${f.confidence}`:'当前字段无可靠对应关系';}
+function showField(){fieldInfo(detail?.schema.fields.find(f=>f.path===$('mvField').value));}
+function renderBinary(data,id,gen){
+ for(const rawId of data.view.rawRefs){const section=node('details'),summary=node('summary','读取原始业务字节 '+rawId),output=node('pre'),next=node('button','读取下一页');let offset=0;section.append(summary,output,next);$('mvBinary').append(section);
+ const readPage=async()=>{next.disabled=true;try{const page=await read('/'+encodeURIComponent(id)+'/binary?'+new URLSearchParams({rawId,offset:String(offset),limit:'4096'}));if(gen!==detailGeneration)return;output.textContent=JSON.stringify(page,null,2);offset=page.nextOffset;next.hidden=offset===null;}catch(e){output.textContent=e.message;}finally{next.disabled=false;}};
+ let loaded=false;section.ontoggle=()=>{if(section.open&&!loaded){loaded=true;readPage();}};next.onclick=readPage;
+ }
+}
 function showTab(name){tab=name;for(const el of document.querySelectorAll('[data-mv-tab]'))el.setAttribute('aria-pressed',String(el.dataset.mvTab===name));for(const key of ['content','json','proto','mapping','raw'])$('mv-'+key).hidden=key!==name;$('mvFieldLocator').hidden=!detail||!['json','proto','mapping'].includes(name);}
 for(const el of document.querySelectorAll('[data-mv-tab]'))el.onclick=()=>showTab(el.dataset.mvTab);
 $('mvField').onchange=showField;$('mvImages').onchange=renderContent;
-$('mvMode').onchange=()=>{detailGeneration++;detail=null;selected=null;rows=[];initialized=false;$('mvTitle').textContent='选中一条消息查看详情';for(const id of ['mv-content','mvJson','mvProto','mvMapping','mvRaw'])$(id).replaceChildren();$('mvFieldLocator').hidden=true;latest();};
+$('mvMode').onchange=()=>{detailGeneration++;detail=null;selected=null;rows=[];initialized=false;$('mvTitle').textContent='选中一条消息查看详情';for(const id of ['mv-content','mvJson','mvProto','mvMapping','mvRaw','mvBinary'])$(id).replaceChildren();$('mvFieldLocator').hidden=true;latest();};
 $('mvCategory').onchange=()=>{render();report();};$('mvLatest').onclick=()=>{$('mvFollow').checked=true;latest();};$('mvOlder').onclick=older;
 $('mvFollow').onchange=()=>{if($('mvFollow').checked)poll();render();report();};
 $('mvScroll').onscroll=()=>{if(!visible())return;const el=$('mvScroll');if(el.scrollHeight-el.scrollTop-el.clientHeight>height*2)$('mvFollow').checked=false;render();};

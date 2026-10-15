@@ -18,7 +18,14 @@ function navigate(name){
 }
 document.querySelectorAll('[data-page]').forEach(button=>{button.onclick=()=>navigate(button.dataset.page);});
 document.querySelectorAll('[data-open-page]').forEach(link=>{link.onclick=event=>{event.preventDefault();navigate(link.dataset.openPage);};});
+function showViewerIdentity(p,prefix){
+ const identity=p?.identity,avatar=$(prefix+'Avatar');$(prefix+'Identity').textContent=identity?`昵称：${identity.nickname||'官方未提供'} · 抖音号：${identity.account||'官方未提供'} · 平台用户 ID：${identity.id||'官方未提供'}`:'尚无官方确认的资料';
+ const states={UNKNOWN:'待验证',CHECKING:'正在进行官方验证',AUTHENTICATED:'最近官方验证成功',ANONYMOUS:'官方返回未登录',ERROR:'验证未完成',OPENING:'正在打开登录窗口',WAITING_FOR_LOGIN:'等待登录',SAVING:'正在保存'};
+ $(prefix+'Verification').textContent=`登录态：${p?.configured?'已保存':'未保存'} · 当前验证：${states[p?.login?.state]||'待验证'} · 官方最近成功验证：${p?.lastVerifiedAt?new Date(p.lastVerifiedAt).toLocaleString('zh-CN',{hour12:false}):'尚无记录'}`;
+ const note=$(prefix+'AvatarStatus');if(identity?.avatar){avatar.hidden=false;if(avatar.getAttribute('src')!==identity.avatar){note.textContent='头像加载中';avatar.onload=()=>{note.textContent='';};avatar.onerror=()=>{note.textContent='真实头像请求失败（地址可能过期或网络不可用），可重新验证资料';};avatar.src=identity.avatar;}}else{avatar.hidden=true;avatar.removeAttribute('src');note.textContent='官方尚未提供可用头像地址';}
+}
 function showDashboard(){
+ showViewerIdentity(viewerState,'dashboard');
   const p=selectedProfile(),active=profileItems.find(item=>item.profileId===dashboardStatus?.coordinator?.active?.profileId);
   $('dashboardRoom').textContent=p?`选中：${p.name} · ${p.enabled?'启用':'停用'} · ${p.target?.display||p.target?.type||'目标待确认'}`:'尚未选择直播间，请到直播间添加或选择配置。';
   $('dashboardAccount').textContent=viewerState?.authenticated?'观看账号已登录':viewerState?.configured?'观看登录态已保存，当前有效性待确认':'观看账号未登录';
@@ -109,8 +116,8 @@ let profileItems=[],profileVersion=null,viewerState=null,accountsAvailable=false
 function showAccount(p){viewerState=p;const state=p?.login?.state;
  $('accountSummary').textContent=p?.migration?.required?'存在多个旧登录态，请先选择保留的观看账号。':p?.authenticated?'已登录，登录态已安全保存。':p?.windowOpen?'请在 Chromium 窗口扫码或完成官方验证；确认后自动保存并关闭。':state==='ERROR'?'登录或保存尚未完成，请查看诊断。':p?.configured?'已有受保护登录态，可用于监听；当前有效性待官方确认。':'尚未登录。';
  $('accountState').textContent=pretty(p||{});$('accountLogin').textContent=p?.configured?'重新登录':'登录抖音';$('accountLogin').disabled=!accountsAvailable||p?.migration?.required||p?.windowOpen;
- $('accountClear').hidden=!p?.configured&&!p?.windowOpen&&!p?.authenticated;$('accountClose').disabled=!p?.windowOpen;$('accountCheck').disabled=!p?.windowOpen;
- const identity=p?.identity;$('viewerIdentity').textContent=identity?[identity.nickname,identity.account,identity.id?'ID：'+identity.id:''].filter(Boolean).join(' · '):'';$('viewerAvatar').hidden=!identity?.avatar;if(identity?.avatar)$('viewerAvatar').src=identity.avatar;else $('viewerAvatar').removeAttribute('src');
+ $('accountClear').hidden=!p?.configured&&!p?.windowOpen&&!p?.authenticated;$('accountClose').disabled=!p?.windowOpen;$('accountCheck').disabled=(!p?.configured&&!p?.windowOpen)||p?.login?.state==='CHECKING';
+ showViewerIdentity(p,'viewer');
  const candidates=p?.migration?.candidates||[];$('viewerMigration').hidden=!p?.migration?.required;$('viewerCleanup').hidden=!candidates.length;
  $('viewerCandidate').replaceChildren(...candidates.map(c=>{const o=document.createElement('option');o.value=c.candidateId;o.textContent=c.label;return o;}));
  $('viewerCandidates').replaceChildren(...candidates.map(c=>{const label=document.createElement('label'),input=document.createElement('input');input.type='checkbox';input.value=c.candidateId;label.append(input,document.createTextNode(c.label));return label;}));showDashboard();

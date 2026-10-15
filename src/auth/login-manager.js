@@ -1,3 +1,4 @@
+import {verifySavedAccount} from './verify-saved.js';
 import {displayIdentity} from './display-info.js';
 import {EventEmitter} from 'node:events';
 import {randomUUID} from 'node:crypto';
@@ -6,12 +7,14 @@ import {filterState} from './login-vault.js';
 import {LoginBrowserSession} from './login-browser-session.js';
 
 export class LoginManager extends EventEmitter {
-  constructor({accounts,vault,clientFactory=()=>new LoginBrowserSession(),profiles=()=>[],log=()=>{},waitingTimeoutMs=600000}){
+  constructor({accounts,vault,clientFactory=()=>new LoginBrowserSession(),profiles=()=>[],log=()=>{},waitingTimeoutMs=600000,verifySaved=verifySavedAccount}){
     super();this.accounts=accounts;this.vault=vault;this.clientFactory=clientFactory;this.profiles=profiles;this.log=log;this.queue=Promise.resolve();this.active=null;this.sessions=new Map();this.statuses=new Map();this.loadReports=new Map();
-    this.waitingTimeoutMs=waitingTimeoutMs;
+    this.waitingTimeoutMs=waitingTimeoutMs;this.verifySaved=verifySaved;
   }
   serial(fn){const task=this.queue.catch(()=>{}).then(()=>{if(this.closed)throw new Error('AUTH_MANAGER_CLOSED');return fn();});this.queue=task;return task;}
-  async view(id){const p=this.accounts.get(id),saved=await this.vault.inspect(p.vaultRef);return {authProfileId:id,name:p.name,version:p.version,rememberLogin:p.rememberLogin,networkPolicy:{mode:p.networkPolicy.mode,proxyConfigured:Boolean(p.networkPolicy.proxyUrl)},createdAt:p.createdAt,updatedAt:p.updatedAt,savedAt:saved.configured?p.savedAt||null:null,configured:saved.configured,protection:'Windows-DPAPI-CurrentUser',boundProfileIds:this.profiles().filter(x=>x.authProfileId===id).map(x=>x.profileId),pageLoad:this.active?.id===id?this.active.client.diagnostics?.()||null:this.loadReports.get(id)||null,login:this.statuses.get(id)||{state:'UNKNOWN',reasonCode:saved.configured?'AUTH_SAVED_STATE_UNVERIFIED':'AUTH_LOGIN_REQUIRED',requiresUserAction:!saved.configured}};}
+  async view(id){const p=this.accounts.get(id),saved=await this.vault.inspect(p.vaultRef);const remembered=this.accounts.repository.getState('viewer-identity:'+id);return {identity:remembered?.identity||null,lastVerifiedAt:remembered?.lastVerifiedAt||null,authProfileId:id,name:p.name,version:p.version,rememberLogin:p.rememberLogin,networkPolicy:{mode:p.networkPolicy.mode,proxyConfigured:Boolean(p.networkPolicy.proxyUrl)},createdAt:p.createdAt,updatedAt:p.updatedAt,savedAt:saved.configured?p.savedAt||null:null,configured:saved.configured,protection:'Windows-DPAPI-CurrentUser',boundProfileIds:this.profiles().filter(x=>x.authProfileId===id).map(x=>x.profileId),pageLoad:this.active?.id===id?this.active.client.diagnostics?.()||null:this.loadReports.get(id)||null,login:this.statuses.get(id)||{state:'UNKNOWN',reasonCode:saved.configured?'AUTH_SAVED_STATE_UNVERIFIED':'AUTH_LOGIN_REQUIRED',requiresUserAction:!saved.configured}};}
+  rememberIdentity(id,status){this.accounts.repository.setState('viewer-identity:'+id,{identity:displayIdentity(status.identity),lastVerifiedAt:status.checkedAt});}
+  forgetIdentity(id){this.accounts.repository.setState('viewer-identity:'+id,null);}
   async list(){return {items:await Promise.all(this.accounts.all().map(p=>this.view(p.authProfileId))),defaultAuthProfileId:this.accounts.defaultId()};}
   changed(id,value){this.statuses.set(id,value);this.log(value.reasonCode||'AUTH_STATE_CHANGED',{authProfileId:id,state:value.state,operationId:value.operationId});void this.view(id).then(view=>this.emit('account.updated',view)).catch(()=>{});}
   login(id,options={}){return this.serial(()=>this.open(id,options));}
@@ -43,14 +46,27 @@ export class LoginManager extends EventEmitter {
       if(!snapshot.cookies.length&&!snapshot.origins.some(x=>x.localStorage.length))throw new Error('AUTH_STATE_EMPTY');
       if(p.rememberLogin){const saved=await this.vault.save(p.vaultRef,snapshot,true);let restored;try{restored=await this.vault.load(p.vaultRef);}catch{throw new Error('AUTH_SAVE_VERIFY_FAILED');}if(saved?.saved!==true||!isDeepStrictEqual(restored,filterState(snapshot)))throw new Error('AUTH_SAVE_VERIFY_FAILED');this.accounts.markSaved(active.id);}
       this.sessions.set(active.id,snapshot);clearTimeout(active.timer);await active.client.close();this.loadReports.set(active.id,active.client.diagnostics?.()||null);this.active=null;
+      this.rememberIdentity(active.id,status);
       this.changed(active.id,{state:'AUTHENTICATED',identity:displayIdentity(status.identity),checkedAt:status.checkedAt,source:'official-self-api',operationId:active.operationId,remembered:p.rememberLogin,saveVerified:p.rememberLogin,cookieCount:snapshot.cookies.length,originCount:snapshot.origins.length,requiresUserAction:false});
     }catch(error){this.changed(active.id,{state:'ERROR',reasonCode:error.message==='AUTH_SAVE_VERIFY_FAILED'?'AUTH_SAVE_VERIFY_FAILED':'AUTH_SAVE_FAILED',operationId:active.operationId,requiresUserAction:true});}
   }
   async cancelActive(active,reasonCode){if(this.active!==active)return;this.active=null;clearTimeout(active.timer);await active.client.close();this.loadReports.set(active.id,active.client.diagnostics?.()||null);this.changed(active.id,{state:'UNKNOWN',reasonCode,requiresUserAction:true});}
   cancel(id){return this.serial(async()=>{if(this.active?.id===id)await this.cancelActive(this.active,'AUTH_LOGIN_CANCELLED');return this.view(id);});}
-  check(id){return this.serial(async()=>{this.accounts.get(id);if(this.active?.id===id)await this.active.client.check();else await this.vault.status(this.accounts.get(id).vaultRef);return this.view(id);});}
+  check(id){return this.serial(()=>this.checkSaved(id));}
+  async checkSaved(id){
+    const p=this.accounts.get(id);if(this.active?.id===id){await this.active.client.check();return this.view(id);}
+    this.changed(id,{state:'CHECKING',reasonCode:'AUTH_CONFIRMATION_PENDING',requiresUserAction:false});
+    try{
+      const storageState=this.sessions.get(id)||await this.vault.load(p.vaultRef);
+      if(!storageState){this.changed(id,{state:'UNKNOWN',reasonCode:'AUTH_LOGIN_REQUIRED',requiresUserAction:true});return this.view(id);}
+      const status=await this.verifySaved({storageState,networkPolicy:p.networkPolicy}),age=Date.now()-Date.parse(status.checkedAt);
+      if(status.state==='AUTHENTICATED'&&status.source==='official-self-api'&&age>=0&&age<60000){this.rememberIdentity(id,status);this.changed(id,{state:'AUTHENTICATED',checkedAt:status.checkedAt,source:status.source,requiresUserAction:false});}
+      else this.changed(id,{state:['ANONYMOUS','ERROR'].includes(status.state)?status.state:'UNKNOWN',reasonCode:status.reasonCode||'AUTH_CONFIRMATION_PENDING',requiresUserAction:status.state==='ANONYMOUS'});
+    }catch{this.changed(id,{state:'ERROR',reasonCode:'AUTH_OFFICIAL_QUERY_UNAVAILABLE',requiresUserAction:false});}
+    return this.view(id);
+  }
   update(id,patch,version){return this.serial(async()=>{this.accounts.update(id,patch,version);return this.view(id);});}
-  clear(id,version){return this.serial(async()=>{const p=this.accounts.get(id);if(p.version!==version)throw new Error('STATE_CONFLICT');if(this.active?.id===id)await this.cancelActive(this.active,'AUTH_LOGIN_CANCELLED');await this.vault.clear(p.vaultRef);this.sessions.delete(id);this.changed(id,{state:'UNKNOWN',reasonCode:'AUTH_LOGIN_REQUIRED',requiresUserAction:true});return this.view(id);});}
+  clear(id,version){return this.serial(async()=>{const p=this.accounts.get(id);if(p.version!==version)throw new Error('STATE_CONFLICT');if(this.active?.id===id)await this.cancelActive(this.active,'AUTH_LOGIN_CANCELLED');await this.vault.clear(p.vaultRef);this.sessions.delete(id);this.forgetIdentity(id);this.changed(id,{state:'UNKNOWN',reasonCode:'AUTH_LOGIN_REQUIRED',requiresUserAction:true});return this.view(id);});}
   async credentialsFor(profile){if(this.viewer)return this.viewer.credentials();if(profile.authProfileId){const p=this.accounts.get(profile.authProfileId);return {storageState:this.sessions.get(p.authProfileId)||await this.vault.load(p.vaultRef)};}return {storageState:profile.profileId?await this.vault.load(profile.authRef||profile.profileId):null};}
   async close(){this.closed=true;await this.queue.catch(()=>{});if(this.active)await this.cancelActive(this.active,'AUTH_LOGIN_CANCELLED');this.sessions.clear();}
 }

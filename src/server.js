@@ -23,6 +23,7 @@ import {LoginManager} from './auth/login-manager.js';
 import {ViewerAccount} from './auth/viewer-account.js';
 import {LoginVault} from './auth/login-vault.js';
 import {errorMeaning} from './api/error-messages.js';
+import {nativeField,messageBinary} from './messages/native-detail.js';
 import {messagePage,messageDetail} from './messages/query.js';
 
 const root=path.resolve(path.dirname(fileURLToPath(import.meta.url)),'..');
@@ -55,7 +56,7 @@ export async function createGateway({dataDir,port=18780,settings={}}={}){
       if(!req.headers.host?.match(/^(127\.0\.0\.1|localhost):\d+$/))return fail(res,'FORBIDDEN',403);
       const u=new URL(req.url,url||'http://127.0.0.1');
       if(!u.pathname.startsWith('/api/')){
-        const assets={'/':['index.html','text/html'],'/app.js':['app.js','text/javascript'],'/app.css':['app.css','text/css'],'/messages.js':['messages.js','text/javascript'],'/messages.css':['messages.css','text/css']};const asset=assets[u.pathname];if(!asset)return fail(res,'RESOURCE_NOT_FOUND',404);
+        const assets={'/':['index.html','text/html'],'/app.js':['app.js','text/javascript'],'/app.css':['app.css','text/css'],'/native-tree.js':['native-tree.js','text/javascript'],'/messages.js':['messages.js','text/javascript'],'/messages.css':['messages.css','text/css']};const asset=assets[u.pathname];if(!asset)return fail(res,'RESOURCE_NOT_FOUND',404);
         const headers={'Content-Type':asset[1]+'; charset=utf-8','Content-Security-Policy':"default-src 'self'; connect-src 'self'; script-src 'self'; style-src 'self'; img-src 'self' https://*.douyinpic.com https://*.byteimg.com https://*.ibyteimg.com; frame-ancestors 'none'",'Cache-Control':'no-store'};
         if(u.pathname==='/')headers['Set-Cookie']=`lw_session=${token}; HttpOnly; SameSite=Strict; Path=/`;
         const bytes=await fs.readFile(path.join(publicDir,asset[0]));res.writeHead(200,headers);res.end(bytes);return;
@@ -64,10 +65,10 @@ export async function createGateway({dataDir,port=18780,settings={}}={}){
       if(req.headers.origin&&req.headers.origin!==url)return fail(res,'FORBIDDEN',403);
       const p=u.pathname;
       if(req.method==='GET'){
-        if(p==='/api/v1/local/messages'||/^\/api\/v1\/local\/messages\/[^/]+$/.test(p)){
+        if(p==='/api/v1/local/messages'||/^\/api\/v1\/local\/messages\/[^/]+(?:\/(?:field|binary))?$/.test(p)){
           // Deliberate local read, never reused by public WS, logs, export or card consumers.
           if(req.headers['x-lw-local-view']!=='1'||!['127.0.0.1','::ffff:127.0.0.1','::1'].includes(req.socket.remoteAddress)||(req.headers['sec-fetch-site']&&!['same-origin','none'].includes(req.headers['sec-fetch-site'])))return fail(res,'FORBIDDEN',403);
-          const data=p==='/api/v1/local/messages'?messagePage(runtime,u.searchParams):messageDetail(runtime,decodeURIComponent(p.split('/').at(-1)),publicSafe);
+          const id=decodeURIComponent(p.split('/')[5]||'');const data=p.endsWith('/field')?nativeField(runtime,id,u.searchParams.get('path')||''):p.endsWith('/binary')?await messageBinary(runtime,id,u.searchParams):p==='/api/v1/local/messages'?messagePage(runtime,u.searchParams):messageDetail(runtime,id,publicSafe);
           res.writeHead(200,{'Content-Type':'application/json; charset=utf-8','Cache-Control':'no-store','X-Content-Type-Options':'nosniff'});res.end(JSON.stringify({schemaVersion:'1',requestId:randomUUID(),data,serverTime:new Date().toISOString()}));return;
         }
         if(p==='/api/v1/viewer')return ok(res,{...await viewer.get(),viewerDisplay:true});
