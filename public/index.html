@@ -38,6 +38,8 @@
 <button id="mvOlder">更早记录</button><button id="mvLatest">回到最新</button>
 </div>
 <p id="mvStatus" role="status">等待打开实时弹幕</p>
+<div class="stage-controls"><label><input type="checkbox" id="stageEnabled" checked>显示消息舞台</label><label><input type="checkbox" id="stagePaused">暂停舞台展示</label><span>最近记录与新增消息；点击组件查看详情，暂停不影响采集。</span></div>
+<div id="messageStage" class="message-stage" aria-label="Canvas 弹幕与礼物、福袋舞台"><canvas id="stageCanvas" aria-label="滚动弹幕；相同消息也可从下方列表选择"></canvas><div id="stageCards" class="stage-cards"></div></div><p id="stageStatus" role="status"></p><details><summary>舞台资源诊断与还原边界</summary><p id="stageDiagnostics"></p><p>普通弹幕、通用特权边框、礼物托盘和福袋首版。高级特权等级样式、命名礼物、连击特效和其他活动组件尚未还原；字体使用本机可用字体。</p></details>
 <div class="mv-layout">
 <section class="mv-main" aria-label="实时消息列表"><div id="mvScroll" tabindex="0"><div id="mvRows"></div></div></section>
 <section class="mv-detail" aria-label="选中消息详情"><h2 id="mvTitle">选中一条消息查看详情</h2>

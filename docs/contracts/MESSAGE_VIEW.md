@@ -6,10 +6,12 @@
 
 `GET /api/v1/local/messages/{eventId}/field?path=<JSON Pointer>` 精确查找任意嵌套字段的当前官方Proto编号、类型及独立中文注释，未确认返回unknown。`.../binary?rawId=...&protoId=...&offset=0&limit=4096` 按字节分页返回hex/base64（limit 1..65536）；必须是该事件的RAW引用，指定Proto还须与事件处理链关联。直接RAW仅支持业务载荷/帧，不开放HTTP头或认证存储；禁止传入路径。返回size/nextOffset及持久索引hash，分片本身不声称重算整文件哈希。上述子路由同样要求loopback、会话、同源与显式本机请求头。
 
-两个接口除现有 loopback Host、会话 Cookie、Origin 检查外，还要求 loopback peer、`X-LW-Local-View: 1`，浏览器 Fetch-Site 只能 same-origin/none。不提供 CORS、导出或可读WS。未知字符串默认隐藏；仅文案字段白名单和标量保留，嵌入网络地址/明显凭据字符串清理。资源单独经过HTTPS图片域、无查询/凭据校验；默认不加载图片，用户可在本地启用。无法识别的正文中人为粘贴的无标签秘密无法从普通文字语义识别，故这些响应仍严格限本机认证读取，不复用为外部消费者数据。
+所有本机业务详情接口除现有 loopback Host、会话 Cookie、Origin 检查外，还要求 loopback peer、`X-LW-Local-View: 1`，浏览器 Fetch-Site 只能 same-origin/none。不提供 CORS、导出或可读WS。MessageView摘要仍只保留已映射文案并过滤明显凭据，完整official不使用此摘要规则。图片资源单独经过HTTPS图片域和凭据参数检查；保留图片CDN的x-expires/x-signature等变换/有效期参数，拒绝通用cookie/token/authorization/signature等凭据参数。默认不加载远程图片，用户可在本地启用。无法识别的正文中人为粘贴的无标签秘密无法从普通文字语义识别，故这些响应仍严格限本机认证读取，不复用为外部消费者数据。
 
-MessageView：messageType、category、label/icon、summary、actor、content、resources、fields、provenance、mappingVersion、mappingStatus、eventId/rawRefs，以及 time/eventSeq/mode/runtimeNamespace/captureId。纯转换仅发生在查询时；单条映射异常转为失败提示，不连接采集总线、不写存储。原有公共事件/日志/WS/导出继续原脱敏投影。官方JSON的安全投影不是新的权威解析结果。
+MessageView：messageType、category、label/icon、summary、actor、content、resources、fields、provenance、mappingVersion、mappingStatus、eventId/rawRefs，以及 time/eventSeq/mode/runtimeNamespace/captureId。纯转换仅发生在查询时；单条映射异常转为失败提示，不连接采集总线、不写存储。原有公共事件/日志/WS/导出继续原脱敏投影。MessageView是增强展示，完整official才是该条持久官方输出。
 
 前端最多缓存500条，虚拟列表只渲染可视区域；分类过滤已载入数据，可继续逐页查看历史。跟随通过认证REST持久化高水位补查，每轮最多3页，未读完的签名快照保留到下轮；切页保留缓存/详情。历史浏览暂停跟随，回到最新为显式操作。Replay按mode隔离查询，具体namespace显示于详情；不驱动回放或业务副作用。
 
 映射来源：[指定插件静态规则](../reviews/2026-10-14-message-mappings.md)及[快照哈希](../migration/message-plugin-sources.json)。中文注释来自第一方独立解释，未确认者明确未知；字段号必须来自运行中官方Parser，不能用命名近似猜测。新页面能力不代表18783已更新。
+
+2026-10-15 舞台首批：`public/message-stage.js`、`stage-model.js`、`stage-resources.js` 独立负责Canvas、DOM和有界展示时钟/资源缓存，共用本机MessageView，不进入采集链。actor增加可确认的数字ID，gift增加groupId以避免跨人/跨组更新。只实现普通/通用特权弹幕、礼物托盘和福袋；其他类别仍走列表详情。`GET /api/v1/local/assets/{lottery-icon|gift-tray-bg}` 仅允许固定本地PNG、会话及同源loopback图片读取，不接受路径，不支持外部脚本。私有原图不入Git。静态依据、未还原项与截图见 [三组件核查](../reviews/2026-10-15-message-stage.md)。

@@ -2,3 +2,5 @@
 .mv-admin .mv-symbol{background:#eaf0ff;color:#31558d}.mv-redpacket .mv-symbol{background:#fff0ec;color:#b83a27}.mv-lottery .mv-symbol{background:#fff5db;color:#876111}.mv-activity .mv-symbol{background:#e8f5ef;color:#23634c}
 
 .json-tree{max-height:600px;overflow:auto;font:12px/1.6 monospace;overflow-wrap:anywhere}.json-tree details{margin-left:12px}.json-tree summary{white-space:pre-wrap;cursor:pointer}.json-tree summary button{font:inherit;padding:1px 5px;margin-right:5px;color:#31558d}.json-tree pre{white-space:pre-wrap}
+
+.mv-symbol:empty::after{content:"";width:8px;height:8px;border-radius:50%;background:currentColor}.mv-symbol img{width:32px;height:32px;object-fit:contain;border-radius:6px}

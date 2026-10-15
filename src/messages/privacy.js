@@ -8,7 +8,7 @@ export function safeText(value,max=2000){
   .replace(/(?:cookie|token|authorization|password|secret|signature|sessionid|msToken)\s*[=:]\s*[^\s,;]+/gi,'[凭据已隐藏]');
 }
 export function resourceUrl(value){
- try{const u=new URL(value);return u.protocol==='https:'&&!u.username&&!u.password&&!u.port&&!u.search&&!u.hash&&/\.(?:douyinpic|byteimg|ibyteimg)\.com$/i.test(u.hostname)&&!sensitive.test(u.pathname)?u.href:null;}catch{return null;}
+ try{const u=new URL(value);return u.protocol==='https:'&&!u.username&&!u.password&&!u.port&&!u.hash&&value.length<=8192&&/\.(?:douyinpic|byteimg|ibyteimg)\.com$/i.test(u.hostname)&&![...u.searchParams.keys()].some(k=>/^(cookie|token|authorization|password|secret|signature|sessionid|msToken)$/i.test(k))&&!sensitive.test(u.pathname)?u.href:null;}catch{return null;}
 }
 export function localOfficial(value){
  let left=4096;

@@ -1,6 +1,6 @@
 import {localOfficial,resourceUrl,safeText} from './privacy.js';
 import {activityView} from './activities.js';
-export const mappingVersion='message-view-20261014-b1';
+export const mappingVersion='message-view-20261015-stage1';
 const shortType=value=>typeof value==='string'&&/^(?:Webcast)?[A-Za-z][A-Za-z0-9]{0,100}$/.test(value)?value.replace(/^Webcast/,''):'UnknownMessage';
 const decimal=value=>/^(?:0|[1-9]\d{0,39})$/.test(String(value))?String(value):null;
 const positive=value=>decimal(value)&&BigInt(value)>0n?String(value):null;
@@ -23,7 +23,7 @@ function convert(e){
   return (pattern?pattern.replace(/\{(\d+)(?::[^}]*)?\}/g,(_,i)=>pieces[Number(i)]??'[未识别片段]'):pieces.join('')).slice(0,2000);
  };
  const nativeText=()=>rich(raw.common?.display_text,'common.display_text')||safeText(d.content)||safeText(d.common?.describe);
- const actor=d.user?{name:safeText(d.user.nickname)||'未提供昵称',badges:[]}:null;
+ const actor=d.user?{id:decimal(raw.user?.id_str||raw.user?.id),name:safeText(d.user.nickname)||'未提供昵称',badges:[]}:null;
  if(actor&&d.user?.user_attr?.is_admin===true)actor.badges.push('管理员（本条标记）');
  addImage(raw.user?.avatar_thumb,'avatar','user.avatar_thumb');
  for(const image of (Array.isArray(raw.user?.badge_image_list)?raw.user.badge_image_list:[]).slice(0,3))addImage(image,'badge','user.badge_image_list');
@@ -37,7 +37,7 @@ function convert(e){
   Object.assign(view,{category:'gift',label:'礼物',icon:'礼'});
   const name=safeText(d.gift?.name)||null,repeatCount=positive(d.repeat_count),groupCount=positive(d.group_count),comboCount=positive(d.combo_count);
   const comboState=Number(d.repeat_end)===1?'ended':raw.gift?.combo===true&&Number(d.repeat_end)===0?'ongoing':'unknown';
-  view.content.gift={name,repeatCount,groupCount,comboCount,comboState,giftId:decimal(d.gift_id)};
+  view.content.gift={name,repeatCount,groupCount,comboCount,comboState,giftId:decimal(d.gift_id||d.gift?.id),groupId:decimal(d.group_id)};
   addImage(raw.gift?.icon,'gift','gift.icon');
   view.summary=rich(raw.tray_display_text,'tray_display_text')||safeText(d.gift?.describe)||(name?`送出${name}`:nativeText()||'收到礼物消息（名称未提供）');
   if(repeatCount)view.summary+=` · 重复数量 ${repeatCount}`;

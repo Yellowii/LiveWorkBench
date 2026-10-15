@@ -58,7 +58,7 @@ DOMAIN_POLICY_DENIED、LOGIN_MEDIA_BLOCKED与HTTP_ERROR、PROXY_CONNECTION_FAILE
 
 迁移只检查已登记账号及旧 profile authRef/profileId 引用，不扫描凭据目录。唯一已保存/内存可用候选可原地复用，多个候选返回 migration.required，由用户在界面选择。采用只登记原引用，不搬移/覆写/删除其他凭据；未选状态提供独立确认清理。文件存在仅表示配置，不能证明有效。无凭据、无内存会话、无登录窗口的空元数据在明确登录时可清理；退出后没有空账号列表条目。
 
-受认证的 GET /viewer、POST /viewer/actions 为日常入口，动作 login/check/close/logout/adopt/cleanup。check 在登录窗口打开时检查该窗口，否则用保存登录态创建临时无头上下文，复用官方self响应证据；最多等待45秒，不改采集或替换保存凭据。资料和lastVerifiedAt持久保存，重启后当前认证仍UNKNOWN；失败不伪造成功时间，logout同时清除资料。GET /accounts 保留脱敏只读诊断；旧多账号创建/修改/clear/login 及逐房间认证写动作返回 AUTH_USE_ACCOUNT_MANAGEMENT 引导新入口，避免旧 authClear 关闭活动采集。旧 authCheck 只读兼容查询同一观看槽位，不再查询逐房间凭据。
+受认证的 GET /viewer、POST /viewer/actions 为日常入口，动作 login/check/close/logout/adopt/cleanup。check 在登录窗口打开时检查该窗口，否则用保存登录态创建临时无头上下文，复用官方self响应证据；官方证据等待窗口为45秒（另有浏览器启动/关闭时间），不改采集或替换保存凭据。资料和lastVerifiedAt持久保存，重启后当前认证仍UNKNOWN；失败不伪造成功时间，logout同时清除资料。GET /accounts 保留脱敏只读诊断；旧多账号创建/修改/clear/login 及逐房间认证写动作返回 AUTH_USE_ACCOUNT_MANAGEMENT 引导新入口，避免旧 authClear 关闭活动采集。旧 authCheck 只读兼容查询同一观看槽位，不再查询逐房间凭据。
 
 本机受认证 REST 的 viewer.identity 和 Profile details.roomInfo 是用户明确要求的固定字段展示例外：仅有限长度身份、已匹配房间的 URL/ID/标题/简介及受限 CDN HTTPS 头像。头像保留可信图片CDN需要的查询串，去除fragment、拒绝用户信息与自定义端口；页面 referrerpolicy=no-referrer，CSP 限定头像 CDN。Cookie/storageState/响应原文/路径不返回，日志、WS、导出与 RAW/事件投影仍脱敏，例外不扩展到它们。
 
