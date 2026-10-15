@@ -1,5 +1,7 @@
 # Third-party provenance
 
+`src/parser/load-bounded.js` is a first-party, hash-pinned loader lifecycle adaptation (2026-10-15). Upstream loader SHA256 `006757a1491821de2245a74658868ba41f1ca26852374f5daa6cd14784b2119c` remains unchanged. After schema reflection, the adapter disables the reflection capture callback and releases its retained tables; official decoding functions/schema are unchanged. The generated loader is confined to ignored `.local/parser-loader-v1/` and is not redistributed. A source/hash mismatch fails closed.
+
 Readable message presentation independently implements statically verified field/display rules from the user-supplied `cdn-chunks-20261008` snapshot. The eight selected plugins, three auxiliary chunks and seven CSS files remain read-only local references; no original chunk, CSS body or media asset is redistributed or executed. Exact hashes and bounded rule locations are recorded in `docs/migration/message-plugin-sources.json`, with confidence and unresolved dependencies in `docs/reviews/2026-10-14-message-mappings.md`. Static rules do not constitute real-platform business acceptance or a license grant.
 
 Selected code was extracted from local references on 2026-10-12.

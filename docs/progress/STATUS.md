@@ -1,5 +1,7 @@
 # 全局进度与任务交接
 
+最新交接：2026-10-15 P0 见第30节；正在隔离环境进行六小时测试，正式 18783 未启动。旧章节仅描述当时验收。
+
 更新：2026-10-12。此文件是主项目真实状态的唯一台账；架构/契约正文在各自权威文件，不在此重复。
 
 ## 1. 当前事实
@@ -607,3 +609,15 @@ owner本会话→用户；基线f5aa98c，复用隔离worktree的codex/stopped-r
 三个真实快照（UTC 2026-10-14 21:09:10—21:09:41，本地2026-10-15）：RAW输入66→105→140，官方解析事件310→406→489，failed=0、rawPending=0、webDecode队列0；每次最新20条当前epoch事件均匹配活动目标，并可生成本机可读展示。抽查真实事件RAW处理链含对应protoId/eventId。采集BrowserSource全程STOPPED/BROWSER_NOT_RUNNING。另用独立无头Edge仅访问本地工作台，实际选择当前配置、打开实时弹幕及RAW/处理链，页面CONNECTED/原生WSS、9条可视行、0页面错误；仅关闭测试自己的本地工作台浏览器，正式WSS保持运行。
 
 私有统计与真实GUI截图在忽略的.local/room-handoff-acceptance，不上传消息正文、用户身份或凭据。此验证证明停止状态下从旧房间转向当前不同真实房间、原生WSS/RAW/官方解析/事件/GUI可用；长期稳定及真实平台来回切换多轮未做，单连接及返回旧sessionId由上述隔离回归覆盖。交接时保留正式采集，不为本次文档提交再次重启；运行代码仍为c6ddfc3。后续按用户已授权范围继续操作，不重复征询同一次更新/重试。
+
+## 30. 2026-10-15 P0 长时间退出调查与最小修复
+
+- 基线 main `748a3eb`，原工作区干净；复用已附属 worktree，在 `codex/stability-data-stage` 实施。正式 18783 当前无监听，不把 Git HEAD 当作在运行版本；没有启动或停止正式采集。
+- 私有部署日志 `4104e4ff4a5d42229207c6147752e35e.stderr.log`：PID 24000 于北京时间 10月15日05:26:14启动，07:25:35记录 `Ineffective mark-compacts near heap limit / JavaScript heap out of memory`，堆约4090MB。最后 RAW 时间07:25:33.565，说明这是服务进程退出，不仅是前端失联。约运行1小时59分21秒。日志没有保留进程退出码。
+- WER 05:53:51记录 node.exe `RADAR_PRE_LEAK_64`，但没有可关联PID，不能作为同进程或OS主动结束的证据。相关系统事件未提供主动终止证据。没有故障前完整内存曲线或堆快照，不能量化全部内存来源。
+- 已复现一个确定的保留路径：固定版本原 loader 的 schema 反射 `__capture` 回调在反射完成后继续收集每次解码的字段表。强制GC后，1000/2000/3000/4000/5000条带嵌套用户的合成Chat，heapUsed约59.8/79.5/100.0/120.4/140.9MB。它能解释持续增长；未宣称已排除其他长期问题。
+- 修复：第一方 `load-bounded.js` 校验原文件SHA，在私有生成副本中仅于反射结束停用探针并清空表引用；原 loader、官方解码、RAW/EventStore/SessionManager不改。5000次相同解码GC后增长小于12MB回归通过。
+- 轻量诊断：每15秒私有 `dataDir/diagnostics/runtime.jsonl`，最多6×512KiB；记录PID/启动时间/版本指纹、内存、事件循环、连接与待处理数、浏览器进程数、错误代码和状态变化。无消息正文、账号、URL、异常原文或凭据。JS未捕获异常/拒绝与正常退出可记录；原生OOM或OS强杀可能不触发JS退出钩子，仍需部署stderr/Windows记录。未加入自动重启。
+- 验证：`node --test tests/parser-loader-lifetime.test.js`通过；诊断/消息API/来源针对回归9/9通过。全套195项中194通过，部署cold-start一项遇到 `PROCESS_SCAN_UNAVAILABLE`；相同单项重跑通过（Windows查询瞬态问题，未改部署脚本）。私有报告 `artifacts/stability-full.txt`、`stability-deploy-recheck.txt`。
+- 长测：`node --max-old-space-size=512 tools/soak-workbench.mjs 21600 artifacts/soak-six-hour-20261015` 于北京时间08:05:08启动，独立PID52860，真实回环WS + 合成官方编码消息 + RAW/解析/事件链，每10分钟触发断线重连。6秒冒烟实际7.09秒通过。六小时测试进行中，不能标为长期通过；报告保存在该目录，不提交真实数据。24小时及真实平台长测未执行。
+- 交接：P0代码已实现，六小时结果待补；继续P1账号持久展示/官方复验和完整本机业务JSON，再做限定三种P2舞台组件。不会重启正式18783。

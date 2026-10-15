@@ -1,4 +1,5 @@
 import http from 'node:http';
+import {RunDiagnostics} from './run-diagnostics.js';
 import fs from 'node:fs/promises';
 import path from 'node:path';
 import {fileURLToPath} from 'node:url';
@@ -151,7 +152,7 @@ export async function createGateway({dataDir,port=18780,settings={}}={}){
   try{await new Promise((resolve,reject)=>{server.once('error',reject);server.listen(port,'127.0.0.1',resolve);});}catch(error){await daemon.close();await sources.close();await runtime.close();throw error;}url=`http://127.0.0.1:${server.address().port}`;
   runtime.log('GATEWAY_STARTED');
   monitor.sync();
-  return {runtime,bridge,daemon,sources,profiles,monitor,coordinator,accounts,loginManager,viewer,url,server,wss,socketHub,async close(){for(const op of runtime.operations.values())op.cancelled=true;await coordinator.close();await monitor.close();await loginManager.close();await daemon.close();await sources.close();socketHub.close();await new Promise(resolve=>server.close(resolve));await Promise.allSettled([...jobs]);await runtime.close();}};
+  const app={instance,runtime,bridge,daemon,sources,profiles,monitor,coordinator,accounts,loginManager,viewer,url,server,wss,socketHub,async close(){app.diagnostics.close();for(const op of runtime.operations.values())op.cancelled=true;await coordinator.close();await monitor.close();await loginManager.close();await daemon.close();await sources.close();socketHub.close();await new Promise(resolve=>server.close(resolve));await Promise.allSettled([...jobs]);await runtime.close();}};app.diagnostics=new RunDiagnostics(app,settings.runDiagnostics);return app;
 }
 if(process.argv[1]&&path.resolve(process.argv[1])===fileURLToPath(import.meta.url)){
   let settings={};try{settings=JSON.parse(await fs.readFile(path.join(root,'.local/settings.json'),'utf8'));}catch{}

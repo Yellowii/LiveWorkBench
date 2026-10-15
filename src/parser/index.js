@@ -1,4 +1,4 @@
-import {loadParser} from './parser.js';
+import {loadBoundedParser as loadParser} from './load-bounded.js';
 import {decodeBusiness,decodePacket,resolveBusiness} from './decode.js';
 export class OfficialParser {
   version='douyinprotobuf-e9e6cec-business-v1';
