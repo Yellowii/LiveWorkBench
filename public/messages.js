@@ -14,10 +14,16 @@ function stageVisibility(){stage.visible(visible()&&$('stageEnabled').checked&&!
 $('stageEnabled').onchange=stageVisibility;$('stagePaused').onchange=()=>stage.pause($('stagePaused').checked);document.addEventListener('visibilitychange',stageVisibility);
 function visible(){return !$('page-messages').hidden;}
 function filtered(){const category=$('mvCategory').value;return rows.filter(x=>!category||x.category===category).slice().reverse();}
+// Resource URLs passed the authenticated MessageView policy. Reuse a successful
+// stage fallback, or try at most three declared candidates in this DOM image.
+function businessImage(resource,alt,cls){
+ const img=node('img',undefined,cls),cached=stage.resources?.cache.get(resource.url),urls=cached?.image?[cached.image.src]:[...new Set([resource.url,...(resource.urls||[])])].filter(Boolean).slice(0,3);let index=0;
+ img.alt=alt;img.referrerPolicy='no-referrer';img.loading='lazy';img.onerror=()=>{if(++index<urls.length)img.src=urls[index];else img.replaceWith(node('span','图片不可用'));};if(urls.length)img.src=urls[0];return img;
+}
 function readable(view,tag,cls){
  const target=node(tag,undefined,cls);
  if(view.category!=='chat'||!view.content?.runs?.length||!$('mvImages').checked){target.textContent=view.summary;return target;}
- for(const run of view.content.runs){if(run.type==='image'){const img=node('img',undefined,'mv-inline-image');img.src=run.url;img.alt=run.alt||'[图片]';img.referrerPolicy='no-referrer';img.loading='lazy';img.onerror=()=>img.replaceWith(node('span','[图片不可用]'));target.append(img);}else target.append(document.createTextNode(run.text||''));}
+ for(const run of view.content.runs){if(run.type==='image')target.append(businessImage(run,run.alt||'[图片]','mv-inline-image'));else target.append(document.createTextNode(run.text||''));}
  return target;
 }
 function render(){
@@ -29,7 +35,7 @@ function render(){
   const button=node('button',undefined,'mv-row mv-'+item.category);button.type='button';button.dataset.eventId=item.eventId;button.setAttribute('aria-pressed',String(item.eventId===selected));
   const body=node('div',undefined,'mv-body'),date=new Date(item.time),time=Number.isNaN(date.getTime())?'时间未知':date.toLocaleTimeString('zh-CN',{hour12:false});
   body.append(node('div',`${time} · ${item.label} · ${item.actor?.name||'未提供用户'}${item.actor?.badges?.length?' · '+item.actor.badges.join(' / '):''}${item.mode==='replay'?' · 隔离回放':''}`,'mv-meta'),readable(item,'div','mv-text'));
-  const symbol=node('span',undefined,'mv-symbol');symbol.title=item.label;if($('mvImages').checked){const resource=item.resources.find(x=>x.kind==='gift')||item.resources.find(x=>x.kind==='avatar');if(resource){const img=node('img');img.alt=item.label;img.src=resource.url;img.referrerPolicy='no-referrer';img.onerror=()=>img.remove();symbol.append(img);}}button.append(symbol,body);button.onclick=()=>select(item.eventId);out.append(button);
+  const symbol=node('span',undefined,'mv-symbol');symbol.title=item.label;if($('mvImages').checked){const resource=item.resources.find(x=>x.kind==='gift')||item.resources.find(x=>x.kind==='giftMenu')||item.resources.find(x=>x.kind==='avatar');if(resource)symbol.append(businessImage(resource,item.label));}button.append(symbol,body);button.onclick=()=>select(item.eventId);out.append(button);
  }
  spacer(Math.max(0,list.length-end)*height);$('mvRows').replaceChildren(out);$('mvRows').dataset.cachedCount=String(rows.length);
  if($('mvFollow').checked)scroll.scrollTop=scroll.scrollHeight-scroll.clientHeight;
@@ -63,9 +69,9 @@ function renderContent(){
  if(!detail)return;const v=detail.view,body=$('mv-content');body.replaceChildren(node('p',`${v.label} · ${v.actor?.name||'未提供用户'} · ${v.mode==='replay'?'隔离回放':'实时记录'}`));
  for(const badge of v.actor?.badges||[])body.append(node('span',badge,'mv-badge'));
  body.append(readable(v,'p','mv-fulltext'));
- if($('mvImages').checked){const images=node('div',undefined,'mv-images');for(const resource of v.resources){const image=node('img',undefined,'mv-image mv-image-'+resource.kind);image.src=resource.url;image.alt={gift:'礼物',avatar:'头像',badge:'徽章',emoji:'表情',inline:'消息图片'}[resource.kind]||'图片';image.referrerPolicy='no-referrer';image.loading='lazy';image.onerror=()=>{image.replaceWith(node('span','图片不可用'));};images.append(image);}body.append(images);}
+ if($('mvImages').checked){const images=node('div',undefined,'mv-images');for(const resource of v.resources)images.append(businessImage(resource,{gift:'礼物',avatar:'头像',badge:'徽章',emoji:'表情',inline:'消息图片'}[resource.kind]||'图片','mv-image mv-image-'+resource.kind));body.append(images);}
  if(v.content.gift){const g=v.content.gift,card=node('div',undefined,'mv-gift-fact'),info=node('div'),resource=v.resources.find(x=>x.kind==='gift');
-  if($('mvImages').checked&&resource){const image=node('img');image.src=resource.url;image.alt='礼物图标';image.referrerPolicy='no-referrer';image.onerror=()=>image.replaceWith(node('span','图片不可用'));card.append(image);}
+  if($('mvImages').checked&&resource)card.append(businessImage(resource,'礼物图标'));
   info.append(node('div',g.name||'礼物名称未提供','mv-gift-fact-name'),node('div',`ID ${g.giftId||'未提供'} · 本条数量 ${g.displayCount||'未提供'} · ${g.comboState==='ended'?'连击结束':g.comboState==='ongoing'?'连击中':'连击未确认'}`,'mv-gift-fact-meta'));card.append(info);body.append(card);
  }
  const a=v.content.activity;if(a){
@@ -73,7 +79,12 @@ function renderContent(){
   if(a.boxId)body.append(node('p',`红包 ID ${a.boxId}；${a.status==='ended'?'本条为结束通知':'消息时点通知，不代表当前可领取'}`));
   if(a.requiresContainer)body.append(node('p','原活动依赖 Lynx/WebView 容器；此处展示已提供的图片和文案，容器交互尚未还原。'));
  }
- const enhanced=v.content.gift||a;if(enhanced){const extra=node('details');extra.append(node('summary','增强映射字段（非原生 JSON）'),node('pre',JSON.stringify(enhanced,null,2)));body.append(extra);}
+ const menu=v.content.giftMenu;if(menu){
+  body.append(node('p',menu.action==='hide'?'本条通知隐藏菜单。':menu.action==='unknown'?'菜单结构未确认，舞台保留前次状态；原生字符串仍可在官方 JSON 查看。':`本条菜单共 ${menu.total} 项${menu.truncated?'，摘要显示前20项，其余见官方 JSON':''}。价格仅为消息字段，未查询礼物目录补价。`));
+  const list=node('div',undefined,'mv-menu-list');for(const g of menu.gifts){const row=node('div',undefined,'mv-gift-fact'),info=node('div');if($('mvImages').checked&&g.icon){const img=node('img');img.src=g.icon;img.alt='菜单礼物图';img.referrerPolicy='no-referrer';img.onerror=()=>img.replaceWith(node('span','图片不可用'));row.append(img);}info.append(node('div',g.name||'名称未提供','mv-gift-fact-name'),node('div',`ID ${g.id||'未提供'}${g.price!==null?' · 消息价格字段 '+g.price:''}`,'mv-gift-fact-meta'));row.append(info);list.append(row);}body.append(list);
+  body.append(node('p','菜单项来自 container_payload 内 JSON 字符串；Proto 只能定位到该字符串字段，内层 id/name/icon/price 没有可确认的 Proto 字段号。'));
+ }
+ const enhanced=v.content.gift||menu||a;if(enhanced){const extra=node('details');extra.append(node('summary','增强映射字段（非原生 JSON）'),node('pre',JSON.stringify(enhanced,null,2)));body.append(extra);}
  body.append(node('p',`映射版本 ${v.mappingVersion}；${detail.privacy}`));
  for(const p of v.provenance)body.append(node('p',`${p.source||'未确认来源'} · ${p.confidence} · ${p.notes.join('；')}`));
 }

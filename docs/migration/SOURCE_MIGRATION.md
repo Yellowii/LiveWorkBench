@@ -310,3 +310,5 @@ douyinprotobuf@e9e6cec的BrowserLive/AccountMonitor/createLoginContext经tools/s
 2026-10-15视觉第二轮：借助原analysis模块索引局部读取426.e4be7020.js模块217785/508899及live-canvas-danmaku运行库。补齐特权枚举、富文本位置、托盘字段/结束过滤与原CSS对照；原文件/JS执行仍禁止，静态映射及局部GUI不等于官方运行还原。详见message-stage审查第二轮；模块120740相关礼物类型/冠名枚举等仍未闭合。
 
 2026-10-16剩余插件增量：新增Redpacket.bf8a34ff.js模块819094/436507与2722.7dc4edab.js模块580568的定向核查（共25项来源哈希）。已将红包、ShortTouch活动、管理员消息接入有界舞台，GiftMenu参考用于选中礼物资料卡。原版Lynx/领取/送礼接口不执行；Empty图片、互动容器、完整目录分类仍缺失。参见[规则与验证边界](../reviews/2026-10-16-activity-stage.md)，不声称八插件全部完成。
+
+2026-10-16加强：补齐原GiftMenu对GroupLiveContainerChangeMessage type=6的实际消费链，原字符串仅作为有界JSON数据解析；目录补价/赠送仍未移植。ShortTouch已核实priority降序，img_layers缺少可靠消费线索不猜。资源候选恢复与详情一致性是第一方增强，详见[菜单与资源记录](../reviews/2026-10-16-gift-menu-resources.md)。

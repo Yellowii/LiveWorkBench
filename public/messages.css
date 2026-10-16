@@ -10,3 +10,5 @@
 /* GiftMenu reference sizes, adapted to a read-only business fact card. */
 .mv-gift-fact{display:flex;align-items:center;gap:8px;background:#17191f;color:#fff;padding:12px;border-radius:8px;margin:12px 0}
 .mv-gift-fact img{width:28px;height:28px;object-fit:contain;flex:none}.mv-gift-fact-name{font-size:12px;font-weight:500}.mv-gift-fact-meta{font-size:10px;opacity:.75;margin-top:2px;overflow-wrap:anywhere}
+
+.mv-menu-list{max-height:360px;overflow:auto}.mv-menu-list .mv-gift-fact{margin:0 0 12px}.mv-giftmenu .mv-symbol{background:#fff0f4;color:#b82150}

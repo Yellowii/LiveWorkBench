@@ -1,16 +1,18 @@
 import {localOfficial,resourceUrl,safeText} from './privacy.js';
 import {activityView} from './activities.js';
-export const mappingVersion='message-view-20261016-activities';
+import {giftMenu} from './gift-menu.js';
+export const mappingVersion='message-view-20261016-menu-resources';
 const shortType=value=>typeof value==='string'&&/^(?:Webcast)?[A-Za-z][A-Za-z0-9]{0,100}$/.test(value)?value.replace(/^Webcast/,''):'UnknownMessage';
 const decimal=value=>/^(?:0|[1-9]\d{0,39})$/.test(String(value))?String(value):null;
 const positive=value=>decimal(value)&&BigInt(value)>0n?String(value):null;
-const source={chat:'CanvasDanmakuPlugin.364e9be4.js',gift:'DanmakuPlugin.7c702aa1.js',like:'LiveLike.bfb78734.js',member:'RoomMessageConsume.e41a863a.js',other:null};
+const source={chat:'CanvasDanmakuPlugin.364e9be4.js',gift:'DanmakuPlugin.7c702aa1.js',giftmenu:'GiftMenuPlugin.277c15b4.js',like:'LiveLike.bfb78734.js',member:'RoomMessageConsume.e41a863a.js',other:null};
 export function messageView(event){
  try{return convert(event||{});}catch{return {messageType:'UnknownMessage',category:'other',label:'无法展示',icon:'?',summary:'展示转换失败；原始记录保留',actor:null,content:{},resources:[],fields:[],provenance:[],mappingVersion,mappingStatus:'failed',eventId:null,rawRefs:[]};}
 }
 function convert(e){
  const type=shortType(e.eventType),raw=e.payload?.official||{},d=localOfficial(raw),resources=[],notes=[];
- const addImage=(image,kind,field)=>{const list=image?.url_list;if(!Array.isArray(list))return;const url=list.map(resourceUrl).find(Boolean);if(url&&resources.length<12)resources.push({kind,url,field});};
+ const imageUrls=image=>Array.isArray(image?.url_list)?[...new Set(image.url_list.slice(0,16).map(resourceUrl).filter(Boolean))].slice(0,3):[];
+ const addImage=(image,kind,field)=>{const urls=imageUrls(image);if(urls.length&&resources.length<32)resources.push({kind,url:urls[0],urls,field});};
  const rich=(text,field,kind='inline')=>{
   if(!text||typeof text!=='object')return '';
   const pieces=(Array.isArray(text.pieces)?text.pieces:[]).slice(0,60).map((p,i)=>{
@@ -24,7 +26,7 @@ function convert(e){
  };
  const runs=(pieces,field,kind='inline')=>(Array.isArray(pieces)?pieces:[]).slice(0,60).flatMap((p,i)=>{
   const out=[];if(p.string_value)out.push({type:'text',text:safeText(p.string_value)});
-  if(p.image_value?.image){const url=p.image_value.image.url_list?.map(resourceUrl).find(Boolean);if(url){addImage(p.image_value.image,kind,`${field}.pieces[${i}].image_value.image`);out.push({type:'image',url,alt:'[图片]'});}else out.push({type:'text',text:'[图片不可用]'});}
+  if(p.image_value?.image){const urls=imageUrls(p.image_value.image);if(urls.length){addImage(p.image_value.image,kind,`${field}.pieces[${i}].image_value.image`);out.push({type:'image',url:urls[0],urls,alt:'[图片]'});}else out.push({type:'text',text:'[图片不可用]'});}
   if(p.user_value?.user)out.push({type:'text',text:safeText(p.user_value.left_additional_content)+safeText(p.user_value.user.nickname)+safeText(p.user_value.right_additional_content)});
   return out.length?out:[{type:'text',text:'[未识别片段]'}];
  });
@@ -68,6 +70,9 @@ function convert(e){
   Object.assign(view,{category:'member',label:'成员 / 入场',icon:'人'});view.content.action=decimal(d.action);view.summary=nativeText()||safeText(d.action_description)||'成员消息（动作含义未确认）';
  }else view.summary=nativeText();
  view.roomId=decimal(raw.common?.room_id);
+ if(type==='GroupLiveContainerChangeMessage'){
+  const menu=giftMenu(raw);if(menu){Object.assign(view,{category:'giftmenu',label:'礼物菜单',icon:'礼',summary:menu.action==='hide'?'礼物菜单隐藏':menu.action==='replace'?`礼物菜单更新 · ${menu.total} 项`:'礼物菜单内容无法确认；保留原始详情'});view.content.giftMenu=menu;if(menu.action==='unknown')view.mappingStatus='fallback';for(const g of menu.gifts)if(g.icon)addImage({url_list:[g.icon]},'giftMenu',`data[${raw.data.length-1}].container_payload.data[${g.index}].icon`);notes.push('仅解析末项type=6的有界JSON数据；价格仅取本条明确字段，不补giftStore价格、不提供赠送命令；最多20项，其余见原生JSON');}
+ }
  const activity=activityView(type,d,nativeText,raw);
  if(activity){Object.assign(view,{category:activity.category,label:activity.label,icon:activity.icon,summary:activity.summary});view.content.activity=activity.activity;notes.push('仅表示本条事件时点，不代表当前参与资格、领取或中奖结果');}
  if(type==='LuckyBoxMessage'){

@@ -31,3 +31,5 @@ owner：本会话；交接：用户。基线229966e，复用现有codex/stabilit
 - 原三组件`verify-message-stage.mjs`再次通过；`verify-messages.mjs`1171 RAW/1171事件通过，保留历史分页、Replay隔离、统一详情、XSS、布局和旧服务兼容。真实历史只读抽样63条全部映射成功；未找到管理员权限、红包和ShortTouch真实样本，新增三类不标真实平台验收通过。
 
 不包含新平台采集、扫码、长期压力测试或正式服务更新。六小时测试之前的未通过结论不变。完整八插件还原仍未完成，以上未还原功能是明确边界，不用合成图或静态规则替代真实平台证据。
+
+后续校正：上表GiftMenu的调查不完整。菜单项实际来自GroupLiveContainerChangeMessage末项type=6的JSON数据，giftStore用于补价格；后续已接通只读消息菜单，见[GiftMenu实际消费链](2026-10-16-gift-menu-resources.md)。此前资料卡不能算该菜单已实现。

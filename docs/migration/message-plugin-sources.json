@@ -39,7 +39,11 @@
       "sha256": "2427ac8202b9dac468b0a1845dbb43b92d6b5a5d86633f7ee4b3006b72543406",
       "bytes": 2550,
       "locations": {
-        "giftList": 1150
+        "giftList": 1150,
+        "GroupLiveContainerChangeMessage": 915,
+        "container_payload": 666,
+        "selectedGift": 351,
+        "giftPrice": 1529
       }
     },
     {
@@ -58,7 +62,8 @@
       "bytes": 20128,
       "locations": {
         "ShortTouchAreaMessage": 10837,
-        "short_touch_area_data": 14308
+        "short_touch_area_data": 14308,
+        "sort((e,t)=>": 7405
       }
     },
     {

@@ -4,24 +4,29 @@ const el=(tag,text,cls)=>{const n=document.createElement(tag);if(text!==undefine
 export function createMessageStage({container,canvas,cards,status,diagnostics,select,images}){
  const model=new StageModel(),resources=new StageResources(),ctx=canvas.getContext('2d');let last=0,frame=0,visible=true,boxes=[],failed=false,legacyMapping=false;
  const dom=new Map(),gifts=el('div',undefined,'stage-gifts'),activities=el('div',undefined,'stage-activities');cards.replaceChildren(gifts,activities);
- function imageNode(url,kind,cls){const slot=el('span',undefined,'stage-image '+(cls||'')),item=resources.get(url,kind);if(!url){slot.title='消息没有提供该资源';slot.dataset.resourceState='mapping-missing';return slot;}slot.dataset.resourceState=item?.state||'unavailable';if(item?.image){const img=item.image.cloneNode();img.alt=kind;slot.append(img);}else slot.title=item?.reason||'资源加载中';return slot;}
+ function imageNode(source,kind,cls){const slot=el('span',undefined,'stage-image '+(cls||'')),item=resources.get(source,kind);if(!source){slot.title='消息没有提供该资源或图片显示未开启';slot.dataset.resourceState='mapping-missing';return slot;}slot.dataset.resourceState=item?.state||'unavailable';if(item?.image){const img=item.image.cloneNode();img.alt=kind;slot.append(img);if(item.fallback)slot.title=`首选图片失败，备用地址已加载（第${item.attempts}个）`;}else slot.title=item?.reason||'资源加载中';return slot;}
  function renderCard(item){const v=item.view,b=el('button',undefined,'stage-card stage-'+v.category);b.type='button';b.dataset.updated=String(item.updateVersion>0);b.dataset.eventId=v.eventId;b.onclick=()=>select(v.eventId);
-  if(v.category==='gift'){const tray=el('span',undefined,'stage-tray'),info=el('span',undefined,'stage-gift-info'),gift=v.content.gift||{};const bgUrl=(images()?v.resources.find(x=>x.kind==='trayBackground')?.url:null)||'/api/v1/local/assets/gift-tray-bg',bg=resources.get(bgUrl,'托盘背景');if(bg?.state==='loaded')tray.style.backgroundImage='url('+JSON.stringify(bgUrl)+')';
-   tray.append(imageNode(images()?v.resources.find(x=>x.kind==='avatar')?.url:null,'头像','stage-avatar'));info.append(el('span',v.actor?.name||'未提供昵称','stage-gift-name'),el('span',gift.trayText||(gift.name?'送出'+gift.name:'礼物名称未提供'),'stage-gift-text'));tray.append(info,imageNode(images()?v.resources.find(x=>x.kind==='gift')?.url:null,'礼物图标','stage-gift-icon'));const dynamic=images()?v.resources.find(x=>x.kind==='giftDynamic'):null;if(dynamic)tray.append(imageNode(dynamic.url,'动态礼物','stage-gift-dynamic'));b.append(tray);
+  if(v.category==='gift'){const tray=el('span',undefined,'stage-tray'),info=el('span',undefined,'stage-gift-info'),gift=v.content.gift||{};const bgSource=(images()?v.resources.find(x=>x.kind==='trayBackground'):null)||'/api/v1/local/assets/gift-tray-bg',bg=resources.get(bgSource,'托盘背景');if(bg?.state==='loaded')tray.style.backgroundImage='url('+JSON.stringify(bg.image.src)+')';
+   tray.append(imageNode(images()?v.resources.find(x=>x.kind==='avatar'):null,'头像','stage-avatar'));info.append(el('span',v.actor?.name||'未提供昵称','stage-gift-name'),el('span',gift.trayText||(gift.name?'送出'+gift.name:'礼物名称未提供'),'stage-gift-text'));tray.append(info,imageNode(images()?v.resources.find(x=>x.kind==='gift'):null,'礼物图标','stage-gift-icon'));const dynamic=images()?v.resources.find(x=>x.kind==='giftDynamic'):null;if(dynamic)tray.append(imageNode(dynamic,'动态礼物','stage-gift-dynamic'));b.append(tray);
    const combo=el('span',undefined,'stage-combo');combo.append(el('span','x','stage-times'),el('span',gift.displayCount||gift.repeatCount||gift.comboCount||'—','stage-number'));b.append(combo);b.title=(gift.comboState==='ended'?'连击结束':gift.comboState==='ongoing'?'连击中':'连击状态未确认')+'；数字为本条字段，不相加';
   }else if(v.category==='lottery'){const icon=el('span',undefined,'stage-lottery-icon'),a=v.content.activity||{};icon.append(imageNode('/api/v1/local/assets/lottery-icon','福袋图标','stage-lottery-art'));
    const seconds=a.observedRemainingSeconds,clock=Number.isInteger(seconds)?String(Math.floor(seconds/60)).padStart(2,'0')+':'+String(seconds%60).padStart(2,'0'):null;
    icon.append(el('span',a.statusValue==='1'&&clock?clock:a.status||'未知','stage-lottery-state'));b.append(icon);b.setAttribute('aria-label',v.summary);b.title=v.summary+'；'+(clock?'事件时点剩余 '+clock+'，并非当前倒计时':'消息时点状态')+'；点击查看原始详情';
   }else if(v.category==='redpacket'){
    const a=v.content.activity||{},icon=el('span',undefined,'stage-redpacket-icon');
-   icon.append(imageNode((images()?v.resources.find(x=>x.kind==='redpacket')?.url:null)||'/api/v1/local/assets/redpacket-notice','红包通知图','stage-redpacket-art'));
-   if(images()&&v.resources.some(x=>x.kind==='avatar'))icon.append(imageNode(v.resources.find(x=>x.kind==='avatar').url,'发送者头像','stage-redpacket-avatar'));
+   icon.append(imageNode((images()?v.resources.find(x=>x.kind==='redpacket'):null)||'/api/v1/local/assets/redpacket-notice','红包通知图','stage-redpacket-art'));
+   if(images()&&v.resources.some(x=>x.kind==='avatar'))icon.append(imageNode(v.resources.find(x=>x.kind==='avatar'),'发送者头像','stage-redpacket-avatar'));
    icon.append(el('span',a.status==='ended'?'已结束':'通知','stage-redpacket-state'));b.append(icon);b.dataset.ended=String(a.status==='ended');b.setAttribute('aria-label',v.summary);b.title=v.summary+'；消息时点状态，点击查看内容与原始详情';
   }else if(v.category==='activity'){
-   const a=v.content.activity||{},url=images()?v.resources.find(x=>x.kind==='activity')?.url:null;
+   const a=v.content.activity||{},url=images()?v.resources.find(x=>x.kind==='activity'):null;
    if(url){const image=imageNode(url,'活动图片','stage-activity-art');image.style.width=(a.width||48)+'px';image.style.height=(a.height||48)+'px';b.append(image);}
    else{const missing=el('span',a.name||'活动内容未提供','stage-activity-name');b.append(missing);b.dataset.resourceState=images()?'mapping-missing':'disabled';}
    b.setAttribute('aria-label',v.summary);b.title=v.summary+(a.requiresContainer?'；原活动依赖Lynx/WebView，仅显示已提供图片和文案':'')+'；点击查看详情';
+   b.style.order=String(-Math.min(Number(a.priority||0),2147483647));
+  }else if(v.category==='giftmenu'){
+   const menu=v.content.giftMenu;b.append(el('span','礼物菜单 · 消息资料','stage-menu-heading'));
+   for(const g of menu.gifts.slice(0,2)){const row=el('span',undefined,'stage-menu-row'),info=el('span',undefined,'stage-menu-info');row.append(imageNode(images()?g.icon:null,'菜单礼物图','stage-menu-icon'));info.append(el('span',g.name||'名称未提供','stage-menu-name'));if(g.price!==null&&g.price!=='0')info.append(el('span','消息价格字段 '+g.price,'stage-menu-price'));row.append(info);b.append(row);}
+   b.append(el('span',`共${menu.total}项 · 点击查看详情`,'stage-menu-more'));b.title='本条菜单消息；只读资料，不提供赠送操作';
   }else if(v.category==='admin'){
    // AdminPrivilege has no dedicated official DOM. This is a workbench notice.
    b.append(el('span',v.actor?.name?v.actor.name+' · '+v.summary:v.summary,'stage-admin-text'));b.title='本条管理员消息；不代表观看账号当前权限。点击查看详情';
@@ -34,11 +39,11 @@ export function createMessageStage({container,canvas,cards,status,diagnostics,se
   const active=model.active.filter(x=>x.view.category!=='chat'),keep=new Set(active.map(x=>x.key));for(const [key,entry]of dom)if(!keep.has(key)){entry.node.remove();dom.delete(key);}
   const resourceVersion=[...resources.cache.values()].map(x=>x.state).join(',')+String(images());for(const item of active){const old=dom.get(item.key),version=item.updateVersion+resourceVersion;if(old?.version===version)continue;const node=renderCard(item);if(old)old.node.replaceWith(node);else (item.view.category==='gift'?gifts:activities).append(node);dom.set(item.key,{node,version});}
   status.textContent=`${model.paused?'展示已暂停':'舞台运行'} · 展示 ${model.active.length} · 等待 ${model.queue.length} · 过载略过 ${model.dropped}（原始事件仍在列表）${legacyMapping?' · 当前服务仍有旧版映射，增强字段需安全更新后端':''}`;
-  diagnostics.textContent=`资源缓存 ${resources.cache.size}/128 · 加载中 ${resources.running} · ${resources.failures.map(x=>x.kind+'：'+x.reason).join('；')||'暂无加载失败'}。空图片位表示消息未提供资源或“显示消息图片”未开启。`;
+  diagnostics.textContent=`资源缓存 ${resources.cache.size}/128 · 加载中 ${resources.running} · 备用地址成功 ${[...resources.cache.values()].filter(x=>x.fallback).length} · ${resources.failures.map(x=>x.kind+'：'+x.reason).join('；')||'暂无加载失败'}。空图片位表示消息未提供资源或“显示消息图片”未开启。`;
  }
  function tick(now){frame=0;if(!visible||failed)return;try{model.step(last?now-last:0);last=now;render();}catch{failed=true;status.textContent='舞台展示异常，采集和消息列表不受影响';}if(!failed)frame=requestAnimationFrame(tick);}
  canvas.onclick=e=>{const r=canvas.getBoundingClientRect(),x=e.clientX-r.left,y=e.clientY-r.top,b=boxes.find(b=>x>=b.x&&x<=b.x+b.width&&y>=b.y&&y<=b.y+b.height);if(b)select(b.id);};
- return {push:items=>{try{legacyMapping=items.some(v=>v.mappingVersion&&v.mappingVersion!=='message-view-20261016-activities');model.push(items);}catch{status.textContent='某条展示转换失败；请在列表查看原始记录';}},pause:value=>{model.paused=value;container.dataset.paused=String(value);},clear:()=>{model.clear();},visible:value=>{visible=value;last=0;if(!visible){cancelAnimationFrame(frame);frame=0;}else if(!frame)frame=requestAnimationFrame(tick);},model,resources};
+ return {push:items=>{try{legacyMapping=items.some(v=>v.mappingVersion&&v.mappingVersion!=='message-view-20261016-menu-resources');model.push(items);}catch{status.textContent='某条展示转换失败；请在列表查看原始记录';}},pause:value=>{model.paused=value;container.dataset.paused=String(value);},clear:()=>{model.clear();},visible:value=>{visible=value;last=0;if(!visible){cancelAnimationFrame(frame);frame=0;}else if(!frame)frame=requestAnimationFrame(tick);},model,resources};
 }
 
 // First-party Canvas renderer. Static rules: CanvasDanmakuPlugin + module 217785.
@@ -61,7 +66,7 @@ function gradient(ctx,colors,x,width){const g=ctx.createLinearGradient(x,0,x+Mat
 export function drawDanmaku(ctx,item,{width,time,resources,images}){
  const v=item.view,rows=danmakuRows(v),prepared=rows.map(row=>{
   font(ctx,row.font,['supreme','echo'].includes(row.style)?500:400);
-  const prepare=runs=>runs.map(run=>{if(run.type==='gap')return run;if(run.type!=='image')return {...run,width:ctx.measureText(run.text).width};const resource=images?resources.get(run.url,'表情'):null,height=row.imageHeight||row.font;return {...run,image:resource?.image,width:resource?.image?height*resource.image.naturalWidth/resource.image.naturalHeight:height,height};});
+  const prepare=runs=>runs.map(run=>{if(run.type==='gap')return run;if(run.type!=='image')return {...run,width:ctx.measureText(run.text).width};const resource=images?resources.get(run.url,'表情',run.urls):null,height=row.imageHeight||row.font;return {...run,image:resource?.image,width:resource?.image?height*resource.image.naturalWidth/resource.image.naturalHeight:height,height};});
   const runs=prepare(row.runs);font(ctx,14,500);const tail=prepare(row.tail||[]),sum=a=>a.reduce((n,r)=>n+r.width,0);
   return {...row,runs,tail,bodyWidth:sum(runs),width:sum(runs)+sum(tail)+(tail.length?24:0)+20+(row.style==='admin'?60:0),height:Math.max(row.font,row.imageHeight||0)+10};
  });
