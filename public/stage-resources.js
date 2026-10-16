@@ -1,6 +1,6 @@
 export class StageResources{
  constructor(onChange=()=>{}){this.cache=new Map();this.pending=[];this.running=0;this.failures=[];this.onChange=onChange;}
- get(url,kind){if(!url)return null;if(this.cache.has(url))return this.cache.get(url);const local=/^\/api\/v1\/local\/assets\/(lottery-icon|gift-tray-bg)$/.test(url);let valid=local;try{const u=new URL(url);valid=valid||u.protocol==='https:'&&!u.username&&!u.password&&!u.port&&['douyinpic.com','byteimg.com','ibyteimg.com'].some(d=>u.hostname===d||u.hostname.endsWith('.'+d));}catch{}
+ get(url,kind){if(!url)return null;if(this.cache.has(url))return this.cache.get(url);const local=/^\/api\/v1\/local\/assets\/(lottery-icon|gift-tray-bg|redpacket-notice)$/.test(url);let valid=local;try{const u=new URL(url);valid=valid||u.protocol==='https:'&&!u.username&&!u.password&&!u.port&&['douyinpic.com','byteimg.com','ibyteimg.com'].some(d=>u.hostname===d||u.hostname.endsWith('.'+d));}catch{}
   if(!valid){this.failure(kind,'URL_POLICY_REJECTED');return null;}
   if(this.cache.size>=128){const key=[...this.cache].find(([,v])=>v.state!=='loading'&&v.state!=='queued')?.[0];if(key)this.cache.delete(key);else return null;}
   const item={state:'queued',kind,image:null};this.cache.set(url,item);this.pending.push({url,item,local});this.pump();return item;

@@ -9,9 +9,23 @@ export function createMessageStage({container,canvas,cards,status,diagnostics,se
   if(v.category==='gift'){const tray=el('span',undefined,'stage-tray'),info=el('span',undefined,'stage-gift-info'),gift=v.content.gift||{};const bgUrl=(images()?v.resources.find(x=>x.kind==='trayBackground')?.url:null)||'/api/v1/local/assets/gift-tray-bg',bg=resources.get(bgUrl,'托盘背景');if(bg?.state==='loaded')tray.style.backgroundImage='url('+JSON.stringify(bgUrl)+')';
    tray.append(imageNode(images()?v.resources.find(x=>x.kind==='avatar')?.url:null,'头像','stage-avatar'));info.append(el('span',v.actor?.name||'未提供昵称','stage-gift-name'),el('span',gift.trayText||(gift.name?'送出'+gift.name:'礼物名称未提供'),'stage-gift-text'));tray.append(info,imageNode(images()?v.resources.find(x=>x.kind==='gift')?.url:null,'礼物图标','stage-gift-icon'));const dynamic=images()?v.resources.find(x=>x.kind==='giftDynamic'):null;if(dynamic)tray.append(imageNode(dynamic.url,'动态礼物','stage-gift-dynamic'));b.append(tray);
    const combo=el('span',undefined,'stage-combo');combo.append(el('span','x','stage-times'),el('span',gift.displayCount||gift.repeatCount||gift.comboCount||'—','stage-number'));b.append(combo);b.title=(gift.comboState==='ended'?'连击结束':gift.comboState==='ongoing'?'连击中':'连击状态未确认')+'；数字为本条字段，不相加';
-  }else{const icon=el('span',undefined,'stage-lottery-icon'),a=v.content.activity||{};icon.append(imageNode('/api/v1/local/assets/lottery-icon','福袋图标','stage-lottery-art'));
+  }else if(v.category==='lottery'){const icon=el('span',undefined,'stage-lottery-icon'),a=v.content.activity||{};icon.append(imageNode('/api/v1/local/assets/lottery-icon','福袋图标','stage-lottery-art'));
    const seconds=a.observedRemainingSeconds,clock=Number.isInteger(seconds)?String(Math.floor(seconds/60)).padStart(2,'0')+':'+String(seconds%60).padStart(2,'0'):null;
-   icon.append(el('span',a.statusValue==='1'&&clock?clock:a.status||'未知','stage-lottery-state'));b.append(icon);b.setAttribute('aria-label',v.summary);b.title=v.summary+'；'+(clock?'事件时点剩余 '+clock+'，并非当前倒计时':'消息时点状态')+'；点击查看原始详情';}
+   icon.append(el('span',a.statusValue==='1'&&clock?clock:a.status||'未知','stage-lottery-state'));b.append(icon);b.setAttribute('aria-label',v.summary);b.title=v.summary+'；'+(clock?'事件时点剩余 '+clock+'，并非当前倒计时':'消息时点状态')+'；点击查看原始详情';
+  }else if(v.category==='redpacket'){
+   const a=v.content.activity||{},icon=el('span',undefined,'stage-redpacket-icon');
+   icon.append(imageNode((images()?v.resources.find(x=>x.kind==='redpacket')?.url:null)||'/api/v1/local/assets/redpacket-notice','红包通知图','stage-redpacket-art'));
+   if(images()&&v.resources.some(x=>x.kind==='avatar'))icon.append(imageNode(v.resources.find(x=>x.kind==='avatar').url,'发送者头像','stage-redpacket-avatar'));
+   icon.append(el('span',a.status==='ended'?'已结束':'通知','stage-redpacket-state'));b.append(icon);b.dataset.ended=String(a.status==='ended');b.setAttribute('aria-label',v.summary);b.title=v.summary+'；消息时点状态，点击查看内容与原始详情';
+  }else if(v.category==='activity'){
+   const a=v.content.activity||{},url=images()?v.resources.find(x=>x.kind==='activity')?.url:null;
+   if(url){const image=imageNode(url,'活动图片','stage-activity-art');image.style.width=(a.width||48)+'px';image.style.height=(a.height||48)+'px';b.append(image);}
+   else{const missing=el('span',a.name||'活动内容未提供','stage-activity-name');b.append(missing);b.dataset.resourceState=images()?'mapping-missing':'disabled';}
+   b.setAttribute('aria-label',v.summary);b.title=v.summary+(a.requiresContainer?'；原活动依赖Lynx/WebView，仅显示已提供图片和文案':'')+'；点击查看详情';
+  }else if(v.category==='admin'){
+   // AdminPrivilege has no dedicated official DOM. This is a workbench notice.
+   b.append(el('span',v.actor?.name?v.actor.name+' · '+v.summary:v.summary,'stage-admin-text'));b.title='本条管理员消息；不代表观看账号当前权限。点击查看详情';
+  }
 
   return b;
  }
@@ -24,7 +38,7 @@ export function createMessageStage({container,canvas,cards,status,diagnostics,se
  }
  function tick(now){frame=0;if(!visible||failed)return;try{model.step(last?now-last:0);last=now;render();}catch{failed=true;status.textContent='舞台展示异常，采集和消息列表不受影响';}if(!failed)frame=requestAnimationFrame(tick);}
  canvas.onclick=e=>{const r=canvas.getBoundingClientRect(),x=e.clientX-r.left,y=e.clientY-r.top,b=boxes.find(b=>x>=b.x&&x<=b.x+b.width&&y>=b.y&&y<=b.y+b.height);if(b)select(b.id);};
- return {push:items=>{try{legacyMapping=items.some(v=>v.mappingVersion&&v.mappingVersion!=='message-view-20261015-fidelity2');model.push(items);}catch{status.textContent='某条展示转换失败；请在列表查看原始记录';}},pause:value=>{model.paused=value;container.dataset.paused=String(value);},clear:()=>{model.clear();},visible:value=>{visible=value;last=0;if(!visible){cancelAnimationFrame(frame);frame=0;}else if(!frame)frame=requestAnimationFrame(tick);},model,resources};
+ return {push:items=>{try{legacyMapping=items.some(v=>v.mappingVersion&&v.mappingVersion!=='message-view-20261016-activities');model.push(items);}catch{status.textContent='某条展示转换失败；请在列表查看原始记录';}},pause:value=>{model.paused=value;container.dataset.paused=String(value);},clear:()=>{model.clear();},visible:value=>{visible=value;last=0;if(!visible){cancelAnimationFrame(frame);frame=0;}else if(!frame)frame=requestAnimationFrame(tick);},model,resources};
 }
 
 // First-party Canvas renderer. Static rules: CanvasDanmakuPlugin + module 217785.

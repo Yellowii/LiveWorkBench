@@ -1,6 +1,6 @@
 import {localOfficial,resourceUrl,safeText} from './privacy.js';
 import {activityView} from './activities.js';
-export const mappingVersion='message-view-20261015-fidelity2';
+export const mappingVersion='message-view-20261016-activities';
 const shortType=value=>typeof value==='string'&&/^(?:Webcast)?[A-Za-z][A-Za-z0-9]{0,100}$/.test(value)?value.replace(/^Webcast/,''):'UnknownMessage';
 const decimal=value=>/^(?:0|[1-9]\d{0,39})$/.test(String(value))?String(value):null;
 const positive=value=>decimal(value)&&BigInt(value)>0n?String(value):null;
@@ -67,10 +67,16 @@ function convert(e){
  }else if(type==='MemberMessage'){
   Object.assign(view,{category:'member',label:'成员 / 入场',icon:'人'});view.content.action=decimal(d.action);view.summary=nativeText()||safeText(d.action_description)||'成员消息（动作含义未确认）';
  }else view.summary=nativeText();
- const activity=activityView(type,d,nativeText);
+ view.roomId=decimal(raw.common?.room_id);
+ const activity=activityView(type,d,nativeText,raw);
  if(activity){Object.assign(view,{category:activity.category,label:activity.label,icon:activity.icon,summary:activity.summary});view.content.activity=activity.activity;notes.push('仅表示本条事件时点，不代表当前参与资格、领取或中奖结果');}
- if(type==='LuckyBoxMessage')addImage(raw.lucky_icon,'inline','lucky_icon');
- if(type==='ShortTouchAreaMessage')addImage({url_list:[raw.short_touch_area_data?.short_touch_info?.img_url]},'inline','short_touch_area_data.short_touch_info.img_url');
+ if(type==='LuckyBoxMessage'){
+  addImage(raw.lucky_icon,'redpacket','lucky_icon');
+  for(const [i,part] of (Array.isArray(raw.description_list)?raw.description_list:[]).slice(0,6).entries())addImage(part.image,'description',`description_list[${i}].image`);
+  notes.push('box_status=1不进入原插件展示；send_time毫秒、delay_time/display_duration秒。未同步平台时钟，不推断当前可领取状态；结束图资源缺失时保留通知图并标明结束');
+ }
+ if(type==='ShortTouchAreaMessage'){addImage({url_list:[raw.short_touch_area_data?.short_touch_info?.img_url]},'activity','short_touch_area_data.short_touch_info.img_url');notes.push('按area.type更新/移除；仅静态图片和文案，Lynx/WebView与JSB容器不执行。尺寸限制24—120px为工作台适配');}
+ if(type==='AdminPrivilegeMessage')notes.push('权限符号来自2722.7dc4edab.js模块580568；中文为独立解释，不推断当前观看账号拥有该权限');
  if(!view.summary){view.mappingStatus='fallback';const values=Object.entries(d).filter(([,v])=>typeof v==='boolean'||typeof v==='number'||typeof v==='string'&&/^-?\d+$/.test(v)).slice(0,5);view.summary=`${type}${values.length?' · '+values.map(([k,v])=>`${k}=${v}`).join('，'):' · 暂无可靠可读内容'}`;}
  view.summary=view.summary.slice(0,2400);view.content.text=view.summary;
  for(const key of ['count','total','action','repeat_count','group_count','combo_count','repeat_end','style'])if(d[key]!==undefined)view.fields.push({path:key,value:d[key],confidence:'official-field',meaning:'具体解释见统一详情；不推断缺失业务语义'});

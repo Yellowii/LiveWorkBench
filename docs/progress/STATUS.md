@@ -682,3 +682,15 @@ owner本会话→用户；基线d1ad615，在已附属codex/stability-data-stage
 - **进程消失原因仍未定位**：没有endedAt/退出码/JS致命异常或OOM输出。Windows当前开机仍为10月15日13:27:53；本次查询16:50之后的重启/关机及Node Application Error/WER未获得相关证据，不能沿用首轮的重启解释，也不能断言由内存或OS强杀导致。
 - 223份报告采样：heapUsed约63.6—74.3MiB；启动RSS峰值约295.5MiB，首分钟后峰值约137.8MiB，最后约120.4MiB。226行有界诊断无解析或诊断写入失败，RAW/解码pending采样峰值均1；无退出记录。该短时曲线未呈现前次线性保留特征，但不足以证明长期修复完成。
 - 私有证据原样保留在worktree的artifacts/soak-six-hour-20261015-retry、启动器JSON及stdout/stderr。自动化liveworkbench已暂停，不无限检查或恢复。P0六小时与24小时、真实平台长期验收仍未通过；下一项应先修正有限长测工具的配置及判据，再由用户安排续测。
+
+## 35. 2026-10-16 剩余插件展示增量
+
+用户明确选择“继续实现剩余插件”，本会话在已有codex/stability-data-stage工作区基于干净229966e实施，无派工；正式服务未启停。已实现红包通知/结束卡、ShortTouch按类型更新/移除的图片或文本卡、管理员消息提示，以及选中礼物的资料卡。共用现有MessageView、Canvas/DOM舞台、统一详情；原生JSON与中文说明/增强字段分开。新增有界状态记忆，按mode/namespace/capture/room区分更新；未知ID不猜，过期/移除旧消息不复活。官方Parser、RAW、EventStore、SessionManager、WSS与账号逻辑未修改。
+
+原目录只读，通过既有analysis索引局部核查Redpacket/2722相关模块，25项来源哈希一致。红包内嵌通知图只私有提取；固定认证图片入口增加redpacket-notice。未执行官方Webpack、Lynx/JSB、领取或送礼接口，未提交原JS/CSS/PNG。完整规则、资源缺项及命令见docs/reviews/2026-10-16-activity-stage.md。
+
+验证：针对性26/26通过（活动测试先失败后实现）；新增隔离GUI实际8 RAW/8事件、解析失败0、页面错误0，覆盖红包/活动/管理员/礼物资料的点击、JSON字段与Proto/RAW、暂停/切页、XSS、480/700/1024/1440无卡片重叠和可点击。原CSS重建参照8项红包宽高一致；截图与报告在私有artifacts/stage-activities。原三组件GUI重跑通过；1171 RAW/1171事件的既有消息GUI通过，保留历史分页和Replay隔离。只读63条真实历史转换0失败；没有找到红包/AdminPrivilege/ShortTouch真实样本，新增这些类别只标合成GUI和静态已验证，不标真实平台通过。
+
+未还原：红包实时校准/Ready动效/80×96大卡与领取交互，Empty两张外部图片未下载（当前淡化通知图并标结束）；ShortTouch原Lynx容器内部布局/交互；GiftMenu完整礼物目录/分类/价格/送礼；管理员没有原版独立DOM，提示为工作台自有样式。没有官方运行截图，局部CSS对照不等于整套插件还原。P0长测未通过结论不变。
+
+本轮只读运行核对：18783 PID31460、启动2026-10-15T10:24:25.960Z、实际加载6cc07a4/指纹93637e82a07081cc790ee4fe58ecfae7304dc91098c1efcbc01db5f355d7f7ce、capture STOPPED。新提交不等于后端已更新，旧映射提示保留；静态页面刷新可能读取新文件，新增后端字段/资源入口仍需用户安排安全更新。下一步根据真实红包/活动消息效果校正；本轮不扩大采集或插件平台范围。

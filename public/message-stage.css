@@ -7,3 +7,17 @@
 
 /* Settle entry motion when paused so cards remain visible and selectable. */
 .message-stage[data-paused=true] .stage-card{animation:none!important}
+
+/* Source sizes from RedPacketShortTouch; container layout is our bounded stage. */
+.stage-activities{display:flex;align-items:flex-start;gap:8px;max-width:calc(100% - 40px);flex-wrap:wrap}
+.stage-redpacket{position:relative;animation:stage-lottery-enter .7s ease-out;transform-origin:0 100%}
+.stage-redpacket-icon{display:block;position:relative;overflow:hidden;width:36px;height:36px;border-radius:10px;background:rgba(0,0,0,.2)}
+.stage-redpacket-art{position:absolute;width:48px;height:48px;top:2px;left:-14px}
+.stage-redpacket-avatar{position:absolute;width:14px;height:14px;top:10px;left:11px;border:1px solid #fbf0d2;border-radius:7px;overflow:hidden;box-sizing:content-box}
+.stage-redpacket-state{position:absolute;bottom:0;width:100%;height:12px;line-height:12px;font-size:10px;text-align:center;background:rgba(0,0,0,.7);border-radius:6px;white-space:nowrap}
+.stage-redpacket[data-ended=true] .stage-redpacket-art{opacity:.45}
+.stage-activity{align-items:center;max-width:120px;border-radius:10px;overflow:hidden;animation:stage-activity-enter 1s ease-out;background:rgba(0,0,0,.2)}
+.stage-activity-name{font-size:12px;line-height:18px;padding:6px;max-height:60px;overflow:hidden;overflow-wrap:anywhere}
+.stage-admin{max-width:220px;padding:6px 10px;background:rgba(0,0,0,.5);border:1px solid #ffffff40;border-radius:8px}
+.stage-admin-text{font-size:12px;line-height:18px;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
+@keyframes stage-activity-enter{from{transform:translateX(-80px)}to{transform:translateX(0)}}

@@ -65,7 +65,7 @@ export async function createGateway({dataDir,port=18780,settings={}}={}){
       if(req.headers.origin&&req.headers.origin!==url)return fail(res,'FORBIDDEN',403);
       const p=u.pathname;
       if(req.method==='GET'){
-        if(/^\/api\/v1\/local\/assets\/(lottery-icon|gift-tray-bg)$/.test(p)){
+        if(/^\/api\/v1\/local\/assets\/(lottery-icon|gift-tray-bg|redpacket-notice)$/.test(p)){
           if(!['127.0.0.1','::ffff:127.0.0.1','::1'].includes(req.socket.remoteAddress)||(req.headers['sec-fetch-site']&&!['same-origin','none'].includes(req.headers['sec-fetch-site'])))return fail(res,'FORBIDDEN',403);
           let bytes;try{bytes=await fs.readFile(path.join(root,'.local/message-assets',p.split('/').at(-1)+'.png'));}catch{return fail(res,'RESOURCE_NOT_FOUND',404);}
           res.writeHead(200,{'Content-Type':'image/png','Cache-Control':'private, max-age=300','X-Content-Type-Options':'nosniff'});res.end(bytes);return;

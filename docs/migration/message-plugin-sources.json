@@ -197,6 +197,23 @@
         "duration": 1143
       },
       "scope": "targeted static dependency read; no original script execution"
+    },
+    {
+      "file": "files/Redpacket.bf8a34ff.js",
+      "sha256": "8be21639197d7165889e8c539e01b4725b7fe6ea6a5d60932e4d37f0b3625645",
+      "bytes": 19603,
+      "locations": {
+        "module819094": 6779,
+        "module436507": 7187
+      }
+    },
+    {
+      "file": "files/2722.7dc4edab.js",
+      "sha256": "f347a545fec616d38649ef4decc703db3a075ebd16dcfee63ac0a0827928cda3",
+      "bytes": 83339,
+      "locations": {
+        "module580568": 54641
+      }
     }
   ]
 }

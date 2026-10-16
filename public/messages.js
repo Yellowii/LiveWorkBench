@@ -64,8 +64,17 @@ function renderContent(){
  for(const badge of v.actor?.badges||[])body.append(node('span',badge,'mv-badge'));
  body.append(readable(v,'p','mv-fulltext'));
  if($('mvImages').checked){const images=node('div',undefined,'mv-images');for(const resource of v.resources){const image=node('img',undefined,'mv-image mv-image-'+resource.kind);image.src=resource.url;image.alt={gift:'礼物',avatar:'头像',badge:'徽章',emoji:'表情',inline:'消息图片'}[resource.kind]||'图片';image.referrerPolicy='no-referrer';image.loading='lazy';image.onerror=()=>{image.replaceWith(node('span','图片不可用'));};images.append(image);}body.append(images);}
- body.append(node('p',`映射版本 ${v.mappingVersion}；${detail.privacy}`));if(v.content.gift)body.append(node('pre',JSON.stringify(v.content.gift,null,2)));
- if(v.content.activity)body.append(node('pre',JSON.stringify(v.content.activity,null,2)));
+ if(v.content.gift){const g=v.content.gift,card=node('div',undefined,'mv-gift-fact'),info=node('div'),resource=v.resources.find(x=>x.kind==='gift');
+  if($('mvImages').checked&&resource){const image=node('img');image.src=resource.url;image.alt='礼物图标';image.referrerPolicy='no-referrer';image.onerror=()=>image.replaceWith(node('span','图片不可用'));card.append(image);}
+  info.append(node('div',g.name||'礼物名称未提供','mv-gift-fact-name'),node('div',`ID ${g.giftId||'未提供'} · 本条数量 ${g.displayCount||'未提供'} · ${g.comboState==='ended'?'连击结束':g.comboState==='ongoing'?'连击中':'连击未确认'}`,'mv-gift-fact-meta'));card.append(info);body.append(card);
+ }
+ const a=v.content.activity;if(a){
+  if(a.title)body.append(node('p',a.title));for(const part of a.descriptions||[])body.append(node('p',[part.text,part.number?'数量字段 '+part.number:'',part.giftId?'礼物 ID '+part.giftId:''].filter(Boolean).join(' · ')));
+  if(a.boxId)body.append(node('p',`红包 ID ${a.boxId}；${a.status==='ended'?'本条为结束通知':'消息时点通知，不代表当前可领取'}`));
+  if(a.requiresContainer)body.append(node('p','原活动依赖 Lynx/WebView 容器；此处展示已提供的图片和文案，容器交互尚未还原。'));
+ }
+ const enhanced=v.content.gift||a;if(enhanced){const extra=node('details');extra.append(node('summary','增强映射字段（非原生 JSON）'),node('pre',JSON.stringify(enhanced,null,2)));body.append(extra);}
+ body.append(node('p',`映射版本 ${v.mappingVersion}；${detail.privacy}`));
  for(const p of v.provenance)body.append(node('p',`${p.source||'未确认来源'} · ${p.confidence} · ${p.notes.join('；')}`));
 }
 async function select(id){
