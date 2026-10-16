@@ -1,3 +1,4 @@
+import {audienceSnapshot} from './audience-model.js';
 const features=(await (await fetch('/api/v1/capabilities',{cache:'no-store'})).json()).data?.features||{};
 const nativeTree=features.completeLocalBusiness?(await import('./native-tree.js')).nativeTree:(container,value)=>{container.textContent='当前服务仍为旧版安全投影，完整业务详情需在安全时段更新服务。\n'+JSON.stringify(value,null,2);};
 const createMessageStage=features.messageStage?(await import('./message-stage.js')).createMessageStage:()=>({push(){},pause(){},clear(){},visible(){}});
@@ -18,23 +19,43 @@ function filtered(){const category=$('mvCategory').value;return rows.filter(x=>!
 // stage fallback, or try at most three declared candidates in this DOM image.
 function businessImage(resource,alt,cls){
  const img=node('img',undefined,cls),cached=stage.resources?.cache.get(resource.url),urls=cached?.image?[cached.image.src]:[...new Set([resource.url,...(resource.urls||[])])].filter(Boolean).slice(0,3);let index=0;
- img.alt=alt;img.referrerPolicy='no-referrer';img.loading='lazy';img.onerror=()=>{if(++index<urls.length)img.src=urls[index];else img.replaceWith(node('span','图片不可用'));};if(urls.length)img.src=urls[0];return img;
+ img.alt=alt;img.referrerPolicy='no-referrer';img.loading='lazy';img.onerror=()=>{if(++index<urls.length)img.src=urls[index];else{const missing=node('span',undefined,(cls||'')+' mv-image-missing');missing.title='图片加载失败：已尝试全部候选地址；原始地址在 JSON 中保留';missing.setAttribute('aria-label','图片不可用');img.replaceWith(missing);}};if(urls.length)img.src=urls[0];return img;
 }
+function badges(actor){
+ const wrap=node('span',undefined,'mv-visual-badges');if(!$('mvImages').checked)return wrap;
+ for(const b of actor?.visualBadges||[]){const slot=node('span',undefined,'mv-visual-badge mv-badge-'+b.layout),img=businessImage(b,'徽章','mv-badge-image');slot.title=b.field+(actor.badgeRule==='base-list-dsl-unresolved'?' · DSL条件未核实，使用原始基础列表':'');
+ if(b.layout==='nine-slice'){img.onload=()=>{slot.style.borderImageSource='url('+JSON.stringify(img.src)+')';slot.dataset.loaded='true';};slot.append(img,node('span',b.name,'mv-badge-name'));}
+ else{slot.append(img);if(b.layout==='overlay')slot.append(node('span',b.name,'mv-badge-name'));}wrap.append(slot);
+ }return wrap;
+}
+function audience(){
+ const picker=$('mvRoomScope'),previous=picker.value,scopes=new Map();for(const v of rows)if(v.roomId&&v.captureId){const key=JSON.stringify([v.mode,v.roomId,v.captureId,v.runtimeNamespace]);if(!scopes.has(key))scopes.set(key,v);}
+ picker.replaceChildren(...[...scopes].map(([key,v])=>{const o=node('option',`房间 ${v.roomId} · ${v.mode==='replay'?'回放':'实时记录'} · ${v.captureId.slice(0,8)}`);o.value=key;return o;}));if(scopes.has(previous))picker.value=previous;
+ $('mvAudienceUsers').replaceChildren();if(!picker.value){$('mvAudienceStats').textContent='已载入记录中暂无观众统计。';return;}
+ const [mode,room,capture,namespace]=JSON.parse(picker.value),{stats,ranks}=audienceSnapshot(rows,mode,room,capture,namespace),a=stats?.content.audience;
+ const time=v=>v?.receivedAt?new Date(v.receivedAt).toLocaleString('zh-CN',{hour12:false}):'无记录';
+ $('mvAudienceStats').textContent=(a?(a.hidden?'平台隐藏人数':a.display||'官方未提供人数文案'):'人数暂无证据')+' · 统计接收时间：'+time(stats)+' · 榜单接收时间：'+time(ranks)+'（历史记录，不代表此刻在线）';
+ if(stats){const b=node('button','查看人数原始消息');b.onclick=()=>select(stats.eventId);$('mvAudienceUsers').append(b);}
+ for(const u of ranks?.content.audience.users||[]){const b=node('button',undefined,'mv-audience-user');b.type='button';if($('mvImages').checked&&u.actor?.avatar)b.append(businessImage(u.actor.avatar,'观众头像','mv-audience-avatar'));b.append(badges(u.actor),node('span',u.hidden?'隐身用户':u.actor?.name||'未提供昵称'));b.title='本条榜单片段，点击查看原始 JSON';b.onclick=()=>select(ranks.eventId);$('mvAudienceUsers').append(b);}
+ if(!ranks)$('mvAudienceUsers').append(node('p','当前已载入记录没有榜单片段；可读取更早记录，不表示无人在线。'));
+}
+$('mvRoomScope').onchange=audience;
 function readable(view,tag,cls){
  const target=node(tag,undefined,cls);
- if(view.category!=='chat'||!view.content?.runs?.length||!$('mvImages').checked){target.textContent=view.summary;return target;}
- for(const run of view.content.runs){if(run.type==='image')target.append(businessImage(run,run.alt||'[图片]','mv-inline-image'));else target.append(document.createTextNode(run.text||''));}
+ if(!view.content?.runs?.length){target.textContent=view.summary;return target;}
+ for(const run of view.content.runs){if(run.type==='image')target.append($('mvImages').checked?businessImage(run,run.alt||'[图片]','mv-inline-image'):document.createTextNode(run.alt||'[图片]'));else if(run.type==='user')target.append(badges(run.actor),node('span',run.actor?.name||'未提供昵称','mv-user-name'));else target.append(node('span',run.text||'',run.emphasis?'mv-emphasis':undefined));}
  return target;
 }
 function render(){
  if(!visible())return;
+ audience();
  const list=filtered(),scroll=$('mvScroll');if($('mvFollow').checked)scroll.scrollTop=Math.max(0,list.length*height-scroll.clientHeight);
  const top=$('mvFollow').checked?Math.max(0,list.length*height-scroll.clientHeight):Math.min(scroll.scrollTop,Math.max(0,list.length*height-scroll.clientHeight)),start=Math.max(0,Math.floor(top/height)-2),end=Math.min(list.length,start+Math.ceil(scroll.clientHeight/height)+5);
  const out=document.createDocumentFragment(),spacer=n=>{const el=node('div');el.style.height=n+'px';out.append(el);};spacer(start*height);
  for(const item of list.slice(start,end)){
   const button=node('button',undefined,'mv-row mv-'+item.category);button.type='button';button.dataset.eventId=item.eventId;button.setAttribute('aria-pressed',String(item.eventId===selected));
   const body=node('div',undefined,'mv-body'),date=new Date(item.time),time=Number.isNaN(date.getTime())?'时间未知':date.toLocaleTimeString('zh-CN',{hour12:false});
-  body.append(node('div',`${time} · ${item.label} · ${item.actor?.name||'未提供用户'}${item.actor?.badges?.length?' · '+item.actor.badges.join(' / '):''}${item.mode==='replay'?' · 隔离回放':''}`,'mv-meta'),readable(item,'div','mv-text'));
+  body.append(node('div',`${time} · ${item.label} · ${item.actor?.name||'未提供用户'}${item.actor?.badges?.length?' · '+item.actor.badges.join(' / '):''}${item.mode==='replay'?' · 隔离回放':''}`,'mv-meta'),badges(item.actor),readable(item,'div','mv-text'));
   const symbol=node('span',undefined,'mv-symbol');symbol.title=item.label;if($('mvImages').checked){const resource=item.resources.find(x=>x.kind==='gift')||item.resources.find(x=>x.kind==='giftMenu')||item.resources.find(x=>x.kind==='avatar');if(resource)symbol.append(businessImage(resource,item.label));}button.append(symbol,body);button.onclick=()=>select(item.eventId);out.append(button);
  }
  spacer(Math.max(0,list.length-end)*height);$('mvRows').replaceChildren(out);$('mvRows').dataset.cachedCount=String(rows.length);
@@ -68,7 +89,9 @@ async function poll(){
 function renderContent(){
  if(!detail)return;const v=detail.view,body=$('mv-content');body.replaceChildren(node('p',`${v.label} · ${v.actor?.name||'未提供用户'} · ${v.mode==='replay'?'隔离回放':'实时记录'}`));
  for(const badge of v.actor?.badges||[])body.append(node('span',badge,'mv-badge'));
- body.append(readable(v,'p','mv-fulltext'));
+ body.append(badges(v.actor),readable(v,'p','mv-fulltext'));
+ if(v.content.entry?.advancedUnsupported)body.append(node('p','高级入场装扮未执行；原始配置保留在官方 JSON。'));
+ if(v.actor?.badgeRule==='base-list-dsl-unresolved')body.append(node('p','徽章使用官方基础有序列表；DSL筛选条件尚未还原。'));
  if($('mvImages').checked){const images=node('div',undefined,'mv-images');for(const resource of v.resources)images.append(businessImage(resource,{gift:'礼物',avatar:'头像',badge:'徽章',emoji:'表情',inline:'消息图片'}[resource.kind]||'图片','mv-image mv-image-'+resource.kind));body.append(images);}
  if(v.content.gift){const g=v.content.gift,card=node('div',undefined,'mv-gift-fact'),info=node('div'),resource=v.resources.find(x=>x.kind==='gift');
   if($('mvImages').checked&&resource)card.append(businessImage(resource,'礼物图标'));
@@ -86,7 +109,7 @@ function renderContent(){
  }
  const enhanced=v.content.gift||menu||a;if(enhanced){const extra=node('details');extra.append(node('summary','增强映射字段（非原生 JSON）'),node('pre',JSON.stringify(enhanced,null,2)));body.append(extra);}
  body.append(node('p',`映射版本 ${v.mappingVersion}；${detail.privacy}`));
- for(const p of v.provenance)body.append(node('p',`${p.source||'未确认来源'} · ${p.confidence} · ${p.notes.join('；')}`));
+ for(const p of v.provenance)body.append(node('p',`${p.source||'未确认来源'} · ${p.confidence} · ${(p.notes||[]).join('；')}`));
 }
 async function select(id){
  const gen=++detailGeneration;selected=id;detail=null;for(const id of ['mv-content','mvJson','mvProto','mvMapping','mvRaw','mvBinary'])$(id).replaceChildren();$('mvFieldLocator').hidden=true;render();$('mvTitle').textContent='读取消息详情…';

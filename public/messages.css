@@ -12,3 +12,21 @@
 .mv-gift-fact img{width:28px;height:28px;object-fit:contain;flex:none}.mv-gift-fact-name{font-size:12px;font-weight:500}.mv-gift-fact-meta{font-size:10px;opacity:.75;margin-top:2px;overflow-wrap:anywhere}
 
 .mv-menu-list{max-height:360px;overflow:auto}.mv-menu-list .mv-gift-fact{margin:0 0 12px}.mv-giftmenu .mv-symbol{background:#fff0f4;color:#b82150}
+/* Reimplemented from the observed chat DOM: ordered badges, names and text. */
+.mv-visual-badges{display:inline-flex;gap:4px;vertical-align:middle;max-width:100%;overflow:hidden;margin-right:4px}
+.mv-visual-badge{display:inline-block;position:relative;flex:none;height:18px;line-height:18px;vertical-align:middle;font-size:10px;color:white}
+.mv-badge-image{height:18px;width:auto;max-width:110px;object-fit:contain}
+.mv-badge-nine-slice{padding:0 10px 0 24px;border-image-slice:0 28 0 60 fill;border-image-width:0px 10px 0px 24px}
+.mv-badge-nine-slice .mv-badge-image{position:absolute;width:1px;height:1px;opacity:0;left:0;top:0}
+.mv-badge-nine-slice:not([data-loaded=true]){background:#404450}
+.mv-badge-overlay .mv-badge-name{position:absolute;left:22px;right:3px;top:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.mv-user-name{color:#7d4ca5}.mv-emphasis{color:#ffd588}
+.mv-audience{padding:12px;border:1px solid #515666;border-radius:6px;min-width:0}.mv-audience select{max-width:100%}
+#mvAudienceUsers{display:flex;flex-wrap:wrap;gap:8px;max-height:240px;overflow:auto}
+.mv-audience-user{display:flex;align-items:center;gap:4px;min-height:48px;max-width:100%;overflow:hidden}
+.mv-audience-avatar{width:28px;height:28px;border-radius:50%;object-fit:cover}
+.mv-audience-note{font-size:12px;color:#52657e}
+
+.mv-body:has(>.mv-visual-badges:not(:empty)) .mv-text{-webkit-line-clamp:1}
+
+.mv-image-missing{display:inline-block;box-sizing:border-box;width:24px;height:24px;border:1px dashed #8491a4;border-radius:3px;background:#edf0f5;flex:none}.mv-visual-badge .mv-image-missing{width:18px;height:18px}.mv-visual-badge:has(.mv-image-missing){color:#53627a}

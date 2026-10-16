@@ -1,7 +1,8 @@
 import {localOfficial,resourceUrl,safeText} from './privacy.js';
 import {activityView} from './activities.js';
 import {giftMenu} from './gift-menu.js';
-export const mappingVersion='message-view-20261016-menu-resources';
+import {chatActor,templateRuns,runText,roomAudience} from './chat-room.js';
+export const mappingVersion='message-view-20261016-chat-room';
 const shortType=value=>typeof value==='string'&&/^(?:Webcast)?[A-Za-z][A-Za-z0-9]{0,100}$/.test(value)?value.replace(/^Webcast/,''):'UnknownMessage';
 const decimal=value=>/^(?:0|[1-9]\d{0,39})$/.test(String(value))?String(value):null;
 const positive=value=>decimal(value)&&BigInt(value)>0n?String(value):null;
@@ -31,11 +32,13 @@ function convert(e){
   return out.length?out:[{type:'text',text:'[未识别片段]'}];
  });
  const nativeText=()=>rich(raw.common?.display_text,'common.display_text')||safeText(d.content)||safeText(d.common?.describe);
- const actor=d.user?{id:decimal(raw.user?.id_str||raw.user?.id),name:safeText(d.user.nickname)||'未提供昵称',badges:[]}:null;
- if(actor&&d.user?.user_attr?.is_admin===true)actor.badges.push('管理员（本条标记）');
+ const actor=chatActor(raw.user);
  addImage(raw.user?.avatar_thumb,'avatar','user.avatar_thumb');
  for(const image of (Array.isArray(raw.user?.badge_image_list)?raw.user.badge_image_list:[]).slice(0,3))addImage(image,'badge','user.badge_image_list');
  const view={messageType:type,category:'other',label:'其他消息',icon:'•',summary:'',actor,content:{},resources,fields:[],provenance:[],mappingVersion,mappingStatus:'mapped',eventId:e.eventId||null,eventSeq:e.eventSeq||null,rawRefs:e.rawRefs||[],captureId:e.captureId||null,runtimeNamespace:e.runtimeNamespace||null,mode:e.mode||null,time:e.occurredAt||e.receivedAt||e.persistedAt||null};
+ const occurred=Date.parse(e.occurredAt),received=Date.parse(e.receivedAt);
+ view.timeSource=Number.isFinite(occurred)&&occurred>=Date.UTC(2000,0,1)&&occurred<=(Number.isFinite(received)?received:Date.now())+86400000?'occurredAt':e.receivedAt?'receivedAt':'persistedAt';
+ view.time=e[view.timeSource]||null;view.receivedAt=e.receivedAt||null;
  if(['ChatMessage','EmojiChatMessage','ScreenChatMessage','PrivilegeScreenChatMessage'].includes(type)){
   Object.assign(view,{category:'chat',label:type==='EmojiChatMessage'?'表情':type==='ScreenChatMessage'?'管理弹幕':type==='PrivilegeScreenChatMessage'?'特权弹幕':'弹幕',icon:'聊'});
   view.summary=rich(raw.rtf_content_v2,'rtf_content_v2')||safeText(d.content)||rich(raw.emoji_content,'emoji_content','emoji')||safeText(d.default_content)||nativeText();
@@ -69,6 +72,19 @@ function convert(e){
  }else if(type==='MemberMessage'){
   Object.assign(view,{category:'member',label:'成员 / 入场',icon:'人'});view.content.action=decimal(d.action);view.summary=nativeText()||safeText(d.action_description)||'成员消息（动作含义未确认）';
  }else view.summary=nativeText();
+ if(['RoomMessage','ExhibitionChatMessage','FansclubMessage'].includes(type)){
+  view.category='system';view.label=type==='FansclubMessage'?'粉丝团消息':'房间提示';
+  view.content.runs=safeText(raw.content)?[{type:'text',text:safeText(raw.content)}]:templateRuns(raw.common?.display_text);view.summary=runText(view.content.runs)||nativeText();
+ }
+ if(type==='MemberMessage'&&raw.enter_effect_config){
+  const entry=raw.enter_effect_config;view.content.entry={type:decimal(entry.type),advancedUnsupported:String(entry.type)!=='8'};
+  if(String(entry.type)==='8'){
+   view.content.runs=templateRuns(entry.text);view.summary=runText(view.content.runs)||view.summary;
+   addImage(entry.badge,'entryBadge','enter_effect_config.badge');addImage(entry.text_icon,'entryBackground','enter_effect_config.text_icon');
+  }else notes.push('高级入场装扮/资源播放器未实现；原始配置可在详情查看');
+ }
+ const audience=roomAudience(type,raw);
+ if(audience){view.category='audience';view.label='观众统计';view.content.audience=audience;view.summary=audience.kind==='stats'?(audience.hidden?'平台隐藏人数':audience.display||'人数文案未提供'):`本条观众榜单片段 · ${audience.users.length} 条（非完整在线名单）`;}
  view.roomId=decimal(raw.common?.room_id);
  if(type==='GroupLiveContainerChangeMessage'){
   const menu=giftMenu(raw);if(menu){Object.assign(view,{category:'giftmenu',label:'礼物菜单',icon:'礼',summary:menu.action==='hide'?'礼物菜单隐藏':menu.action==='replace'?`礼物菜单更新 · ${menu.total} 项`:'礼物菜单内容无法确认；保留原始详情'});view.content.giftMenu=menu;if(menu.action==='unknown')view.mappingStatus='fallback';for(const g of menu.gifts)if(g.icon)addImage({url_list:[g.icon]},'giftMenu',`data[${raw.data.length-1}].container_payload.data[${g.index}].icon`);notes.push('仅解析末项type=6的有界JSON数据；价格仅取本条明确字段，不补giftStore价格、不提供赠送命令；最多20项，其余见原生JSON');}
@@ -86,5 +102,6 @@ function convert(e){
  view.summary=view.summary.slice(0,2400);view.content.text=view.summary;
  for(const key of ['count','total','action','repeat_count','group_count','combo_count','repeat_end','style'])if(d[key]!==undefined)view.fields.push({path:key,value:d[key],confidence:'official-field',meaning:'具体解释见统一详情；不推断缺失业务语义'});
  view.provenance=[{source:activity?.source||source[view.category],sourceVersion:'cdn-chunks-20261008',confidence:activity?.source||source[view.category]?'static-source':'unknown',scope:'展示规则；不等于真实业务验收',notes}];
+ if(actor?.visualBadges?.length||['system','member','audience'].includes(view.category))view.provenance.push({source:'ChatRoom.b626dcc2 / island_237ab.480da559 #146686 / RoomMessageConsume.1e33b586 #196276',sourceVersion:'local-observation-20261016',confidence:'static-source',scope:'徽章基础列表、模板、入场8与观众消息投影；DSL筛选和完整普通榜单尚未验证',notes:[]});
  return view;
 }

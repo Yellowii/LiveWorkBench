@@ -66,3 +66,5 @@ HookTargetMatcher使用已提交RAW的成功伴侣HTTP room/create owner作为�
 原生终止失败仅按 browserFallback 许可切入无头；RAW/凭据/身份错误不逃避。每五分钟探测参数恢复，先暂停浏览器 context/WSS，原生稳定至少30秒、至少两包且30秒内有输入才释放独占浏览器；90秒不稳定则串行回退。stop/关闭/配置变化撤销恢复任务。内部模式转换不自动改全局来源或结束场次，记录 unknown-range 消息缺口。FAILED 浏览器处于恢复任务时仍保留协调器的目标归属，以维持 END/手动 stop 的安全控制。
 
 后台媒体策略先在页面/room 响应交给脚本前学习本目标流地址，支持内嵌 Pace/Next、SDK stream_data、HTTP 地址升级 HTTPS 及关联分片。普通 JS/CSS/图片/字体/XHR/鉴权/WSS 不按媒体限制。networkBytes/mediaNetworkBytes 仅完成 HTTP 响应的测量，未采样为 null，不包含未完成传输/WSS，也不估算节省字节。imFetchEmptyResponses、streamDiscoveryFailures 和未分类媒体均如实输出。
+
+2026-10-17 展示增量：`GET /system/status` 增加可空captureEvidence，仅为当前Web来源已提交RAW的profileId/captureId/received序号/lastMessageAt；不含正文、路径或凭据。前端按当前活动profile、连接状态及30秒新鲜度显示消息流，平台开播确认仍由LiveMonitor负责。过期/错误/版本变更不会将旧confirmedState直接显示为当前开播。此DTO不参与启停调度，详见[本轮核查](../reviews/2026-10-17-room-chat-application.md)。

@@ -26,3 +26,6 @@
 .stage-menu-heading,.stage-menu-more{font-size:10px;opacity:.75;line-height:12px}.stage-menu-row{display:flex;align-items:center;gap:8px}.stage-menu-icon{width:28px;height:28px}.stage-menu-info{display:flex;flex-direction:column;min-width:0}.stage-menu-name{font-size:12px;font-weight:500;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.stage-menu-price{font-size:10px;opacity:.75;margin-top:2px}.stage-activity-art[data-resource-state=failed]{background:repeating-linear-gradient(45deg,#fff1,#fff1 4px,transparent 4px,transparent 8px)}
 
 .stage-menu-price{display:none}.stage-giftmenu:hover .stage-menu-price,.stage-giftmenu:focus-visible .stage-menu-price{display:block}
+.stage-card.stage-member{display:flex;align-items:center;gap:4px;max-width:min(360px,100%);min-height:36px;padding:4px 10px;border-radius:18px;background:rgba(70,53,106,.85) center/100% 100% no-repeat;color:white;font-size:14px;box-sizing:border-box}
+.stage-entry-badge{width:32px;height:24px;flex:none}.stage-entry-badge img{width:100%;height:100%;object-fit:contain}
+.stage-entry-text{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}

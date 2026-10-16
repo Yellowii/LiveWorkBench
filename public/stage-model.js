@@ -2,8 +2,9 @@
 export class StageModel{
  constructor(){this.time=0;this.queue=[];this.active=[];this.seen=new Set();this.states=new Map();this.dropped=0;this.paused=false;}
  push(items){for(let view of [...items].sort((a,b)=>BigInt(a.eventSeq||0)<BigInt(b.eventSeq||0)?-1:1)){
-  if(!view.eventId||this.seen.has(view.eventId)||!['chat','gift','lottery','redpacket','activity','admin','giftmenu'].includes(view.category))continue;
+  if(!view.eventId||this.seen.has(view.eventId)||!['chat','gift','lottery','redpacket','activity','admin','giftmenu','member'].includes(view.category))continue;
   this.seen.add(view.eventId);if(this.seen.size>1000)this.seen.delete(this.seen.values().next().value);
+  if(view.category==='member'&&view.content?.entry?.type!=='8')continue;
   const gift=view.content?.gift,activity=view.content?.activity,menu=view.content?.giftMenu;
   if(view.category==='giftmenu'&&!['replace','hide'].includes(menu?.action))continue;
   if(view.category==='gift'&&(gift?.trayEligible===false||gift?.comboState==='ended'))continue;
@@ -34,9 +35,9 @@ export class StageModel{
   this.queue.push({view,key,updated:this.time,updateVersion:0});if(this.queue.length>100){this.queue.shift();this.dropped++;}
  }}
  step(delta){if(this.paused)return;this.time+=Math.max(0,Math.min(delta,1000));
-  this.active=this.active.filter(x=>this.time-(x.view.category==='chat'?x.started:x.updated)<({chat:15000,gift:2500,admin:8000}[x.view.category]||30000));
+  this.active=this.active.filter(x=>this.time-(x.view.category==='chat'?x.started:x.updated)<({chat:15000,gift:2500,admin:8000,member:5000}[x.view.category]||30000));
   const priority=x=>BigInt(x.view.content?.activity?.priority||0),sorted=this.queue.filter(x=>x.view.category==='activity').sort((a,b)=>priority(a)>priority(b)?-1:priority(a)<priority(b)?1:0);let activityIndex=0;this.queue=this.queue.map(x=>x.view.category==='activity'?sorted[activityIndex++]:x);
-  for(let i=0;i<this.queue.length;){const item=this.queue[i],category=item.view.category,limit={chat:6,gift:2,lottery:1,redpacket:1,activity:2,admin:1,giftmenu:1}[category],same=this.active.filter(x=>x.view.category===category);if(same.length>=limit){i++;continue;}
+  for(let i=0;i<this.queue.length;){const item=this.queue[i],category=item.view.category,limit={chat:6,gift:2,lottery:1,redpacket:1,activity:2,admin:1,giftmenu:1,member:1}[category],same=this.active.filter(x=>x.view.category===category);if(same.length>=limit){i++;continue;}
    item.span=category==='chat'?(item.view.content?.privilegeStyle==='supreme'?3:item.view.messageType==='EmojiChatMessage'?2:1):1;
    const lanes=category==='chat'?new Set(same.flatMap(x=>Array.from({length:x.span||1},(_,n)=>x.lane+n))):new Set();
    const lane=category==='chat'?Array.from({length:7-item.span},(_,n)=>n).find(n=>Array.from({length:item.span},(_,j)=>n+j).every(j=>!lanes.has(j))):0;

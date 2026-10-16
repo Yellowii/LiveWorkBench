@@ -27,6 +27,10 @@ export function createMessageStage({container,canvas,cards,status,diagnostics,se
    const menu=v.content.giftMenu;b.append(el('span','礼物菜单 · 消息资料','stage-menu-heading'));
    for(const g of menu.gifts.slice(0,2)){const row=el('span',undefined,'stage-menu-row'),info=el('span',undefined,'stage-menu-info');row.append(imageNode(images()?g.icon:null,'菜单礼物图','stage-menu-icon'));info.append(el('span',g.name||'名称未提供','stage-menu-name'));if(g.price!==null&&g.price!=='0')info.append(el('span','消息价格字段 '+g.price,'stage-menu-price'));row.append(info);b.append(row);}
    b.append(el('span',`共${menu.total}项 · 点击查看详情`,'stage-menu-more'));b.title='本条菜单消息；只读资料，不提供赠送操作';
+  }else if(v.category==='member'){
+   b.append(imageNode(images()?v.resources.find(x=>x.kind==='entryBadge'):null,'入场徽章','stage-entry-badge'),el('span',v.summary,'stage-entry-text'));
+   const bg=images()?resources.get(v.resources.find(x=>x.kind==='entryBackground'),'入场背景'):null;if(bg?.image)b.style.backgroundImage='url('+JSON.stringify(bg.image.src)+')';
+   b.title='原生入场 type8 文案和资源；本地展示5秒，非官方动画时长。点击查看详情';
   }else if(v.category==='admin'){
    // AdminPrivilege has no dedicated official DOM. This is a workbench notice.
    b.append(el('span',v.actor?.name?v.actor.name+' · '+v.summary:v.summary,'stage-admin-text'));b.title='本条管理员消息；不代表观看账号当前权限。点击查看详情';
@@ -37,13 +41,13 @@ export function createMessageStage({container,canvas,cards,status,diagnostics,se
  function render(){const width=container.clientWidth,height=container.clientHeight,dpr=Math.min(devicePixelRatio||1,2);if(canvas.width!==Math.round(width*dpr)||canvas.height!==Math.round(height*dpr)){canvas.width=Math.round(width*dpr);canvas.height=Math.round(height*dpr);}ctx.setTransform(dpr,0,0,dpr,0,0);ctx.clearRect(0,0,width,height);boxes=[];
   for(const item of model.active.filter(x=>x.view.category==='chat'))boxes.push(drawDanmaku(ctx,item,{width,time:model.time,resources,images:images()}));
   const active=model.active.filter(x=>x.view.category!=='chat'),keep=new Set(active.map(x=>x.key));for(const [key,entry]of dom)if(!keep.has(key)){entry.node.remove();dom.delete(key);}
-  const resourceVersion=[...resources.cache.values()].map(x=>x.state).join(',')+String(images());for(const item of active){const old=dom.get(item.key),version=item.updateVersion+resourceVersion;if(old?.version===version)continue;const node=renderCard(item);if(old)old.node.replaceWith(node);else (item.view.category==='gift'?gifts:activities).append(node);dom.set(item.key,{node,version});}
+  const resourceVersion=[...resources.cache.values()].map(x=>x.state).join(',')+String(images());for(const item of active){const old=dom.get(item.key),version=item.updateVersion+resourceVersion;if(old?.version===version)continue;const node=renderCard(item);if(old)old.node.replaceWith(node);else (['gift','member'].includes(item.view.category)?gifts:activities).append(node);dom.set(item.key,{node,version});}
   status.textContent=`${model.paused?'展示已暂停':'舞台运行'} · 展示 ${model.active.length} · 等待 ${model.queue.length} · 过载略过 ${model.dropped}（原始事件仍在列表）${legacyMapping?' · 当前服务仍有旧版映射，增强字段需安全更新后端':''}`;
   diagnostics.textContent=`资源缓存 ${resources.cache.size}/128 · 加载中 ${resources.running} · 备用地址成功 ${[...resources.cache.values()].filter(x=>x.fallback).length} · ${resources.failures.map(x=>x.kind+'：'+x.reason).join('；')||'暂无加载失败'}。空图片位表示消息未提供资源或“显示消息图片”未开启。`;
  }
  function tick(now){frame=0;if(!visible||failed)return;try{model.step(last?now-last:0);last=now;render();}catch{failed=true;status.textContent='舞台展示异常，采集和消息列表不受影响';}if(!failed)frame=requestAnimationFrame(tick);}
  canvas.onclick=e=>{const r=canvas.getBoundingClientRect(),x=e.clientX-r.left,y=e.clientY-r.top,b=boxes.find(b=>x>=b.x&&x<=b.x+b.width&&y>=b.y&&y<=b.y+b.height);if(b)select(b.id);};
- return {push:items=>{try{legacyMapping=items.some(v=>v.mappingVersion&&v.mappingVersion!=='message-view-20261016-menu-resources');model.push(items);}catch{status.textContent='某条展示转换失败；请在列表查看原始记录';}},pause:value=>{model.paused=value;container.dataset.paused=String(value);},clear:()=>{model.clear();},visible:value=>{visible=value;last=0;if(!visible){cancelAnimationFrame(frame);frame=0;}else if(!frame)frame=requestAnimationFrame(tick);},model,resources};
+ return {push:items=>{try{legacyMapping=items.some(v=>v.mappingVersion&&v.mappingVersion!=='message-view-20261016-chat-room');model.push(items);}catch{status.textContent='某条展示转换失败；请在列表查看原始记录';}},pause:value=>{model.paused=value;container.dataset.paused=String(value);},clear:()=>{model.clear();},visible:value=>{visible=value;last=0;if(!visible){cancelAnimationFrame(frame);frame=0;}else if(!frame)frame=requestAnimationFrame(tick);},model,resources};
 }
 
 // First-party Canvas renderer. Static rules: CanvasDanmakuPlugin + module 217785.
