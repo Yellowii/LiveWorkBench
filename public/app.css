@@ -13,3 +13,6 @@ footer{position:relative;bottom:auto}
 .sidebar footer{margin:24px 0 0;padding:10px 0;background:transparent;overflow-wrap:anywhere;font-size:12px}
 .room-live-state{border-left:3px solid #697b9d;padding:8px 12px;margin:8px 0;background:rgba(120,140,180,.08)}
 .room-live-state p{margin:5px 0;overflow-wrap:anywhere}.room-live-state p:last-child{font-size:12px;color:#52657e}
+
+/* Compact navigation leaves the full reading width available in narrow panels. */
+@media(max-width:640px){.sidebar{position:relative;inset:auto;width:auto;padding:12px}.sidebar p{display:none}.sidebar nav{grid-template-columns:repeat(3,minmax(0,1fr));gap:6px;margin-top:10px}.sidebar button{text-align:center;font-size:13px;padding:8px 4px}.sidebar footer:empty{display:none}.sidebar footer{margin:8px 0 0;padding:0}header,main,footer{margin-left:0}header{padding:10px 12px}header p{display:none}main{padding:12px}.page{gap:10px}section{padding:10px}#dashboardProfile{min-width:0;width:100%}#coordinatePanel>label{display:flex}p,strong{overflow-wrap:anywhere}}

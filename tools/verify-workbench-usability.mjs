@@ -1,0 +1,13 @@
+import fs from 'node:fs/promises';import path from 'node:path';import assert from 'node:assert/strict';import {chromium} from 'playwright-core';import {createGateway} from '../src/server.js';
+const out=path.resolve('artifacts/workbench-usability');await fs.mkdir(out,{recursive:true});const app=await createGateway({dataDir:await fs.mkdtemp(path.join(out,'data-')),port:0}),browser=await chromium.launch({executablePath:'C:/Program Files (x86)/Microsoft/Edge/Application/msedge.exe',headless:true}),page=await browser.newPage({viewport:{width:364,height:850}});const errors=[];page.on('pageerror',e=>errors.push(e.message));
+try{
+ const p=app.profiles.create({name:'合成活动直播间',target:{type:'auto',value:'https://live.douyin.com/123456'},enabled:true});app.coordinator.state.active={profileId:p.profileId}; // Presentation fixture only; no collection.
+ await page.goto(app.url);await page.waitForFunction(()=>document.querySelector('#dashboardProfile option[value]:not([value=""])'));
+ assert.equal(await page.locator('#dashboardProfile').inputValue(),p.profileId,'Active room should be selected without an extra lookup');
+ assert.match(await page.locator('#dashboardRoom').textContent(),/合成活动直播间/);
+ assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth>innerWidth+1),false);
+ await page.screenshot({path:path.join(out,'workbench-364.png'),fullPage:true});
+ await page.locator('[data-page=messages]').click();
+ for(const width of [364,480,1440]){await page.setViewportSize({width,height:850});const b=await page.locator('#mvScroll').boundingBox(),stage=await page.locator('#messageStage').boundingBox();assert.ok(b.y<stage.y,'Readable list should precede the animation stage');if(width<640)assert.ok(b.width>width*.8,'Navigation should not occupy half the small window');assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth>innerWidth+1),false);await page.screenshot({path:path.join(out,`messages-${width}.png`),fullPage:true});}
+ await page.locator('[data-page=rooms]').click();await page.locator('#profileName').fill('尚未保存的编辑');await page.locator('[data-page=messages]').click();await page.locator('[data-page=rooms]').click();assert.equal(await page.locator('#profileName').inputValue(),'尚未保存的编辑');assert.equal(app.profiles.get(p.profileId).name,'合成活动直播间');assert.equal(app.sources.view().captureState,'STOPPED');assert.deepEqual(errors,[]);console.log('WORKBENCH_USABILITY_GUI_PASS');
+}catch(e){await page.screenshot({path:path.join(out,'failure.png'),fullPage:true});throw e;}finally{app.coordinator.state.active=null;await browser.close();await app.close();}

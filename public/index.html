@@ -32,17 +32,15 @@
 <p>仅在本机认证工作台展示可读内容。原始记录保留；回放数据单独查看。</p>
 <div class="actions">
 <label>数据范围 <select id="mvMode"><option value="live">实时与历史</option><option value="replay">隔离回放</option></select></label>
-<label>分类 <select id="mvCategory"><option value="">全部</option><option value="chat">弹幕 / 表情</option><option value="gift">礼物</option><option value="giftmenu">礼物菜单</option><option value="like">点赞</option><option value="member">成员 / 入场</option><option value="admin">管理员</option><option value="redpacket">红包</option><option value="lottery">福袋 / 抽奖</option><option value="activity">活动卡片</option><option value="audience">在线观众 / 统计</option><option value="system">房间 / 粉丝团提示</option><option value="other">其他</option></select></label>
+<label>视图 <select id="mvAppearance"><option value="chat">聊天展示</option><option value="analysis">分析列表</option></select></label>
+<label>分类 <select id="mvCategory"><option value="conversation">聊天与互动</option><option value="">全部记录（含技术消息）</option><option value="chat">弹幕 / 表情</option><option value="gift">礼物</option><option value="giftmenu">礼物菜单</option><option value="like">点赞</option><option value="member">成员 / 入场</option><option value="admin">管理员</option><option value="redpacket">红包</option><option value="lottery">福袋 / 抽奖</option><option value="activity">活动卡片</option><option value="audience">在线观众 / 统计</option><option value="system">房间 / 粉丝团提示</option><option value="other">其他</option></select></label>
 <label><input type="checkbox" id="mvFollow" checked>自动跟随</label>
 <label><input type="checkbox" id="mvImages">显示消息图片</label>
 <button id="mvOlder">更早记录</button><button id="mvLatest">回到最新</button>
 </div>
-<section class="mv-audience"><h2>在线观众 · 消息时点快照</h2><label>房间 / 采集记录 <select id="mvRoomScope"></select></label><p id="mvAudienceStats"></p><div id="mvAudienceUsers"></div><p class="mv-audience-note">人数文案来自 RoomStats；名单仅为 RoomUserSeq 榜单片段，不代表完整在线名单。未接入成功的普通观众 HTTP 榜单，不从入场消息推算在线人数或离场。</p></section>
 <p id="mvStatus" role="status">等待打开实时弹幕</p>
-<div class="stage-controls"><label><input type="checkbox" id="stageEnabled" checked>显示消息舞台</label><label><input type="checkbox" id="stagePaused">暂停舞台展示</label><span>最近记录与新增消息；点击组件查看详情，暂停不影响采集。</span></div>
-<div id="messageStage" class="message-stage" aria-label="Canvas 弹幕与礼物、活动舞台"><canvas id="stageCanvas" aria-label="滚动弹幕；相同消息也可从下方列表选择"></canvas><div id="stageCards" class="stage-cards"></div></div><p id="stageStatus" role="status"></p><details><summary>舞台资源诊断与还原边界</summary><p id="stageDiagnostics"></p><p>已接入弹幕、三档静态特权样式、礼物托盘、红包/福袋、活动消息和只读礼物菜单。原Lynx容器交互、红包领取、送礼、专有字体及部分动态图资源尚未还原。舞台期限只控制本地展示，不代表平台活动过期。</p></details>
 <div class="mv-layout">
-<section class="mv-main" aria-label="实时消息列表"><div id="mvScroll" tabindex="0"><div id="mvRows"></div></div></section>
+<section class="mv-main" aria-label="实时消息列表"><section class="mv-audience"><h2>在线观众 · 已接收快照</h2><label>房间 / 采集记录 <select id="mvRoomScope"></select></label><p id="mvAudienceStats"></p><div id="mvAudienceUsers"></div><details class="mv-audience-note"><summary>人数与名单说明</summary><p>人数文案来自 RoomStats；名单仅为 RoomUserSeq 榜单片段，不代表完整在线名单。未接入成功的普通观众 HTTP 榜单，不从入场消息推算在线人数或离场。</p></details></section><p class="mv-chat-hint">点击消息查看详情 · 图片由“显示消息图片”控制</p><div id="mvScroll" tabindex="0"><div id="mvRows"></div></div></section>
 <section class="mv-detail" aria-label="选中消息详情"><h2 id="mvTitle">选中一条消息查看详情</h2>
 <nav class="mv-tabs" aria-label="消息详情标签"><button data-mv-tab="content" aria-pressed="true">内容</button><button data-mv-tab="json" aria-pressed="false">官方 JSON</button><button data-mv-tab="proto" aria-pressed="false">Proto 字典</button><button data-mv-tab="mapping" aria-pressed="false">中文映射</button><button data-mv-tab="raw" aria-pressed="false">RAW / 处理链</button></nav>
 <div id="mvFieldLocator" hidden><label>JSON 字段定位 <select id="mvField"></select></label><p id="mvFieldInfo"></p></div>
@@ -50,7 +48,12 @@
 <div id="mv-proto" hidden><p>字段号和类型取自当前加载的官方 Parser；中文解释独立维护。嵌套字段可通过上方路径定位。</p><pre id="mvProto"></pre></div>
 <div id="mv-mapping" hidden><pre id="mvMapping"></pre></div>
 <div id="mv-raw" hidden><pre id="mvRaw"></pre><div id="mvBinary"></div></div>
-</section></div></div>
+</section></div>
+
+
+<div class="stage-controls"><label><input type="checkbox" id="stageEnabled" checked>显示消息舞台</label><label><input type="checkbox" id="stagePaused">暂停舞台展示</label><span>最近记录与新增消息；点击组件查看详情，暂停不影响采集。</span></div>
+<div id="messageStage" class="message-stage" aria-label="Canvas 弹幕与礼物、活动舞台"><canvas id="stageCanvas" aria-label="滚动弹幕；相同消息也可从上方列表选择"></canvas><div id="stageCards" class="stage-cards"></div></div><p id="stageStatus" role="status"></p><details><summary>舞台资源诊断与还原边界</summary><p id="stageDiagnostics"></p><p>已接入弹幕、三档静态特权样式、礼物托盘、红包/福袋、活动消息和只读礼物菜单。原Lynx容器交互、红包领取、送礼、专有字体及部分动态图资源尚未还原。舞台期限只控制本地展示，不代表平台活动过期。</p></details>
+</div>
 <div id="page-workbench" class="page" aria-labelledby="title-workbench">
 <h1 id="title-workbench">工作台</h1>
 <section id="coordinatePanel">

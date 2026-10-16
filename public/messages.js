@@ -4,7 +4,9 @@ const nativeTree=features.completeLocalBusiness?(await import('./native-tree.js'
 const createMessageStage=features.messageStage?(await import('./message-stage.js')).createMessageStage:()=>({push(){},pause(){},clear(){},visible(){}});
 if(features.messageStage){const style=document.createElement('link');style.rel='stylesheet';style.href='/message-stage.css';document.head.append(style);}else{document.getElementById('stageEnabled').checked=false;document.getElementById('stageEnabled').disabled=true;document.getElementById('stagePaused').disabled=true;document.getElementById('stageStatus').textContent='当前服务未加载消息舞台，请在安全时段更新服务。';}
 // Local readable views only. No payload is sent to public sockets or diagnostic exports.
-const $=id=>document.getElementById(id),height=84,maxCache=500;
+const $=id=>document.getElementById(id),maxCache=500;let height=32;
+const rowHeights=new Map();let measuredWidth=0,layoutFrame=0;
+function offsets(list){const out=[0];for(const v of list)out.push(out.at(-1)+(rowHeights.get(v.eventId)||height));return out;}
 let rows=[],cursor=null,historyAnchor=null,high='0',busy=false,generation=0,detailGeneration=0,selected=null,detail=null,tab='content',pending=null,initialized=false;
 const node=(tag,text,cls)=>{const el=document.createElement(tag);if(text!==undefined)el.textContent=text;if(cls)el.className=cls;return el;};
 const status=text=>{$('mvStatus').textContent=text;};
@@ -14,7 +16,7 @@ const stage=createMessageStage({container:$('messageStage'),canvas:$('stageCanva
 function stageVisibility(){stage.visible(visible()&&$('stageEnabled').checked&&!document.hidden);$('messageStage').hidden=!$('stageEnabled').checked;}
 $('stageEnabled').onchange=stageVisibility;$('stagePaused').onchange=()=>stage.pause($('stagePaused').checked);document.addEventListener('visibilitychange',stageVisibility);
 function visible(){return !$('page-messages').hidden;}
-function filtered(){const category=$('mvCategory').value;return rows.filter(x=>!category||x.category===category).slice().reverse();}
+function filtered(){const category=$('mvCategory').value;return rows.filter(x=>category==='conversation'?['chat','gift','member','like','system','admin','redpacket','lottery','activity'].includes(x.category):!category||x.category===category).slice().reverse();}
 // Resource URLs passed the authenticated MessageView policy. Reuse a successful
 // stage fallback, or try at most three declared candidates in this DOM image.
 function businessImage(resource,alt,cls){
@@ -46,20 +48,42 @@ function readable(view,tag,cls){
  for(const run of view.content.runs){if(run.type==='image')target.append($('mvImages').checked?businessImage(run,run.alt||'[图片]','mv-inline-image'):document.createTextNode(run.alt||'[图片]'));else if(run.type==='user')target.append(badges(run.actor),node('span',run.actor?.name||'未提供昵称','mv-user-name'));else target.append(node('span',run.text||'',run.emphasis?'mv-emphasis':undefined));}
  return target;
 }
+// ChatRoom 490793: inline badges, cyan nickname, then native message content.
+// This presentation never applies official UI filters to stored events.
+function chatLine(view){
+ const line=node('div',undefined,'mv-chat-line');
+ const hasUser=view.content?.runs?.some(r=>r.type==='user');
+ const namedEntry=view.category==='member'&&view.actor?.name&&view.summary.startsWith(view.actor.name);
+ if(namedEntry){line.append(badges(view.actor),node('span',view.actor.name,'mv-chat-name'),node('span',view.summary.slice(view.actor.name.length)));if(view.mode==='replay')line.append(node('span',' · 隔离回放','mv-chat-kind'));return line;}
+ if(!hasUser&&view.actor?.name)line.append(badges(view.actor),node('span',view.actor.name+'：','mv-chat-name'));
+ if(view.category==='gift'&&view.content?.gift){const g=view.content.gift;line.append(node('span',g.trayText||view.summary));const icon=view.resources.find(r=>r.kind==='gift');if($('mvImages').checked&&icon)line.append(businessImage(icon,'礼物','mv-inline-image'));if(g.displayCount)line.append(node('span',' ×'+g.displayCount,'mv-chat-count'));}
+ else line.append(readable(view,'span','mv-chat-content'));
+ if(!['chat','gift','member','like','system'].includes(view.category))line.prepend(node('span',view.label+' · ','mv-chat-kind'));
+ if(view.mode==='replay')line.append(node('span',' · 隔离回放','mv-chat-kind'));
+ return line;
+}
 function render(){
  if(!visible())return;
+ $('page-messages').dataset.appearance=$('mvAppearance').value;
  audience();
- const list=filtered(),scroll=$('mvScroll');if($('mvFollow').checked)scroll.scrollTop=Math.max(0,list.length*height-scroll.clientHeight);
- const top=$('mvFollow').checked?Math.max(0,list.length*height-scroll.clientHeight):Math.min(scroll.scrollTop,Math.max(0,list.length*height-scroll.clientHeight)),start=Math.max(0,Math.floor(top/height)-2),end=Math.min(list.length,start+Math.ceil(scroll.clientHeight/height)+5);
- const out=document.createDocumentFragment(),spacer=n=>{const el=node('div');el.style.height=n+'px';out.append(el);};spacer(start*height);
+ const list=filtered(),scroll=$('mvScroll');
+ if(measuredWidth!==scroll.clientWidth){measuredWidth=scroll.clientWidth;rowHeights.clear();}
+ const before=offsets(list),following=$('mvFollow').checked,top=following?Math.max(0,before.at(-1)-scroll.clientHeight):Math.min(scroll.scrollTop,Math.max(0,before.at(-1)-scroll.clientHeight));
+ let anchor=0;while(anchor<list.length&&before[anchor+1]<=top)anchor++;
+ const start=Math.max(0,anchor-2);let end=anchor;while(end<list.length&&before[end]<top+scroll.clientHeight)end++;end=Math.min(list.length,end+3);
+ const out=document.createDocumentFragment(),spacer=n=>{const el=node('div');el.style.height=n+'px';out.append(el);return el;},head=spacer(before[start]);
  for(const item of list.slice(start,end)){
   const button=node('button',undefined,'mv-row mv-'+item.category);button.type='button';button.dataset.eventId=item.eventId;button.setAttribute('aria-pressed',String(item.eventId===selected));
   const body=node('div',undefined,'mv-body'),date=new Date(item.time),time=Number.isNaN(date.getTime())?'时间未知':date.toLocaleTimeString('zh-CN',{hour12:false});
-  body.append(node('div',`${time} · ${item.label} · ${item.actor?.name||'未提供用户'}${item.actor?.badges?.length?' · '+item.actor.badges.join(' / '):''}${item.mode==='replay'?' · 隔离回放':''}`,'mv-meta'),badges(item.actor),readable(item,'div','mv-text'));
-  const symbol=node('span',undefined,'mv-symbol');symbol.title=item.label;if($('mvImages').checked){const resource=item.resources.find(x=>x.kind==='gift')||item.resources.find(x=>x.kind==='giftMenu')||item.resources.find(x=>x.kind==='avatar');if(resource)symbol.append(businessImage(resource,item.label));}button.append(symbol,body);button.onclick=()=>select(item.eventId);out.append(button);
+  body.append(node('div',`${time} · ${item.label} · ${item.actor?.name||'未提供用户'}${item.actor?.badges?.length?' · '+item.actor.badges.join(' / '):''}${item.mode==='replay'?' · 隔离回放':''}`,'mv-meta'));if($('mvAppearance').value==='analysis')body.append(badges(item.actor),readable(item,'div','mv-text'));
+  const symbol=node('span',undefined,'mv-symbol');symbol.title=item.label;if($('mvImages').checked&&$('mvAppearance').value==='analysis'){const resource=item.resources.find(x=>x.kind==='gift')||item.resources.find(x=>x.kind==='giftMenu')||item.resources.find(x=>x.kind==='avatar');if(resource)symbol.append(businessImage(resource,item.label));}const chat=$('mvAppearance').value==='chat'?chatLine(item):node('span');button.title=time+' · '+item.label+' · '+item.summary;button.append(symbol,body,chat);button.onclick=()=>select(item.eventId);out.append(button);
  }
- spacer(Math.max(0,list.length-end)*height);$('mvRows').replaceChildren(out);$('mvRows').dataset.cachedCount=String(rows.length);
- if($('mvFollow').checked)scroll.scrollTop=scroll.scrollHeight-scroll.clientHeight;
+ const tail=spacer(before.at(-1)-before[end]);$('mvRows').replaceChildren(out);$('mvRows').dataset.cachedCount=String(rows.length);
+ let changed=false;for(const el of $('mvRows').querySelectorAll('.mv-row')){const actual=el.getBoundingClientRect().height;if(actual>0&&actual!==(rowHeights.get(el.dataset.eventId)||height)){rowHeights.set(el.dataset.eventId,actual);changed=true;}}
+ if(rowHeights.size>maxCache){const retained=new Set(rows.map(v=>v.eventId));for(const id of rowHeights.keys())if(!retained.has(id))rowHeights.delete(id);}
+ const after=offsets(list);head.style.height=after[start]+'px';tail.style.height=(after.at(-1)-after[end])+'px';
+ scroll.scrollTop=following?scroll.scrollHeight-scroll.clientHeight:Math.max(0,top+after[anchor]-before[anchor]);
+ if(changed&&!layoutFrame)layoutFrame=requestAnimationFrame(()=>{layoutFrame=0;render();});
  $('mvOlder').disabled=(!cursor&&!historyAnchor)||busy;
 }
 function report(){status(`${$('mvMode').value==='replay'?'隔离回放':'实时与历史'} · 已载入 ${rows.length} 条，分类匹配 ${filtered().length} 条 · ${$('mvFollow').checked?'自动跟随':'浏览历史'}。分类筛选已载入记录，可继续读取更早记录。`);}
@@ -70,7 +94,7 @@ async function latest(){
 }
 async function older(){
  if(busy||(!cursor&&!historyAnchor))return;$('mvFollow').checked=false;pending=null;const gen=++generation;busy=true;
- try{const q=query();q.set(historyAnchor?'beforeEventId':'cursor',historyAnchor||cursor);const data=await read('?'+q);if(gen!==generation)return;const oldCount=filtered().length,seen=new Set(rows.map(x=>x.eventId));rows=[...rows,...data.items.filter(x=>!seen.has(x.eventId))].slice(-maxCache);cursor=data.nextCursor;historyAnchor=null;render();$('mvScroll').scrollTop=Math.max(0,(filtered().length-oldCount)*height);report();}
+ try{const q=query();q.set(historyAnchor?'beforeEventId':'cursor',historyAnchor||cursor);const data=await read('?'+q);if(gen!==generation)return;const oldSize=offsets(filtered()).at(-1),seen=new Set(rows.map(x=>x.eventId));rows=[...rows,...data.items.filter(x=>!seen.has(x.eventId))].slice(-maxCache);cursor=data.nextCursor;historyAnchor=null;render();$('mvScroll').scrollTop=Math.max(0,offsets(filtered()).at(-1)-oldSize);report();}
  catch(e){status(e.message);}finally{if(gen===generation){busy=false;render();}}
 }
 async function poll(){
@@ -88,6 +112,7 @@ async function poll(){
 }
 function renderContent(){
  if(!detail)return;const v=detail.view,body=$('mv-content');body.replaceChildren(node('p',`${v.label} · ${v.actor?.name||'未提供用户'} · ${v.mode==='replay'?'隔离回放':'实时记录'}`));
+ body.append(node('p','消息时间：'+(v.time?new Date(v.time).toLocaleString('zh-CN',{hour12:false}):'未提供')));
  for(const badge of v.actor?.badges||[])body.append(node('span',badge,'mv-badge'));
  body.append(badges(v.actor),readable(v,'p','mv-fulltext'));
  if(v.content.entry?.advancedUnsupported)body.append(node('p','高级入场装扮未执行；原始配置保留在官方 JSON。'));
@@ -132,11 +157,13 @@ function renderBinary(data,id,gen){
 }
 function showTab(name){tab=name;for(const el of document.querySelectorAll('[data-mv-tab]'))el.setAttribute('aria-pressed',String(el.dataset.mvTab===name));for(const key of ['content','json','proto','mapping','raw'])$('mv-'+key).hidden=key!==name;$('mvFieldLocator').hidden=!detail||!['json','proto','mapping'].includes(name);}
 for(const el of document.querySelectorAll('[data-mv-tab]'))el.onclick=()=>showTab(el.dataset.mvTab);
-$('mvField').onchange=showField;$('mvImages').onchange=()=>{renderContent();render();};
+$('mvField').onchange=showField;$('mvImages').onchange=()=>{rowHeights.clear();renderContent();render();};
 $('mvMode').onchange=()=>{stage.clear();detailGeneration++;detail=null;selected=null;rows=[];initialized=false;$('mvTitle').textContent='选中一条消息查看详情';for(const id of ['mv-content','mvJson','mvProto','mvMapping','mvRaw','mvBinary'])$(id).replaceChildren();$('mvFieldLocator').hidden=true;latest();};
+$('mvAppearance').onchange=()=>{height=$('mvAppearance').value==='chat'?32:84;rowHeights.clear();render();};
 $('mvCategory').onchange=()=>{render();report();};$('mvLatest').onclick=()=>{$('mvFollow').checked=true;latest();};$('mvOlder').onclick=older;
 $('mvFollow').onchange=()=>{if($('mvFollow').checked)poll();render();report();};
 $('mvScroll').onscroll=()=>{if(!visible())return;const el=$('mvScroll');if(el.scrollHeight-el.scrollTop-el.clientHeight>height*2)$('mvFollow').checked=false;render();};
 new MutationObserver(()=>{stageVisibility();if(visible()){if(!initialized)latest();else{render();poll();}}}).observe($('page-messages'),{attributes:true,attributeFilter:['hidden']});
+new ResizeObserver(()=>{if(visible())render();}).observe($('mvScroll'));
 stageVisibility();if(visible())latest();
 setInterval(()=>poll(),1500);
