@@ -4,6 +4,7 @@ import {DatabaseSync} from 'node:sqlite';
 export class HistoryQuery {
  constructor(file,root){this.root=root;this.eventPosition=0n;this.logPosition=0n;this.db=new DatabaseSync(file);this.db.exec(`PRAGMA journal_mode=WAL;PRAGMA synchronous=FULL;
  CREATE TABLE IF NOT EXISTS events(seq INTEGER PRIMARY KEY AUTOINCREMENT,id TEXT UNIQUE,mode TEXT,namespace TEXT,method TEXT,json TEXT);
+ CREATE INDEX IF NOT EXISTS event_scope ON events(mode,namespace,json_extract(json,'$.roomId'),json_extract(json,'$.sessionId'),seq);
  CREATE TABLE IF NOT EXISTS logs(seq INTEGER PRIMARY KEY AUTOINCREMENT,owner TEXT,native_seq TEXT,json TEXT,UNIQUE(owner,native_seq));`);this.sync();}
  statement(sql){const statement=this.db.prepare(sql);statement.setReadBigInts(true);return statement;}
  sync(){

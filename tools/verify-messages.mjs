@@ -18,7 +18,7 @@ try{
  await ingest('MemberMessage',{common:{room_id:'100',msg_id:String(sequence++),display_text:{default_pattern:'{0}进入直播间',pieces:[{user_value:{user:{nickname:'合成新观众'}}}]}},action:'999'});
  await ingest('GiftMessage',{user:{nickname:'合成送礼人'},gift:{name:'合成礼物',combo:true},repeat_count:'8',repeat_end:1});
  await ingest('ChatMessage',{user:{nickname:'合成可读昵称'},content:'你好 <img src=x onerror="window.pwned=true">'});
- await page.goto(app.url);await go('messages');await page.waitForFunction(()=>document.querySelector('#mvRows')?.textContent.includes('合成可读昵称'));
+ await page.goto(app.url);await go('messages');await page.locator('#mvScopeMode').selectOption('history');await page.waitForFunction(()=>document.querySelector('#mvRows')?.textContent.includes('合成可读昵称'));
  assert.equal(await page.evaluate(()=>window.pwned),undefined);assert.equal(await page.locator('#mvRows img').count(),0);
  await page.locator('.mv-row').last().click();await page.getByRole('button',{name:'官方 JSON',exact:true}).click();await page.locator('#mvField').selectOption('user.nickname');assert.match(await page.locator('#mvFieldInfo').textContent(),/#3.*string.*昵称/);
  await page.getByRole('button',{name:'Proto 字典',exact:true}).click();assert.match(await page.locator('#mvProto').textContent(),/ChatMessage/);

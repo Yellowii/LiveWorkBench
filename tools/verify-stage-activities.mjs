@@ -10,7 +10,7 @@ try{
  await ingest('LuckyBoxMessage',{box_id:'7',title:'合成红包说明',user:{id:'4',nickname:'合成发送者',avatar_thumb:picture},description_list:[{text:'消息内的活动说明',number:'3',gift_id:'8',image:picture}],send_time:'1800000000000',delay_time:'60',display_duration:'120'});
  await ingest('ShortTouchAreaMessage',{message_type:1,short_touch_area_data:{type:8,name:'合成活动',short_touch_info:{width:72,height:48,img_url:picture.url_list[0],container_type:1,short_touch_url_pc:'javascript:window.__unsafe=1'},container_payload:'<script>window.__unsafe=1</script>'}});
  await ingest('AdminPrivilegeMessage',{data:{op:1,privilege:13}});
- await page.goto(app.url);await page.locator('[data-page=messages]').click();await page.locator('#mvImages').check();
+ await page.goto(app.url);await page.locator('[data-page=messages]').click();await page.locator('#mvScopeMode').selectOption('history');await page.locator('#mvImages').check();
  await page.waitForFunction(()=>document.querySelector('.stage-redpacket-art img')?.naturalWidth===98&&document.querySelector('.stage-activity-art img')?.naturalWidth===72&&document.querySelector('.stage-admin'));
  await page.locator('#stagePaused').check();await page.screenshot({path:path.join(out,'implementation-1440.png'),fullPage:true});await page.locator('#messageStage').screenshot({path:path.join(out,'implementation-stage.png')});
  const measure=selectors=>page.evaluate(selectors=>Object.fromEntries(selectors.map(s=>{const e=document.querySelector(s),r=e.getBoundingClientRect(),c=getComputedStyle(e);return [s,{width:r.width,height:r.height,fontSize:c.fontSize,borderRadius:c.borderRadius}];})),selectors);

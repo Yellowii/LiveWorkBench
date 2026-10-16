@@ -8,6 +8,7 @@ export function roomPresentation(profile,status={},now=Date.now()){
   const label=m.queryState==='LIVE'?'已开播':'已下播';
   platform=m.confirmedState===m.queryState&&m.confirmationCount>=profile.confirmations?label:`检测到${label}，待连续确认 ${m.confirmationCount||0}/${profile.confirmations}`;
  }
+ const ended=status.coordinator?.lastEnded;if(ended?.profileId===profile.profileId&&!(fresh&&version&&m.queryState==='LIVE'&&Date.parse(m.lastTransitionAt)>Date.parse(ended.endedAt)))platform='已下播';
  const active=status.coordinator?.active?.profileId===profile.profileId,capture=status.capture||{},proof=status.captureEvidence,elapsed=now-Date.parse(proof?.lastMessageAt);
  let flow='未监听，消息数据流未检测';
  if(capture.captureState==='STOPPED')flow='监听已停止，当前无采集数据流';

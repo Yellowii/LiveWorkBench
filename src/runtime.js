@@ -28,6 +28,7 @@ export class Runtime extends EventBus {
     r.metricsService=new MetricsService();r.metrics=r.metricsService.values;r.logService=new LogService(r.store,r);
     r.deduplicator=new MessageDeduplicator();r.pipeline=new ProcessingPipeline(r);
     if(!replayWorker){r.replayEngine=new ReplayEngine(r,dir=>Runtime.open({dataDir:dir,parser:r.parser,replayWorker:true}));r.replays=r.replayEngine.jobs;}
+    for(const state of r.store.sessions().filter(s=>s.sessionState==='ENDED'&&s.archiveState!=='COMPLETE')){const end=r.store.events({mode:state.mode,namespace:state.runtimeNamespace,sessionId:state.sessionId,limit:1}).items[0];if(end?.payload?.extensions?.lifecycleCandidate==='platform-ended'||end?.eventType==='PlatformLiveEndObserved')r.sessions.archive(state.sessionId,end.eventId);}
     const current=r.store.sessions().filter(s=>s.mode==='live'&&s.sessionState!=='ENDED');r.activeRoom=current.length===1?current[0].roomId:null;
     if(current.length>1)r.log('SESSION_SELECTION_REQUIRES_RECONCILIATION');return r;
     }catch(error){r.store?.close();r.lease.release();throw error;}
@@ -83,16 +84,17 @@ export class Runtime extends EventBus {
     }
     const associatedEnd=isControlEnd&&Boolean(known)&&(raw.mode!=='live'||this.activeRoom===roomId);
     if(isControlEnd&&!known)this.log('LIFECYCLE_CONTEXT_UNRESOLVED',{rawId:raw.rawId});
-    const session=this.sessions.observe({roomId,anchorUid,mode:raw.mode,namespace:raw.runtimeNamespace,...evidence,ended:Boolean(evidence.ended||associatedEnd),evidenceRef:raw.rawId,observedAt:raw.receivedAt});
+    const session=this.sessions.observe({roomId,anchorUid,mode:raw.mode,namespace:raw.runtimeNamespace,...evidence,ended:Boolean(evidence.ended||associatedEnd),sourceEpoch:raw.sourceEpoch,evidenceRef:raw.rawId,observedAt:raw.receivedAt});
     if(session&&session.sessionState!=='ENDED'){this.contexts.set(contextKey,{roomId,anchorUid:session.anchorUid});if(this.contexts.size>1024)this.contexts.delete(this.contexts.keys().next().value);}
     if(session)this.emit('session.updated',session);
     if(session?.sessionState==='ENDED'&&raw.mode==='live'&&raw.sourceType==='LiveHookSource')this.captureTargets?.ended(raw,roomId,session.anchorUid);
     const msgId=common.msg_id?String(common.msg_id):message.msg_id&&message.msg_id!=='0'?String(message.msg_id):null;
-    const key=this.deduplicator.key({namespace:raw.runtimeNamespace,roomId,anchorUid:session?.anchorUid||raw.anchorUid,method:message.method,msgId});
+    const key=this.deduplicator.key({namespace:raw.runtimeNamespace,roomId,anchorUid:session?.anchorUid||raw.anchorUid,method:message.method,msgId,sessionId:session?.sessionId,generation:session?.generation});
     const {extensions,occurredAt}=parserExtensions({official,raw,message,roomId,commonRoom,isControlEnd,associatedEnd});
-    const event={schemaVersion:'1',eventType:message.method,producer:'OfficialParser',origin:raw.format==='http-json'?'derived':'platform',mode:raw.mode,runtimeNamespace:raw.runtimeNamespace,streamId:raw.runtimeNamespace,sourceType:raw.sourceType,sourceEpoch:raw.sourceEpoch,captureId:raw.recordingId,anchorUid:session?.anchorUid||null,roomId,sessionId:session?.sessionId||null,msgId,userId:official?.user?.id_str||official?.user?.id||null,receivedAt:raw.receivedAt,occurredAt,rawRefs:[raw.rawId],payload:{decodeStatus:message.status,official,extensions}};
+    const event={schemaVersion:'1',eventType:message.method,producer:'OfficialParser',origin:raw.format==='http-json'?'derived':'platform',mode:raw.mode,runtimeNamespace:raw.runtimeNamespace,streamId:raw.runtimeNamespace,sourceType:raw.sourceType,sourceEpoch:raw.sourceEpoch,captureId:raw.recordingId,anchorUid:session?.anchorUid||null,roomId,sessionId:session?.sessionId||null,sessionGeneration:session?.generation||0,msgId,userId:official?.user?.id_str||official?.user?.id||null,receivedAt:raw.receivedAt,occurredAt,rawRefs:[raw.rawId],payload:{decodeStatus:message.status,official,extensions}};
     if(raw.mode==='live'&&roomId===this.activeRoom&&(extensions.lifecycleCandidate==='platform-ended'||message.method==='PlatformLiveEndObserved'))this.activeRoom=null;
     const saved=this.commit(event,key,this.store);if(saved.duplicate){this.metrics.duplicates++;return saved.event;}
+    if(session?.sessionState==='ENDED')this.emit('session.updated',this.sessions.archive(session.sessionId,saved.event.eventId));
     if(message.status==='decoded')this.metrics.decoded++;else if(message.status==='unknown')this.metrics.unknown++;else if(message.status==='error')this.metrics.failed++;
     this.metrics.events++;return saved.event;
   }
@@ -102,8 +104,9 @@ export class Runtime extends EventBus {
     const known=this.sessions.find(evidence.roomId,'live');if(!known||known.mode!=='live'||known.anchorUid!==evidence.anchorUid||this.activeRoom!==evidence.roomId)return null;
     if(known.sessionState==='ENDED')return known;
     const reference=`monitor:${evidence.profileId}:${evidence.stateVersion}`,state=this.sessions.observe({roomId:evidence.roomId,anchorUid:evidence.anchorUid,ended:true,evidenceRef:reference,observedAt:evidence.checkedAt});this.activeRoom=null;this.emit('session.updated',state);
-    this.commit({schemaVersion:'1',eventType:'PlatformLiveEndObserved',producer:'MonitorCoordinator',origin:'monitor',mode:'live',runtimeNamespace:'live',streamId:'live',sourceType:this.selectedSource||null,sourceEpoch:this.activeSourceEpoch||null,captureId:null,anchorUid:state.anchorUid,roomId:state.roomId,sessionId:state.sessionId,msgId:null,userId:null,receivedAt:evidence.checkedAt,occurredAt:evidence.checkedAt,rawRefs:[],payload:{official:null,extensions:{lifecycleCandidate:'platform-ended',platformEvidence:{source:evidence.evidence.source,profileId:evidence.profileId,stateVersion:evidence.stateVersion,reference}}}},`monitor-end:${state.sessionId}`,this.store);return state;
+    const saved=this.commit({schemaVersion:'1',eventType:'PlatformLiveEndObserved',producer:'MonitorCoordinator',origin:'monitor',mode:'live',runtimeNamespace:'live',streamId:'live',sourceType:this.selectedSource||null,sourceEpoch:this.activeSourceEpoch||null,captureId:null,anchorUid:state.anchorUid,roomId:state.roomId,sessionId:state.sessionId,msgId:null,userId:null,receivedAt:evidence.checkedAt,occurredAt:evidence.checkedAt,rawRefs:[],payload:{official:null,extensions:{lifecycleCandidate:'platform-ended',platformEvidence:{source:evidence.evidence.source,profileId:evidence.profileId,stateVersion:evidence.stateVersion,reference}}}},`monitor-end:${state.sessionId}`,this.store);const archived=this.sessions.archive(state.sessionId,saved.event.eventId);this.emit('session.updated',archived);return archived;
   }
+  beginProfileSession(evidence,sourceEpoch){const state=this.sessions.beginConfirmed(evidence,sourceEpoch);if(state)this.emit('session.updated',state);return state;}
   createReplay(input){return this.replayEngine.create(input);}
   replayView(id){return this.replayEngine.view(id);}
   replayAction(...args){return this.replayEngine.action(...args);}

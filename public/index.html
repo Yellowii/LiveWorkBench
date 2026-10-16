@@ -32,12 +32,15 @@
 <p>仅在本机认证工作台展示可读内容。原始记录保留；回放数据单独查看。</p>
 <div class="actions">
 <label>数据范围 <select id="mvMode"><option value="live">实时与历史</option><option value="replay">隔离回放</option></select></label>
+<label>场次 <select id="mvScopeMode"><option value="current">当前监听</option><option value="history">历史场次</option></select></label>
+<label id="mvSessionLabel" hidden>历史记录 <select id="mvSession"></select></label>
 <label>视图 <select id="mvAppearance"><option value="chat">聊天展示</option><option value="analysis">分析列表</option></select></label>
 <label>分类 <select id="mvCategory"><option value="conversation">聊天与互动</option><option value="">全部记录（含技术消息）</option><option value="chat">弹幕 / 表情</option><option value="gift">礼物</option><option value="giftmenu">礼物菜单</option><option value="like">点赞</option><option value="member">成员 / 入场</option><option value="admin">管理员</option><option value="redpacket">红包</option><option value="lottery">福袋 / 抽奖</option><option value="activity">活动卡片</option><option value="audience">在线观众 / 统计</option><option value="system">房间 / 粉丝团提示</option><option value="other">其他</option></select></label>
 <label><input type="checkbox" id="mvFollow" checked>自动跟随</label>
 <label><input type="checkbox" id="mvImages">显示消息图片</label>
 <button id="mvOlder">更早记录</button><button id="mvLatest">回到最新</button>
 </div>
+<p id="mvScopeStatus" role="status"></p>
 <p id="mvStatus" role="status">等待打开实时弹幕</p>
 <div class="mv-layout">
 <section class="mv-main" aria-label="实时消息列表"><section class="mv-audience"><h2>在线观众 · 已接收快照</h2><label>房间 / 采集记录 <select id="mvRoomScope"></select></label><p id="mvAudienceStats"></p><div id="mvAudienceUsers"></div><details class="mv-audience-note"><summary>人数与名单说明</summary><p>人数文案来自 RoomStats；名单仅为 RoomUserSeq 榜单片段，不代表完整在线名单。未接入成功的普通观众 HTTP 榜单，不从入场消息推算在线人数或离场。</p></details></section><p class="mv-chat-hint">点击消息查看详情 · 图片由“显示消息图片”控制</p><div id="mvScroll" tabindex="0"><div id="mvRows"></div></div></section>
@@ -65,7 +68,7 @@
 <p id="dashboardRoom">尚未选择直播间</p>
 <p id="dashboardAccount">
 </p>
-<p id="dashboardConnection">正在读取连接状态</p><div id="roomLiveStates" aria-label="各直播间开播与数据流状态"></div><details><summary>如何判定开播和数据流？</summary><p>以官方页面中与目标房号、房间或主播身份匹配的结构化房间 status 为依据：2=开播，4=结束；达到配置的连续确认次数才标记已开播/已下播。身份冲突、空响应、网络失败均为未知。超过两次检测间隔的结果标为过期，可在直播间页面“检测”或开启周期监控。</p><p>消息数据流独立判断：仅当前活动房间、连接已建立且30秒内收到并持久化 RAW 才显示有消息数据流。连接成功、人数或历史消息均不单独证明开播；停止监听或暂时无弹幕不等于下播。此处不检测音视频推流。</p></details>
+<p id="dashboardConnection">正在读取连接状态</p><div id="roomLiveStates" aria-label="各直播间开播与数据流状态"></div><details><summary>如何判定开播和数据流？</summary><p>已关联当前场次的官方 Control.action=3 直接作为下播证据；否则以官方页面中与目标房号、房间或主播身份匹配的结构化房间 status 为依据：2=开播，4=结束；达到配置的连续确认次数才标记已开播/已下播。身份冲突、空响应、网络失败均为未知。超过两次检测间隔的结果标为过期，可在直播间页面“检测”或开启周期监控。</p><p>消息数据流独立判断：仅当前活动房间、连接已建立且30秒内收到并持久化 RAW 才显示有消息数据流。连接成功、人数或历史消息均不单独证明开播；停止监听或暂时无弹幕不等于下播。此处不检测音视频推流。</p></details>
 <div class="actions">
 <button id="profileStart">开始监听选中直播间</button>
 <button id="profileStop">停止当前监听</button>
@@ -122,11 +125,11 @@
 <label>
 <input id="profileEnabled" type="checkbox">启用</label>
 <label>
-<input id="monitorEnabled" type="checkbox">周期监控</label>
+<input id="monitorEnabled" type="checkbox">空闲时周期监控</label>
 <label>
 <input id="autoStart" type="checkbox">开播自动监听</label>
 <label>
-<input id="autoStop" type="checkbox">确认关播后停止</label>
+<input id="autoStop" type="checkbox">确认下播后停止（Web监听始终生效）</label>
 </div>
 <details id="profileAdvanced">
 <summary>技术身份与连接高级配置</summary>

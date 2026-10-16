@@ -23,7 +23,7 @@ try{
  await page.waitForFunction(()=>document.querySelector('#roomLiveStates').textContent.includes('有消息数据流'));await page.screenshot({path:path.join(out,'room-status.png'),fullPage:true});
  app.sources.currentWeb().status.captureState='STOPPED';app.coordinator.state.active=null;
 
- await page.locator('[data-page=messages]').click();await page.locator('#mvImages').check();await page.waitForFunction(()=>document.querySelector('.stage-member'));
+ await page.locator('[data-page=messages]').click();await page.locator('#mvScopeMode').selectOption('history');await page.locator('#mvImages').check();await page.waitForFunction(()=>document.querySelector('.stage-member'));
  await page.locator('#stagePaused').check();
  const option=await page.locator('#mvRoomScope option').evaluateAll(nodes=>nodes.find(n=>n.textContent.includes('房间 100')).value);await page.locator('#mvRoomScope').selectOption(option);
  assert.match(await page.locator('#mvAudienceStats').textContent(),/123人在线/);assert.doesNotMatch(await page.locator('#mvAudienceStats').textContent(),/555|999|900/);assert.equal(await page.locator('.mv-audience-user').count(),2);assert.match(await page.locator('#mvAudienceUsers').textContent(),/隐身用户/);assert.doesNotMatch(await page.locator('#mvAudienceUsers').textContent(),/不应显示/);

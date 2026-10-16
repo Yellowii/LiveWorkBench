@@ -71,7 +71,7 @@ export class SourceController {
     // A retained unfinished session is not an active transport. Drain before handing
     // the selected room to a new epoch; SessionManager keeps both rooms' history.
     await this.stopActive();if(this.closing||!stillCurrent())throw new Error('STATE_CONFLICT');
-    this.state.sourceEpoch=String(BigInt(this.state.sourceEpoch)+1n);this.state.stateVersion=String(BigInt(this.state.stateVersion)+1n);this.runtime.activeRoom=evidence.roomId;this.save();
+    this.state.sourceEpoch=String(BigInt(this.state.sourceEpoch)+1n);this.state.stateVersion=String(BigInt(this.state.stateVersion)+1n);const session=this.runtime.beginProfileSession?.(evidence,this.state.sourceEpoch);if(session?.sessionState==='ENDED')throw Error('SESSION_RECONCILIATION_REQUIRED');this.runtime.activeRoom=evidence.roomId;this.save();
     this.webMode=config.kind==='browser'?'browser':'direct';this.activeProfileId=profile.profileId;
     this.connectionDetail={connectionReason:config.connectionReason,parameterDiscovery:config.parameterDiscovery||evidence.parameterDiscovery||'monitor',browserHeadless:config.kind==='browser'?config.headless:null};
     const plan=this.webPlan={profile,evidence,stillCurrent,epoch:this.state.sourceEpoch,version:this.state.stateVersion};

@@ -7,12 +7,30 @@ if(features.messageStage){const style=document.createElement('link');style.rel='
 const $=id=>document.getElementById(id),maxCache=500;let height=32;
 const rowHeights=new Map();let measuredWidth=0,layoutFrame=0;
 function offsets(list){const out=[0];for(const v of list)out.push(out.at(-1)+(rowHeights.get(v.eventId)||height));return out;}
+let scope=null,scopeItems=[],scopeReady=false,scopeLoading=null;
 let rows=[],cursor=null,historyAnchor=null,high='0',busy=false,generation=0,detailGeneration=0,selected=null,detail=null,tab='content',pending=null,initialized=false;
 const node=(tag,text,cls)=>{const el=document.createElement(tag);if(text!==undefined)el.textContent=text;if(cls)el.className=cls;return el;};
 const status=text=>{$('mvStatus').textContent=text;};
-async function read(route){const r=await fetch('/api/v1/local/messages'+route,{headers:{'X-LW-Local-View':'1'},cache:'no-store'});if(!r.ok)throw Error(r.status===404?'当前服务尚未加载实时弹幕模块，请在安全时段更新服务。':r.status===403?'本机认证失效，请刷新工作台。':'读取失败；可重试，原始记录仍保留。');return (await r.json()).data;}
-function query(){return new URLSearchParams({mode:$('mvMode').value,limit:'100'});}
+async function read(route){const r=await fetch(route==='@scopes'?'/api/v1/local/message-scopes':'/api/v1/local/messages'+route,{headers:{'X-LW-Local-View':'1'},cache:'no-store'});if(!r.ok)throw Error(r.status===404?'当前服务尚未加载实时弹幕模块，请在安全时段更新服务。':r.status===403?'本机认证失效，请刷新工作台。':'读取失败；可重试，原始记录仍保留。');return (await r.json()).data;}
+function query(){return new URLSearchParams({mode:$('mvMode').value,limit:'100',roomId:scope.roomId,sessionId:scope.sessionId,namespace:scope.namespace});}
 const stage=createMessageStage({container:$('messageStage'),canvas:$('stageCanvas'),cards:$('stageCards'),status:$('stageStatus'),diagnostics:$('stageDiagnostics'),select,images:()=>$('mvImages').checked});
+function applyScope(next){
+ if(scope?.scopeKey===next?.scopeKey&&scopeReady)return;scopeReady=true;scope=next;generation++;detailGeneration++;rows=[];cursor=null;historyAnchor=null;pending=null;high='0';initialized=false;busy=false;selected=null;detail=null;rowHeights.clear();stage.clear();
+ $('mvTitle').textContent='选中一条消息查看详情';for(const id of ['mv-content','mvJson','mvProto','mvMapping','mvRaw','mvBinary'])$(id).replaceChildren();$('mvFieldLocator').hidden=true;render();
+}
+async function updateScope(){
+ if(!features.sessionScopes){status('当前后端尚未加载场次隔离，请在安全时段更新服务。为避免混房，本页不查询全库。');return;}
+ if(scopeLoading)return scopeLoading;
+ scopeLoading=(async()=>{const data=await read('@scopes'),mode=$('mvMode').value,history=$('mvScopeMode').value==='history'||mode==='replay',previous=$('mvSession').value;
+ scopeItems=data.items.filter(s=>s.mode===mode);$('mvSessionLabel').hidden=!history;
+ $('mvSession').replaceChildren(...scopeItems.map(s=>{const o=node('option',s.name+' · '+new Date(s.startedAt).toLocaleString('zh-CN',{hour12:false})+' · '+(s.sessionState==='ENDED'?'已下播 / '+(s.archiveState==='COMPLETE'?'已归档':'待归档'):'未结束')+' · '+s.sessionId.slice(0,8));o.value=s.scopeKey;return o;}));if(scopeItems.some(s=>s.scopeKey===previous))$('mvSession').value=previous;
+ const next=history?scopeItems.find(s=>s.scopeKey===$('mvSession').value):data.current;applyScope(next||null);
+ $('mvScopeStatus').textContent=next?(history?'历史查看：':'当前监听：')+next.name+' · 场次 '+next.sessionId.slice(0,8)+(next.sessionState==='ENDED'?' · 已下播 / '+(next.archiveState==='COMPLETE'?'已归档':'待归档'):''):data.ended?'直播间已下播 · '+(data.ended.archiveState==='COMPLETE'?'已归档，可选择历史场次查看':'归档待完成'):'当前没有活动监听场次；历史内容请切换“历史场次”。';
+ if(!next)status('当前视图无消息；其他直播间和上一场内容不会自动加载。');
+ })();try{await scopeLoading;}finally{scopeLoading=null;}
+}
+$('mvScopeMode').onchange=()=>{applyScope(null);updateScope().then(()=>{if(scope)latest();}).catch(e=>status(e.message));};
+$('mvSession').onchange=()=>{applyScope(scopeItems.find(s=>s.scopeKey===$('mvSession').value)||null);if(scope)latest();};
 function stageVisibility(){stage.visible(visible()&&$('stageEnabled').checked&&!document.hidden);$('messageStage').hidden=!$('stageEnabled').checked;}
 $('stageEnabled').onchange=stageVisibility;$('stagePaused').onchange=()=>stage.pause($('stagePaused').checked);document.addEventListener('visibilitychange',stageVisibility);
 function visible(){return !$('page-messages').hidden;}
@@ -88,6 +106,7 @@ function render(){
 }
 function report(){status(`${$('mvMode').value==='replay'?'隔离回放':'实时与历史'} · 已载入 ${rows.length} 条，分类匹配 ${filtered().length} 条 · ${$('mvFollow').checked?'自动跟随':'浏览历史'}。分类筛选已载入记录，可继续读取更早记录。`);}
 async function latest(){
+ try{await updateScope();}catch(e){status(e.message);return;}if(!scope)return;
  const gen=++generation;pending=null;historyAnchor=null;busy=true;
  try{const data=await read('?'+query());if(gen!==generation)return;rows=data.items;stage.clear();stage.push(rows.slice(0,12));cursor=data.nextCursor;high=data.snapshot;initialized=true;render();report();}
  catch(e){if(gen===generation)status(e.message);}finally{if(gen===generation){busy=false;render();}}
@@ -98,7 +117,7 @@ async function older(){
  catch(e){status(e.message);}finally{if(gen===generation){busy=false;render();}}
 }
 async function poll(){
- if(!visible()||busy||!$('mvFollow').checked)return;if(!initialized)return latest();const gen=generation;busy=true;
+ if(!visible())return;try{await updateScope();}catch(e){status(e.message);return;}if(!scope||busy||!$('mvFollow').checked)return;if(!initialized)return latest();const gen=generation;busy=true;
  try{
   pending??={after:high,cursor:null,items:[],snapshot:null};
   // Bounded work per tick. Keep the signed snapshot across ticks until completely drained.
@@ -158,7 +177,7 @@ function renderBinary(data,id,gen){
 function showTab(name){tab=name;for(const el of document.querySelectorAll('[data-mv-tab]'))el.setAttribute('aria-pressed',String(el.dataset.mvTab===name));for(const key of ['content','json','proto','mapping','raw'])$('mv-'+key).hidden=key!==name;$('mvFieldLocator').hidden=!detail||!['json','proto','mapping'].includes(name);}
 for(const el of document.querySelectorAll('[data-mv-tab]'))el.onclick=()=>showTab(el.dataset.mvTab);
 $('mvField').onchange=showField;$('mvImages').onchange=()=>{rowHeights.clear();renderContent();render();};
-$('mvMode').onchange=()=>{stage.clear();detailGeneration++;detail=null;selected=null;rows=[];initialized=false;$('mvTitle').textContent='选中一条消息查看详情';for(const id of ['mv-content','mvJson','mvProto','mvMapping','mvRaw','mvBinary'])$(id).replaceChildren();$('mvFieldLocator').hidden=true;latest();};
+$('mvMode').onchange=()=>{applyScope(null);scopeReady=false;stage.clear();detailGeneration++;detail=null;selected=null;rows=[];initialized=false;$('mvTitle').textContent='选中一条消息查看详情';for(const id of ['mv-content','mvJson','mvProto','mvMapping','mvRaw','mvBinary'])$(id).replaceChildren();$('mvFieldLocator').hidden=true;latest();};
 $('mvAppearance').onchange=()=>{height=$('mvAppearance').value==='chat'?32:84;rowHeights.clear();render();};
 $('mvCategory').onchange=()=>{render();report();};$('mvLatest').onclick=()=>{$('mvFollow').checked=true;latest();};$('mvOlder').onclick=older;
 $('mvFollow').onchange=()=>{if($('mvFollow').checked)poll();render();report();};

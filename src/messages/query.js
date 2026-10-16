@@ -2,14 +2,14 @@ import {messageView,mappingVersion} from './message-view.js';
 
 import {messageFields} from './dictionary.js';
 export function messagePage(runtime,params){
- const mode=params.get('mode')||'live',namespace=params.get('namespace'),method=params.get('method'),anchorId=params.get('beforeEventId');let cursor=params.get('cursor');
+ const mode=params.get('mode')||'live',namespace=params.get('namespace'),method=params.get('method'),anchorId=params.get('beforeEventId');const roomId=params.get('roomId'),sessionId=params.get('sessionId');let cursor=params.get('cursor');
  if(anchorId){
   if(cursor||params.has('afterSeq'))throw Error('CURSOR_MISMATCH');
   const anchor=runtime.store.event(anchorId);
-  if(!anchor||anchor.mode!==mode||(namespace&&anchor.runtimeNamespace!==namespace)||(method&&anchor.eventType!==method))throw Error('CURSOR_MISMATCH');
-  cursor=runtime.store.cursors.encode({filters:{kind:'events',mode,namespace:namespace||null,method:method||null,afterSeq:null},before:String(anchor.eventSeq),snapshot:runtime.store.eventHighWatermark()});
+  if(!anchor||anchor.mode!==mode||(namespace&&anchor.runtimeNamespace!==namespace)||(method&&anchor.eventType!==method)||(roomId&&anchor.roomId!==roomId)||(sessionId&&anchor.sessionId!==sessionId))throw Error('CURSOR_MISMATCH');
+  cursor=runtime.store.cursors.encode({filters:{kind:'events',mode,namespace:namespace||null,method:method||null,afterSeq:null,...(roomId?{roomId}:{}),...(sessionId?{sessionId}:{})},before:String(anchor.eventSeq),snapshot:runtime.store.eventHighWatermark()});
  }
- const page=runtime.store.events({limit:params.get('limit')||50,cursor,mode,namespace,method,afterSeq:params.get('afterSeq')});
+ const page=runtime.store.events({limit:params.get('limit')||50,cursor,mode,namespace,method,afterSeq:params.get('afterSeq'),roomId,sessionId});
  return {...page,items:page.items.map(viewFor),mappingVersion,scope:'authenticated-local-only'};
 }
 export function messageDetail(runtime,id,publicSafe){
@@ -27,4 +27,4 @@ export function messageDetail(runtime,id,publicSafe){
 
 function safeFields(runtime,event,official){try{return messageFields(runtime.parser.native,event.eventType,official);}catch{return {rootType:null,fields:[],dictionary:[],truncated:false,error:'SCHEMA_MAPPING_UNAVAILABLE'};}}
 
-function viewFor(event){return {...messageView(event),eventId:event.eventId,rawRefs:event.rawRefs||[],captureId:event.captureId,runtimeNamespace:event.runtimeNamespace,mode:event.mode,eventSeq:event.eventSeq};}
+function viewFor(event){return {...messageView(event),eventId:event.eventId,rawRefs:event.rawRefs||[],captureId:event.captureId,roomId:event.roomId,sessionId:event.sessionId,sessionGeneration:event.sessionGeneration||0,runtimeNamespace:event.runtimeNamespace,mode:event.mode,eventSeq:event.eventSeq};}

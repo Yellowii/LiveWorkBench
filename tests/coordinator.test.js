@@ -43,3 +43,12 @@ test('explicit listen attempts a freshly matched room without LIVE confirmation;
  await f.coordinator.evaluate();assert.equal(f.counts().starts,0);
  await f.coordinator.listen(p.profileId,p.version);assert.equal(f.counts().starts,1);assert.equal(f.monitor.view(p.profileId).confirmedState,'UNKNOWN');
 });
+
+test('associated platform end stops Web even with idle monitor/legacy autoStop disabled; stale end cannot stop new epoch',async t=>{
+ const f=await fixture(t);f.sources.state.selectedSource='WebSource';const p=f.profiles.create({target:{type:'web_rid',value:'123'},enabled:true,autoStart:true,autoStop:false});live(f,p);
+ f.coordinator.sessionFor=()=>({roomId:'100',anchorUid:'200',sessionId:'synthetic',sessionState:'ENDED',lastSourceEpoch:'old'});
+ f.sources.state.sourceEpoch='new';await f.coordinator.start(p.profileId);await f.coordinator.evaluate();assert.equal(f.counts().stops,0);
+ f.coordinator.sessionFor=()=>({roomId:'100',anchorUid:'200',sessionId:'synthetic',sessionState:'ENDED',lastSourceEpoch:'new'});
+ await f.coordinator.evaluate();assert.equal(f.counts().stops,1);assert.equal(f.coordinator.view().active,null);
+ await f.coordinator.evaluate();assert.equal(f.counts().starts,1,'old LIVE probe must not auto-restart the ended session');
+});

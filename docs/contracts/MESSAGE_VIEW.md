@@ -23,3 +23,11 @@ MessageView：messageType、category、label/icon、summary、actor、content、
 2026-10-16 `message-view-20261016-menu-resources`：新增category=giftmenu、content.giftMenu（action/gifts/total/truncated/reason），只对GroupLiveContainerChangeMessage末项type=6的container_payload按已核实结构做有界JSON数据提取；不是脚本执行或任意容器解析。原字符串不变，内层JSON不伪造Proto字段。资源项新增最多3个已校验urls候选，单视图最多32项；保留url首选字段兼容旧消费者。舞台、列表与详情支持候选失败回退。无公开WS/API鉴权变化，具体边界见[GiftMenu核查](../reviews/2026-10-16-gift-menu-resources.md)。
 
 2026-10-17 `message-view-20261016-chat-room`：向后兼容增加category=audience/system、content.audience（stats/ranks分开、partial、隐藏、版本/增量字段）、content.entry（type/advancedUnsupported）、actor.visualBadges/badgeRule和user类型的模板runs。原始消息、查询隔离与鉴权不变；不把榜单长度/total解释为全部在线人数。新增receivedAt/timeSource，异常occurredAt仅在展示层回退，不覆盖存储。具体来源、范围和未完成项见[开播与聊天接入](../reviews/2026-10-17-room-chat-application.md)。
+# 2026-10-17 场次查询补充
+
+用户已审查同意的增量：`GET /api/v1/local/message-scopes` 使用与本机消息详情相同的loopback、会话、同源和X-LW-Local-View保护，返回current/ended/items。ID为查询所需原始身份，仅该受控接口提供。`local/messages`及events查询增加roomId/sessionId；签名游标与beforeEventId必须匹配房间、场次和namespace。能力标记sessionScopes。
+
+实时页默认当前监听场次；历史须显式选择，Replay选择其独立namespace中的场次。换域清除列表/舞台/详情/游标并拒绝旧请求结果。旧后端缺少能力时不回退到全库混合查询。首页最近事件使用scope=current。通用数据记录仍是显式历史聚合入口。
+
+场次结束由已关联本连接的官方Control.action=3或身份匹配、连续确认的官方status=4证据触发；UNKNOWN/断网不触发。当前Web监听维持低频HTTP状态检测，与空闲monitorEnabled分开；可信下播必停，不沿用旧autoStop=false继续收心跳。结束事件已持久化后archiveState=COMPLETE，archiveFormat=indexed-events-v1，仅索引归档，不移动RAW。新场通常使用新的平台roomId；同roomId复用须晚于结束时间的官方连续LIVE转换，普通消息、重连、迟到create不得复活旧场。同场重连保留sessionId，generation仅可信复用时递增；旧场索引/事实保留。
+

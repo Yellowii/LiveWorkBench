@@ -15,6 +15,7 @@ export class Store {
       CREATE INDEX IF NOT EXISTS raw_recording ON raw(recording,seq);
       CREATE TABLE IF NOT EXISTS events(seq INTEGER PRIMARY KEY AUTOINCREMENT,id TEXT UNIQUE,dedup TEXT UNIQUE,mode TEXT,namespace TEXT,method TEXT,json TEXT);
       CREATE INDEX IF NOT EXISTS event_domain ON events(mode,namespace,seq);
+      CREATE INDEX IF NOT EXISTS event_scope ON events(mode,namespace,json_extract(json,'$.roomId'),json_extract(json,'$.sessionId'),seq);
       CREATE TABLE IF NOT EXISTS sessions(id TEXT PRIMARY KEY,key TEXT UNIQUE,json TEXT);
       CREATE TABLE IF NOT EXISTS logs(seq INTEGER PRIMARY KEY AUTOINCREMENT,json TEXT);`);
     this.db.exec('CREATE TABLE IF NOT EXISTS runtime_state(key TEXT PRIMARY KEY,json TEXT); CREATE INDEX IF NOT EXISTS event_identity ON events(namespace,method,json_extract(json,\'$.roomId\'),json_extract(json,\'$.msgId\'));');
@@ -32,16 +33,18 @@ export class Store {
   recordings(){return this.db.prepare('SELECT recording,count(*) AS records FROM raw GROUP BY recording').all().map(x=>({recordingId:x.recording,records:x.records}));}
   addEvent(event,key){const result=this.eventStore.save(event,key);if(this.history){this.history.sync();result.event=this.history.event(result.event.eventId);}return result;}
   eventHighWatermark(){if(this.history){this.history.sync();return this.history.high();}return String(this.bigStatement('SELECT coalesce(max(seq),0) AS n FROM events').get().n);}
-  events({limit=50,cursor,mode,namespace,method,afterSeq}={}){
-    if(this.history){this.history.sync();return Store.prototype.events.call(this.history.context(),{limit,cursor,mode,namespace,method,afterSeq});}
+  events({limit=50,cursor,mode,namespace,method,afterSeq,roomId,sessionId}={}){
+    if(this.history){this.history.sync();return Store.prototype.events.call(this.history.context(),{limit,cursor,mode,namespace,method,afterSeq,roomId,sessionId});}
     limit=Math.max(1,Math.min(200,Math.floor(Number(limit)||50)));let boundary=null,snapshot;
     const filters={kind:'events',mode:mode||null,namespace:namespace||null,method:method||null,afterSeq:afterSeq===undefined||afterSeq===null?null:decimalSequence(afterSeq)};
+    if(roomId)filters.roomId=String(roomId);if(sessionId)filters.sessionId=String(sessionId);
     if(cursor){const c=this.cursors.decode(cursor,filters);boundary=c.before;snapshot=c.snapshot;}
     else snapshot=this.eventHighWatermark();
     const where=['seq<=?'];const values=[BigInt(snapshot)];
     if(boundary!==null){where.push('seq<?');values.push(BigInt(boundary));}
     if(filters.afterSeq!==null){where.push('seq>?');values.push(BigInt(filters.afterSeq));}
     for(const field of ['mode','namespace','method'])if(filters[field]){where.push(`${field}=?`);values.push(filters[field]);}
+    for(const field of ['roomId','sessionId'])if(filters[field]){where.push("json_extract(json,'$."+field+"')=?");values.push(filters[field]);}
     const rows=this.bigStatement(`SELECT json,seq FROM events WHERE ${where.join(' AND ')} ORDER BY seq DESC LIMIT ?`).all(...values,limit+1);
     const hasMore=rows.length>limit;rows.length=Math.min(rows.length,limit);
     const nextCursor=hasMore?this.cursors.encode({filters,before:String(rows.at(-1).seq),snapshot}):null;
