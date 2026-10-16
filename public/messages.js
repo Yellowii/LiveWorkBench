@@ -11,8 +11,9 @@ let scope=null,scopeItems=[],scopeReady=false,scopeLoading=null;
 let rows=[],cursor=null,historyAnchor=null,high='0',busy=false,generation=0,detailGeneration=0,selected=null,detail=null,tab='content',pending=null,initialized=false;
 const node=(tag,text,cls)=>{const el=document.createElement(tag);if(text!==undefined)el.textContent=text;if(cls)el.className=cls;return el;};
 const status=text=>{$('mvStatus').textContent=text;};
+try{const saved=localStorage.getItem('lw-message-images');if(saved!==null)$('mvImages').checked=saved==='true';}catch{}
 async function read(route){const r=await fetch(route==='@scopes'?'/api/v1/local/message-scopes':'/api/v1/local/messages'+route,{headers:{'X-LW-Local-View':'1'},cache:'no-store'});if(!r.ok)throw Error(r.status===404?'当前服务尚未加载实时弹幕模块，请在安全时段更新服务。':r.status===403?'本机认证失效，请刷新工作台。':'读取失败；可重试，原始记录仍保留。');return (await r.json()).data;}
-function query(){return new URLSearchParams({mode:$('mvMode').value,limit:'100',roomId:scope.roomId,sessionId:scope.sessionId,namespace:scope.namespace});}
+function query(){return new URLSearchParams({mode:$('mvMode').value,limit:'100',...($('mvMode').value==='live'&&$('mvScopeMode').value==='current'?{scope:'current'}:{}),roomId:scope.roomId,sessionId:scope.sessionId,namespace:scope.namespace});}
 const stage=createMessageStage({container:$('messageStage'),canvas:$('stageCanvas'),cards:$('stageCards'),status:$('stageStatus'),diagnostics:$('stageDiagnostics'),select,images:()=>$('mvImages').checked});
 function applyScope(next){
  if(scope?.scopeKey===next?.scopeKey&&scopeReady)return;scopeReady=true;scope=next;generation++;detailGeneration++;rows=[];cursor=null;historyAnchor=null;pending=null;high='0';initialized=false;busy=false;selected=null;detail=null;rowHeights.clear();stage.clear();
@@ -29,6 +30,7 @@ async function updateScope(){
  if(!next)status('当前视图无消息；其他直播间和上一场内容不会自动加载。');
  })();try{await scopeLoading;}finally{scopeLoading=null;}
 }
+const contextVersions=new Map();window.addEventListener('lw:context',event=>{const {channel,data}=event.detail,version=channel==='session.updated'?JSON.stringify([data.sessionId,data.sessionState]):channel==='source.updated'?JSON.stringify([data.sourceEpoch,data.selectedSource,data.captureState]):JSON.stringify([data.active?.profileId,data.active?.sourceEpoch,data.lastEnded?.sessionId]);if(contextVersions.get(channel)===version)return;contextVersions.set(channel,version);if(visible()&&$('mvMode').value==='live'&&$('mvScopeMode').value==='current'){applyScope(null);updateScope().then(()=>{if(scope)latest();}).catch(e=>status(e.message));}});
 $('mvScopeMode').onchange=()=>{applyScope(null);updateScope().then(()=>{if(scope)latest();}).catch(e=>status(e.message));};
 $('mvSession').onchange=()=>{applyScope(scopeItems.find(s=>s.scopeKey===$('mvSession').value)||null);if(scope)latest();};
 function stageVisibility(){stage.visible(visible()&&$('stageEnabled').checked&&!document.hidden);$('messageStage').hidden=!$('stageEnabled').checked;}
@@ -39,7 +41,7 @@ function filtered(){const category=$('mvCategory').value;return rows.filter(x=>c
 // stage fallback, or try at most three declared candidates in this DOM image.
 function businessImage(resource,alt,cls){
  const img=node('img',undefined,cls),cached=stage.resources?.cache.get(resource.url),urls=cached?.image?[cached.image.src]:[...new Set([resource.url,...(resource.urls||[])])].filter(Boolean).slice(0,3);let index=0;
- img.alt=alt;img.referrerPolicy='no-referrer';img.loading='lazy';img.onerror=()=>{if(++index<urls.length)img.src=urls[index];else{const missing=node('span',undefined,(cls||'')+' mv-image-missing');missing.title='图片加载失败：已尝试全部候选地址；原始地址在 JSON 中保留';missing.setAttribute('aria-label','图片不可用');img.replaceWith(missing);}};if(urls.length)img.src=urls[0];return img;
+ img.alt=alt;img.referrerPolicy='no-referrer';img.loading='lazy';img.onerror=()=>{if(++index<urls.length)img.src=urls[index];else{const missing=node('span',undefined,(cls||'')+' mv-image-missing');missing.title='图片加载失败：已尝试全部候选地址；原始地址在 JSON 中保留';missing.setAttribute('aria-label','图片不可用');if(alt&&cls?.includes('inline'))missing.textContent=alt;img.replaceWith(missing);}};if(urls.length)img.src=urls[0];return img;
 }
 function badges(actor){
  const wrap=node('span',undefined,'mv-visual-badges');if(!$('mvImages').checked)return wrap;
@@ -91,7 +93,7 @@ function render(){
  const start=Math.max(0,anchor-2);let end=anchor;while(end<list.length&&before[end]<top+scroll.clientHeight)end++;end=Math.min(list.length,end+3);
  const out=document.createDocumentFragment(),spacer=n=>{const el=node('div');el.style.height=n+'px';out.append(el);return el;},head=spacer(before[start]);
  for(const item of list.slice(start,end)){
-  const button=node('button',undefined,'mv-row mv-'+item.category);button.type='button';button.dataset.eventId=item.eventId;button.setAttribute('aria-pressed',String(item.eventId===selected));
+  const button=node('button',undefined,'mv-row mv-'+item.category);button.type='button';button.dataset.eventId=item.eventId;button.dataset.messageType=item.messageType;button.setAttribute('aria-pressed',String(item.eventId===selected));
   const body=node('div',undefined,'mv-body'),date=new Date(item.time),time=Number.isNaN(date.getTime())?'时间未知':date.toLocaleTimeString('zh-CN',{hour12:false});
   body.append(node('div',`${time} · ${item.label} · ${item.actor?.name||'未提供用户'}${item.actor?.badges?.length?' · '+item.actor.badges.join(' / '):''}${item.mode==='replay'?' · 隔离回放':''}`,'mv-meta'));if($('mvAppearance').value==='analysis')body.append(badges(item.actor),readable(item,'div','mv-text'));
   const symbol=node('span',undefined,'mv-symbol');symbol.title=item.label;if($('mvImages').checked&&$('mvAppearance').value==='analysis'){const resource=item.resources.find(x=>x.kind==='gift')||item.resources.find(x=>x.kind==='giftMenu')||item.resources.find(x=>x.kind==='avatar');if(resource)symbol.append(businessImage(resource,item.label));}const chat=$('mvAppearance').value==='chat'?chatLine(item):node('span');button.title=time+' · '+item.label+' · '+item.summary;button.append(symbol,body,chat);button.onclick=()=>select(item.eventId);out.append(button);
@@ -108,7 +110,7 @@ function report(){status(`${$('mvMode').value==='replay'?'隔离回放':'实时�
 async function latest(){
  try{await updateScope();}catch(e){status(e.message);return;}if(!scope)return;
  const gen=++generation;pending=null;historyAnchor=null;busy=true;
- try{const data=await read('?'+query());if(gen!==generation)return;rows=data.items;stage.clear();stage.push(rows.slice(0,12));cursor=data.nextCursor;high=data.snapshot;initialized=true;render();report();}
+ try{const data=await read('?'+query());if(gen!==generation)return;if(data.scopeChanged){applyScope(null);await updateScope();return;}rows=data.items;stage.clear();stage.push(rows.slice(0,12));cursor=data.nextCursor;high=data.snapshot;initialized=true;render();report();}
  catch(e){if(gen===generation)status(e.message);}finally{if(gen===generation){busy=false;render();}}
 }
 async function older(){
@@ -123,7 +125,7 @@ async function poll(){
   // Bounded work per tick. Keep the signed snapshot across ticks until completely drained.
   for(let n=0;n<3;n++){
    const q=query();q.set('afterSeq',pending.after);if(pending.cursor)q.set('cursor',pending.cursor);
-   const data=await read('?'+q);if(gen!==generation)return;
+   const data=await read('?'+q);if(gen!==generation)return;if(data.scopeChanged){applyScope(null);await updateScope();return;}
    pending.items=[...pending.items,...data.items].slice(0,maxCache);pending.cursor=data.nextCursor;pending.snapshot=data.snapshot;
    if(!data.hasMore){const seen=new Set(pending.items.map(x=>x.eventId)),merged=[...pending.items,...rows.filter(x=>!seen.has(x.eventId))];stage.push(pending.items);rows=merged.slice(0,maxCache);if(merged.length>maxCache||pending.items.length===maxCache)historyAnchor=rows.at(-1)?.eventId;high=pending.snapshot;pending=null;render();report();break;}
   }
@@ -176,7 +178,7 @@ function renderBinary(data,id,gen){
 }
 function showTab(name){tab=name;for(const el of document.querySelectorAll('[data-mv-tab]'))el.setAttribute('aria-pressed',String(el.dataset.mvTab===name));for(const key of ['content','json','proto','mapping','raw'])$('mv-'+key).hidden=key!==name;$('mvFieldLocator').hidden=!detail||!['json','proto','mapping'].includes(name);}
 for(const el of document.querySelectorAll('[data-mv-tab]'))el.onclick=()=>showTab(el.dataset.mvTab);
-$('mvField').onchange=showField;$('mvImages').onchange=()=>{rowHeights.clear();renderContent();render();};
+$('mvField').onchange=showField;$('mvImages').onchange=()=>{try{localStorage.setItem('lw-message-images',String($('mvImages').checked));}catch{}rowHeights.clear();renderContent();render();};
 $('mvMode').onchange=()=>{applyScope(null);scopeReady=false;stage.clear();detailGeneration++;detail=null;selected=null;rows=[];initialized=false;$('mvTitle').textContent='选中一条消息查看详情';for(const id of ['mv-content','mvJson','mvProto','mvMapping','mvRaw','mvBinary'])$(id).replaceChildren();$('mvFieldLocator').hidden=true;latest();};
 $('mvAppearance').onchange=()=>{height=$('mvAppearance').value==='chat'?32:84;rowHeights.clear();render();};
 $('mvCategory').onchange=()=>{render();report();};$('mvLatest').onclick=()=>{$('mvFollow').checked=true;latest();};$('mvOlder').onclick=older;

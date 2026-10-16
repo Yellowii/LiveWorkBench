@@ -1,8 +1,6 @@
+import {businessImageUrl} from './image-policy.js';
 const localAsset=url=>/^\/api\/v1\/local\/assets\/(lottery-icon|gift-tray-bg|redpacket-notice)$/.test(url);
-function allowed(url){
- if(localAsset(url))return true;
- try{const u=new URL(url);return url.length<=8192&&u.protocol==='https:'&&!u.username&&!u.password&&!u.port&&!u.hash&&/\.(?:douyinpic|byteimg|ibyteimg)\.com$/i.test(u.hostname)&&![...u.searchParams.keys()].some(k=>/^(cookie|token|authorization|password|secret|signature|sessionid|msToken)$/i.test(k))&&!/cookie|token|password|secret|credential|authorization|signature|(?:^|_)sign(?:_|$)|payload|base64|schema|scheme|url|uri|file_?path|^key$|openid|sec_uid/i.test(u.pathname);}catch{return false;}
-}
+function allowed(url){return localAsset(url)||Boolean(businessImageUrl(url));}
 export class StageResources{
  constructor(onChange=()=>{}){this.cache=new Map();this.pending=[];this.running=0;this.failures=[];this.onChange=onChange;this.rejected=new Set();}
  get(url,kind,alternatives=[]){

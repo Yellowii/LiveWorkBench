@@ -64,3 +64,7 @@
 #page-messages[data-appearance=chat]>.actions label{font-size:12px}
 #page-messages[data-appearance=chat]>.actions select,#page-messages[data-appearance=chat]>.actions button{font-size:12px;padding:6px}
 @media(max-width:640px){#page-messages[data-appearance=chat]>.actions{gap:4px}#page-messages[data-appearance=chat]>.actions label{gap:4px}#page-messages[data-appearance=chat] #mvAudienceUsers{max-height:48px}#page-messages[data-appearance=chat] .mv-audience{padding:8px 12px}#page-messages[data-appearance=chat]>p:first-of-type{display:none}}
+
+.mv-inline-image.mv-image-missing{width:auto;height:auto;max-width:none;border:0;background:transparent;font-size:inherit}
+
+.mv-detail summary{overflow-wrap:anywhere;word-break:break-word}

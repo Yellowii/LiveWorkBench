@@ -27,7 +27,7 @@ test('equal priorities wait for choice; manual stop suppresses this live state; 
 test('confirmed END only stops matching owned profile; highest priority wins and failure circuit is bounded',async t=>{
  const f=await fixture(t);f.sources.state.selectedSource='WebSource';const a=f.profiles.create({target:{type:'web_rid',value:'123'},enabled:true,autoStart:true,autoStop:true,priority:4}),b=f.profiles.create({target:{type:'web_rid',value:'124'},enabled:true,autoStart:true,priority:1});live(f,a);live(f,b,{roomId:'101'});
  await f.coordinator.evaluate();assert.equal(f.coordinator.view().active.profileId,a.profileId);
- f.profiles.setState(a.profileId,{...f.monitor.view(a.profileId),confirmedState:'ENDED',queryState:'ENDED',stateVersion:'2'});await f.coordinator.evaluate();assert.equal(f.counts().stops,1);
+ f.profiles.setState(a.profileId,{...f.monitor.view(a.profileId),confirmedState:'ENDED',queryState:'ENDED',stateVersion:'2',checkedAt:new Date().toISOString()});await f.coordinator.evaluate();assert.equal(f.counts().stops,1);
  f.sources.startProfile=async()=>{throw new Error('WEB_DYNAMIC_PARAMETERS_UNAVAILABLE');};await f.coordinator.evaluate();await f.coordinator.evaluate();assert.equal(f.coordinator.view().reason,'WEB_DYNAMIC_PARAMETERS_UNAVAILABLE');
 });
 test('direct connection resolver never invents signatures; browser fallback is explicitly opt-in',async()=>{
@@ -51,4 +51,11 @@ test('associated platform end stops Web even with idle monitor/legacy autoStop d
  f.coordinator.sessionFor=()=>({roomId:'100',anchorUid:'200',sessionId:'synthetic',sessionState:'ENDED',lastSourceEpoch:'new'});
  await f.coordinator.evaluate();assert.equal(f.counts().stops,1);assert.equal(f.coordinator.view().active,null);
  await f.coordinator.evaluate();assert.equal(f.counts().starts,1,'old LIVE probe must not auto-restart the ended session');
+});
+
+test('a previous generation monitor END cannot stop a newly started same-room connection',async t=>{
+ const f=await fixture(t);f.sources.state.selectedSource='WebSource';const p=f.profiles.create({target:{type:'web_rid',value:'123'},enabled:true,autoStart:true,autoStop:true});live(f,p);await f.coordinator.start(p.profileId);
+ f.coordinator.state.active.startedAt='2026-10-17T08:00:01Z';f.profiles.setState(p.profileId,{...f.monitor.view(p.profileId),confirmedState:'ENDED',queryState:'ENDED',checkedAt:'2026-10-17T08:00:00Z'});
+ // Make the old probe fresh relative to wall clock while preserving ordering.
+ f.coordinator.state.active.startedAt=new Date(Date.now()+100).toISOString();f.profiles.setState(p.profileId,{...f.monitor.view(p.profileId),checkedAt:new Date().toISOString()});await f.coordinator.evaluate();assert.equal(f.counts().stops,0);
 });

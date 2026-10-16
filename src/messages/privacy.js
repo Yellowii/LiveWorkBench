@@ -1,3 +1,4 @@
+import {businessImageUrl} from '../../public/image-policy.js';
 // This local-only view is separate from publicProjection. Never use it for WS/logs/exports.
 const sensitive=/cookie|token|password|secret|credential|authorization|signature|(?:^|_)sign(?:_|$)|payload|base64|schema|scheme|url|uri|file_?path|^key$|openid|sec_uid/i;
 const readable=new Set(['content','default_content','nickname','desensitized_nickname','name','title','describe','description','award_name','award_description','default_pattern','string_value','left_additional_content','right_additional_content','action_description','pop_str','text']);
@@ -7,9 +8,7 @@ export function safeText(value,max=2000){
   .replace(/(?:https?|wss?):\/\/[^\s<>"']+/gi,'[链接已隐藏]')
   .replace(/(?:cookie|token|authorization|password|secret|signature|sessionid|msToken)\s*[=:]\s*[^\s,;]+/gi,'[凭据已隐藏]');
 }
-export function resourceUrl(value){
- try{const u=new URL(value);return u.protocol==='https:'&&!u.username&&!u.password&&!u.port&&!u.hash&&value.length<=8192&&/\.(?:douyinpic|byteimg|ibyteimg)\.com$/i.test(u.hostname)&&![...u.searchParams.keys()].some(k=>/^(cookie|token|authorization|password|secret|signature|sessionid|msToken)$/i.test(k))&&!sensitive.test(u.pathname)?u.href:null;}catch{return null;}
-}
+export function resourceUrl(value){return businessImageUrl(value);}
 export function localOfficial(value){
  let left=4096;
  function visit(v,key='',depth=0){

@@ -47,7 +47,7 @@ export function createMessageStage({container,canvas,cards,status,diagnostics,se
  }
  function tick(now){frame=0;if(!visible||failed)return;try{model.step(last?now-last:0);last=now;render();}catch{failed=true;status.textContent='舞台展示异常，采集和消息列表不受影响';}if(!failed)frame=requestAnimationFrame(tick);}
  canvas.onclick=e=>{const r=canvas.getBoundingClientRect(),x=e.clientX-r.left,y=e.clientY-r.top,b=boxes.find(b=>x>=b.x&&x<=b.x+b.width&&y>=b.y&&y<=b.y+b.height);if(b)select(b.id);};
- return {push:items=>{try{legacyMapping=items.some(v=>v.mappingVersion&&v.mappingVersion!=='message-view-20261016-chat-room');model.push(items);}catch{status.textContent='某条展示转换失败；请在列表查看原始记录';}},pause:value=>{model.paused=value;container.dataset.paused=String(value);},clear:()=>{model.clear();},visible:value=>{visible=value;last=0;if(!visible){cancelAnimationFrame(frame);frame=0;}else if(!frame)frame=requestAnimationFrame(tick);},model,resources};
+ return {push:items=>{try{legacyMapping=items.some(v=>v.mappingVersion&&v.mappingVersion!=='message-view-20261017-session-emoji');model.push(items);}catch{status.textContent='某条展示转换失败；请在列表查看原始记录';}},pause:value=>{model.paused=value;container.dataset.paused=String(value);},clear:()=>{model.clear();},visible:value=>{visible=value;last=0;if(!visible){cancelAnimationFrame(frame);frame=0;}else if(!frame)frame=requestAnimationFrame(tick);},model,resources};
 }
 
 // First-party Canvas renderer. Static rules: CanvasDanmakuPlugin + module 217785.

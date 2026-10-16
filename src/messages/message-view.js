@@ -2,15 +2,15 @@ import {localOfficial,resourceUrl,safeText} from './privacy.js';
 import {activityView} from './activities.js';
 import {giftMenu} from './gift-menu.js';
 import {chatActor,templateRuns,runText,roomAudience} from './chat-room.js';
-export const mappingVersion='message-view-20261016-chat-room';
+export const mappingVersion='message-view-20261017-session-emoji';
 const shortType=value=>typeof value==='string'&&/^(?:Webcast)?[A-Za-z][A-Za-z0-9]{0,100}$/.test(value)?value.replace(/^Webcast/,''):'UnknownMessage';
 const decimal=value=>/^(?:0|[1-9]\d{0,39})$/.test(String(value))?String(value):null;
 const positive=value=>decimal(value)&&BigInt(value)>0n?String(value):null;
 const source={chat:'CanvasDanmakuPlugin.364e9be4.js',gift:'DanmakuPlugin.7c702aa1.js',giftmenu:'GiftMenuPlugin.277c15b4.js',like:'LiveLike.bfb78734.js',member:'RoomMessageConsume.e41a863a.js',other:null};
-export function messageView(event){
- try{return convert(event||{});}catch{return {messageType:'UnknownMessage',category:'other',label:'无法展示',icon:'?',summary:'展示转换失败；原始记录保留',actor:null,content:{},resources:[],fields:[],provenance:[],mappingVersion,mappingStatus:'failed',eventId:null,rawRefs:[]};}
+export function messageView(event,{emojiCatalog}={}){
+ try{return convert(event||{},emojiCatalog);}catch{return {messageType:'UnknownMessage',category:'other',label:'无法展示',icon:'?',summary:'展示转换失败；原始记录保留',actor:null,content:{},resources:[],fields:[],provenance:[],mappingVersion,mappingStatus:'failed',eventId:null,rawRefs:[]};}
 }
-function convert(e){
+function convert(e,emojiCatalog){
  const type=shortType(e.eventType),raw=e.payload?.official||{},d=localOfficial(raw),resources=[],notes=[];
  const imageUrls=image=>Array.isArray(image?.url_list)?[...new Set(image.url_list.slice(0,16).map(resourceUrl).filter(Boolean))].slice(0,3):[];
  const addImage=(image,kind,field)=>{const urls=imageUrls(image);if(urls.length&&resources.length<32)resources.push({kind,url:urls[0],urls,field});};
@@ -45,6 +45,8 @@ function convert(e){
   if(type==='ScreenChatMessage'&&actor)actor.badges.push('管理弹幕');
   view.content.runs=type==='EmojiChatMessage'?runs(raw.emoji_content?.pieces,'emoji_content','emoji'):runs(raw.rtf_content_v2?.pieces,'rtf_content_v2');
   if(!view.content.runs.length)view.content.runs=[{type:'text',text:view.summary}];
+  if(type==='EmojiChatMessage')view.content.runs=view.content.runs.map(r=>r.type==='image'?{...r,alt:safeText(d.default_content)||'[表情]'}:r);
+  if(emojiCatalog){view.content.runs=emojiCatalog.expand(view.content.runs);view.content.emojiCatalog=emojiCatalog.view();for(const r of view.content.runs)if(r.type==='image'&&r.source==='official-emoji-directory'&&resources.length<32)resources.push({kind:'emoji',url:r.url,urls:r.urls,field:'content',source:r.source});notes.push('文字表情按官方display_name目录精确匹配；hide只用于输入面板，不隐藏已接收内容');}
   if(type==='PrivilegeScreenChatMessage'){
    view.content.style=decimal(d.style);view.content.privilegeStyle=({1:'base',2:'advanced',3:'supreme'})[view.content.style]||'unknown';
    notes.push('特权样式枚举：426.e4be7020.js模块217785；仅视觉等级，不推断用户权益');
@@ -102,6 +104,7 @@ function convert(e){
  view.summary=view.summary.slice(0,2400);view.content.text=view.summary;
  for(const key of ['count','total','action','repeat_count','group_count','combo_count','repeat_end','style'])if(d[key]!==undefined)view.fields.push({path:key,value:d[key],confidence:'official-field',meaning:'具体解释见统一详情；不推断缺失业务语义'});
  view.provenance=[{source:activity?.source||source[view.category],sourceVersion:'cdn-chunks-20261008',confidence:activity?.source||source[view.category]?'static-source':'unknown',scope:'展示规则；不等于真实业务验收',notes}];
+ if(view.content.emojiCatalog)view.provenance.push({source:'ChatRoom.b626dcc2 / 568771 / official emoji/list',sourceVersion:view.content.emojiCatalog.version,confidence:'official-directory',scope:'仅展示增强；原生正文不变',notes:[]});
  if(actor?.visualBadges?.length||['system','member','audience'].includes(view.category))view.provenance.push({source:'ChatRoom.b626dcc2 / island_237ab.480da559 #146686 / RoomMessageConsume.1e33b586 #196276',sourceVersion:'local-observation-20261016',confidence:'static-source',scope:'徽章基础列表、模板、入场8与观众消息投影；DSL筛选和完整普通榜单尚未验证',notes:[]});
  return view;
 }

@@ -6,7 +6,7 @@
 
 `GET /api/v1/local/messages/{eventId}/field?path=<JSON Pointer>` 精确查找任意嵌套字段的当前官方Proto编号、类型及独立中文注释，未确认返回unknown。`.../binary?rawId=...&protoId=...&offset=0&limit=4096` 按字节分页返回hex/base64（limit 1..65536）；必须是该事件的RAW引用，指定Proto还须与事件处理链关联。直接RAW仅支持业务载荷/帧，不开放HTTP头或认证存储；禁止传入路径。返回size/nextOffset及持久索引hash，分片本身不声称重算整文件哈希。上述子路由同样要求loopback、会话、同源与显式本机请求头。
 
-所有本机业务详情接口除现有 loopback Host、会话 Cookie、Origin 检查外，还要求 loopback peer、`X-LW-Local-View: 1`，浏览器 Fetch-Site 只能 same-origin/none。不提供 CORS、导出或可读WS。MessageView摘要仍只保留已映射文案并过滤明显凭据，完整official不使用此摘要规则。图片资源单独经过HTTPS图片域和凭据参数检查；保留图片CDN的x-expires/x-signature等变换/有效期参数，拒绝通用cookie/token/authorization/signature等凭据参数。默认不加载远程图片，用户可在本地启用。无法识别的正文中人为粘贴的无标签秘密无法从普通文字语义识别，故这些响应仍严格限本机认证读取，不复用为外部消费者数据。
+所有本机业务详情接口除现有 loopback Host、会话 Cookie、Origin 检查外，还要求 loopback peer、`X-LW-Local-View: 1`，浏览器 Fetch-Site 只能 same-origin/none。不提供 CORS、导出或可读WS。MessageView摘要仍只保留已映射文案并过滤明显凭据，完整official不使用此摘要规则。图片资源单独经过HTTPS图片域和凭据参数检查；保留图片CDN的x-expires/x-signature等变换/有效期参数，拒绝通用cookie/token/authorization/signature等凭据参数。2026-10-17起本机消息图片默认显示，用户可以关闭，选择只保存到本机浏览器；图片请求不附带工作台或观看登录凭据。无法识别的正文中人为粘贴的无标签秘密无法从普通文字语义识别，故这些响应仍严格限本机认证读取，不复用为外部消费者数据。
 
 MessageView：messageType、category、label/icon、summary、actor、content、resources、fields、provenance、mappingVersion、mappingStatus、eventId/rawRefs，以及 time/eventSeq/mode/runtimeNamespace/captureId。纯转换仅发生在查询时；单条映射异常转为失败提示，不连接采集总线、不写存储。原有公共事件/日志/WS/导出继续原脱敏投影。MessageView是增强展示，完整official才是该条持久官方输出。
 
@@ -31,3 +31,12 @@ MessageView：messageType、category、label/icon、summary、actor、content、
 
 场次结束由已关联本连接的官方Control.action=3或身份匹配、连续确认的官方status=4证据触发；UNKNOWN/断网不触发。当前Web监听维持低频HTTP状态检测，与空闲monitorEnabled分开；可信下播必停，不沿用旧autoStop=false继续收心跳。结束事件已持久化后archiveState=COMPLETE，archiveFormat=indexed-events-v1，仅索引归档，不移动RAW。新场通常使用新的平台roomId；同roomId复用须晚于结束时间的官方连续LIVE转换，普通消息、重连、迟到create不得复活旧场。同场重连保留sessionId，generation仅可信复用时递增；旧场索引/事实保留。
 
+`local/messages?scope=current`另核验请求roomId/sessionId是否仍为当前域；不匹配返回空items与scopeChanged=true。前端收到来源/场次变化立即清除当前视图并重新取域，拒绝迟到请求；历史选择不受当前采集切换重置。历史场次下拉当前限最近200项，通用数据记录继续保留完整查询入口。
+
+## 2026-10-17 官方表情展示补充
+
+映射版本`message-view-20261017-session-emoji`；能力emojiResources。普通文字只按官方emoji/list的display_name精确分段成图片runs，未知名称保留原文；hide仅是官方输入面板属性，不隐藏已接收表情。会员EmojiChatMessage优先使用原生emoji_content.pieces[].image_value.image.url_list和default_content，不猜会员权益、活动组或缺失资源。原始JSON/Proto/RAW不修改。
+
+私有目录缓存最多512项，每项3个HTTPS候选，带version/observedAt/sourceSha256。24小时后仅在真实活动Web连接的本机消息读取触发官方固定接口刷新；失败保留旧目录，至少5分钟后再试，Replay不刷新。可通过`tools/setup-emoji-catalog.mjs`核对SHA后从用户授权的本机官方响应准备种子；目录、图片和第三方源码均不提交。
+
+服务端和前端统一图片策略：除既有图片域外，新增已实测的lf数字-webcastcdn-tos.douyinstatic.com，仅允许/obj/webcast/及/obj/live-emoji/；拒绝凭据参数、任意主机、非HTTPS。CSP只增加图片域，不增加脚本或外部connect权限。列表、舞台、详情沿用最多3个候选回退；全部失败显示原生替代文本及原因。静态来源、真实历史与合成验证分别记录于[交付核查](../reviews/2026-10-17-session-emoji.md)。

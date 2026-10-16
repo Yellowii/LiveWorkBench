@@ -16,7 +16,15 @@ export class MonitorCoordinator extends EventEmitter{
   if(active){let p;try{p=this.profiles.get(active.profileId);}catch{}const evidence=this.sources.hookEndedEvidence?.(p)||this.monitor.view(active.profileId);
    if(source.selectedSource!==active.sourceType){this.state.active=null;this.record('PROFILE_SOURCE_CHANGED',{profileId:active.profileId});return;}
    const session=this.sessionFor(active),associatedEnd=session?.sessionState==='ENDED'&&session.roomId===active.roomId&&session.anchorUid===active.anchorUid&&session.lastSourceEpoch&&session.lastSourceEpoch===active.sourceEpoch;
-   if(associatedEnd||(p?.autoStop||active.sourceType==='WebSource')&&evidence.queryState==='ENDED'&&evidence.confirmedState==='ENDED'&&evidence.profileVersion===p?.version&&evidence.roomId===active.roomId&&evidence.anchorUid===active.anchorUid&&Date.now()-Date.parse(evidence.checkedAt)<p.pollMs*2){await this.sources.stopProfile(source.stateVersion);if(associatedEnd)this.monitor.noteEnded?.(p.profileId,session);if(!associatedEnd)this.onPlatformEvidence({...evidence,origin:'monitor',profileId:p.profileId});this.state.lastEnded={profileId:p.profileId,roomId:active.roomId,sessionId:this.sessionFor(active)?.sessionId||session?.sessionId||null,endedAt:this.sessionFor(active)?.endedAt||session?.endedAt||evidence.checkedAt};this.state.requestedProfileId=null;this.state.requestedProfileVersion=null;this.state.suppressed[p.profileId]=signalKey(p,evidence);this.state.active=null;this.record('PROFILE_ENDED_STOP',{profileId:p.profileId});return;}
+   const monitoredEnd=p&&(p.autoStop||active.sourceType==='WebSource')&&evidence.queryState==='ENDED'&&evidence.confirmedState==='ENDED'&&evidence.profileVersion===p.version&&evidence.roomId===active.roomId&&evidence.anchorUid===active.anchorUid&&Date.now()-Date.parse(evidence.checkedAt)<p.pollMs*2&&Date.parse(evidence.checkedAt)>=(active.startedAt?Date.parse(active.startedAt):0);
+   if(associatedEnd||monitoredEnd){
+    await this.sources.stopProfile(source.stateVersion);
+    if(associatedEnd&&p)this.monitor.noteEnded?.(p.profileId,session);else if(p)this.onPlatformEvidence({...evidence,origin:'monitor',profileId:p.profileId});
+    const closed=this.sessionFor(active)||session;
+    this.state.lastEnded={profileId:active.profileId,roomId:active.roomId,sessionId:closed?.sessionId||null,endedAt:closed?.endedAt||evidence.checkedAt};
+    this.state.requestedProfileId=null;this.state.requestedProfileVersion=null;if(p)this.state.suppressed[p.profileId]=signalKey(p,this.monitor.view(p.profileId));
+    this.state.active=null;this.record('PROFILE_ENDED_STOP',{profileId:active.profileId});return;
+   }
    if(!['STOPPED','FAILED'].includes(source.captureState))return this.view();
    if(source.captureState==='FAILED'&&source.recoveryPending)return this.view();
    if(source.captureState==='FAILED'&&terminal.has(this.sources.failureReason?.())){const attempt=this.state.attempts[active.profileId];if(attempt)attempt.terminal=true;this.state.active=null;this.record(this.sources.failureReason(),{profileId:active.profileId});return this.view();}
@@ -34,7 +42,7 @@ export class MonitorCoordinator extends EventEmitter{
   const op={operationId:randomUUID(),key,count:attempt?.key===key?attempt.count+1:1,nextAt:Date.now()+p.cooldownMs};this.state.attempts[p.profileId]=op;this.save();
   try{
    const result=await this.sources.startProfile(p,{...s,operationId:op.operationId,monitorOperationId:s.operationId},source.stateVersion,()=>this.profiles.get(p.profileId).version===p.version);
-   this.state.active={profileId:p.profileId,profileVersion:p.version,anchorUid:s.anchorUid,roomId:s.roomId,stateVersion:s.stateVersion,sourceType:p.sourceType,sourceVersion:result.stateVersion,sourceEpoch:result.sourceEpoch};this.record('PROFILE_LISTEN_STARTED',{profileId:p.profileId});
+   this.state.active={profileId:p.profileId,profileVersion:p.version,anchorUid:s.anchorUid,roomId:s.roomId,stateVersion:s.stateVersion,sourceType:p.sourceType,sourceVersion:result.stateVersion,sourceEpoch:result.sourceEpoch,startedAt:new Date().toISOString()};this.record('PROFILE_LISTEN_STARTED',{profileId:p.profileId});
   }catch(error){const code=/^(?:AUTH_|WEB_|BROWSER_|LIVEHOOK_|SOURCE_|STATE_|TARGET_|PROFILE_|SESSION_)[A-Z_]+$/.test(error.message)?error.message:'PROFILE_START_FAILED';op.terminal=terminal.has(code);op.nextAt=Date.now()+Math.min(3600000,p.cooldownMs*2**Math.min(op.count-1,6));this.record(code,{profileId:p.profileId});}
   return this.view();
  }

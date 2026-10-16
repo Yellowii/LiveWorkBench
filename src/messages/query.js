@@ -10,11 +10,11 @@ export function messagePage(runtime,params){
   cursor=runtime.store.cursors.encode({filters:{kind:'events',mode,namespace:namespace||null,method:method||null,afterSeq:null,...(roomId?{roomId}:{}),...(sessionId?{sessionId}:{})},before:String(anchor.eventSeq),snapshot:runtime.store.eventHighWatermark()});
  }
  const page=runtime.store.events({limit:params.get('limit')||50,cursor,mode,namespace,method,afterSeq:params.get('afterSeq'),roomId,sessionId});
- return {...page,items:page.items.map(viewFor),mappingVersion,scope:'authenticated-local-only'};
+ return {...page,items:page.items.map(e=>viewFor(e,runtime)),mappingVersion,scope:'authenticated-local-only'};
 }
 export function messageDetail(runtime,id,publicSafe){
  const event=runtime.store.event(id);if(!event)throw Error('RESOURCE_NOT_FOUND');
- const view=viewFor(event),official=event.payload?.official??null,raw=[],protos=[];
+ const view=viewFor(event,runtime),official=event.payload?.official??null,raw=[],protos=[];
  for(const rawId of (event.rawRefs||[]).slice(0,10)){
   try{const trace=runtime.rawDetail(event.captureId,rawId,event.runtimeNamespace);raw.push(publicSafe(trace));
    for(const ref of (trace.processing?.messages||[]).filter(x=>x.eventId===event.eventId).slice(0,10)){
@@ -27,4 +27,4 @@ export function messageDetail(runtime,id,publicSafe){
 
 function safeFields(runtime,event,official){try{return messageFields(runtime.parser.native,event.eventType,official);}catch{return {rootType:null,fields:[],dictionary:[],truncated:false,error:'SCHEMA_MAPPING_UNAVAILABLE'};}}
 
-function viewFor(event){return {...messageView(event),eventId:event.eventId,rawRefs:event.rawRefs||[],captureId:event.captureId,roomId:event.roomId,sessionId:event.sessionId,sessionGeneration:event.sessionGeneration||0,runtimeNamespace:event.runtimeNamespace,mode:event.mode,eventSeq:event.eventSeq};}
+function viewFor(event,runtime){return {...messageView(event,{emojiCatalog:runtime?.emojiCatalog}),eventId:event.eventId,rawRefs:event.rawRefs||[],captureId:event.captureId,roomId:event.roomId,sessionId:event.sessionId,sessionGeneration:event.sessionGeneration||0,runtimeNamespace:event.runtimeNamespace,mode:event.mode,eventSeq:event.eventSeq};}
