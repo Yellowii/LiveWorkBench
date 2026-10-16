@@ -694,3 +694,5 @@ owner本会话→用户；基线d1ad615，在已附属codex/stability-data-stage
 未还原：红包实时校准/Ready动效/80×96大卡与领取交互，Empty两张外部图片未下载（当前淡化通知图并标结束）；ShortTouch原Lynx容器内部布局/交互；GiftMenu完整礼物目录/分类/价格/送礼；管理员没有原版独立DOM，提示为工作台自有样式。没有官方运行截图，局部CSS对照不等于整套插件还原。P0长测未通过结论不变。
 
 本轮只读运行核对：18783 PID31460、启动2026-10-15T10:24:25.960Z、实际加载6cc07a4/指纹93637e82a07081cc790ee4fe58ecfae7304dc91098c1efcbc01db5f355d7f7ce、capture STOPPED。新提交不等于后端已更新，旧映射提示保留；静态页面刷新可能读取新文件，新增后端字段/资源入口仍需用户安排安全更新。下一步根据真实红包/活动消息效果校正；本轮不扩大采集或插件平台范围。
+
+交付补充：功能提交7b3d6ca已快进同步本地main，主目录私有redpacket-notice PNG已由哈希校验工具准备。公开检查255文件0发现、diff检查通过，两处工作区干净。git push origin main返回curl 28 / GitHub 443约21秒连接超时及sideband中断；末尾虽有Everything up-to-date，仍不能视为成功，origin/main本地追踪仍229966e。本次功能及此交付记录尚待成功推送，不修改系统网络、不无限重试。
