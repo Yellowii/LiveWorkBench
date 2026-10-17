@@ -28,5 +28,5 @@ test('Canvas ordinary comments omit sender; privilege and emoji use their verifi
  const v=messageView(event('ChatMessage',{user:{nickname:'观众'},content:'正文'}));assert.deepEqual(danmakuRows(v)[0].runs,[{type:'text',text:'正文'}]);
  const special=messageView(event('PrivilegeScreenChatMessage',{user:{nickname:'观众'},content:'正文',style:3}));assert.equal(danmakuRows(special).length,3);assert.equal(danmakuRows(special)[1].runs[0].text,'观众:  ');
  assert.equal(danmakuRows(messageView(event('ScreenChatMessage',{content:'管理正文'})))[0].style,'admin');
- const m=new StageModel();m.push([special,messageView(event('ChatMessage',{content:'下一条'},'2'))]);m.step(1);assert.equal(m.active[0].span,3);assert.equal(m.active[1].lane,3);
+ const m=new StageModel();m.push([special,messageView(event('ChatMessage',{content:'下一条'},'2'))]);m.step(1);assert.equal(m.active.length,0);assert.equal(m.queue.length,0);
 });

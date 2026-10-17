@@ -18,7 +18,7 @@ test('menu replaces and hides in its own room/domain without stale resurrection'
  m.push([messageView(event(5,[{type:6,container_payload:'{"data":[{"id":2}]}'}],{captureId:'another'}))]);m.step(1);assert.equal(m.active.length,1);
 });
 test('activity priority is descending, including queued items, without changing source events',()=>{
- const views=[1,2,3].map(id=>({eventId:String(id),eventSeq:String(id),category:'activity',content:{activity:{areaType:String(id),action:'1',priority:String(id*10)}}})),original=JSON.stringify(views),m=new StageModel();m.push(views);m.step(1);assert.deepEqual(m.active.map(x=>x.view.eventId),['3','2']);assert.equal(m.queue[0].view.eventId,'1');assert.equal(JSON.stringify(views),original);
+ const views=Array.from({length:13},(_,i)=>i+1).map(id=>({eventId:String(id),eventSeq:String(id),category:'activity',content:{activity:{areaType:String(id),action:'1',priority:String(id*10)}}})),original=JSON.stringify(views),m=new StageModel();m.push(views);m.step(1);assert.deepEqual(m.active.map(x=>x.view.eventId),Array.from({length:12},(_,i)=>String(13-i)));assert.equal(m.queue[0].view.eventId,'1');assert.equal(JSON.stringify(views),original);
 });
 test('image candidates retain up to three unique trusted URLs in platform order',()=>{
  const v=messageView({eventType:'WebcastGiftMessage',payload:{official:{gift:{name:'合成',image:{url_list:['https://p3.douyinpic.com/a.png','https://p3.douyinpic.com/a.png','https://evil.invalid/private','https://p3.douyinpic.com/b.png','https://p3.douyinpic.com/c.png','https://p3.douyinpic.com/d.png']}}}}});

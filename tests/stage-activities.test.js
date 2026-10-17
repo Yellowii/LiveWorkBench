@@ -24,9 +24,9 @@ test('bounded state remembers removals against a late older event and clears for
  for(let i=30;i<1200;i++)m.push([event(i,'ShortTouchAreaMessage',{message_type:2,short_touch_area_data:{type:i}})]);assert.equal(m.states.size,1000);assert.equal(m.seen.size,1000);m.clear();assert.equal(m.states.size,0);
 });
 test('activity removal is isolated by mode/room/capture and handles queued cards',()=>{
- const m=new StageModel();for(let i=1;i<=4;i++)m.push([event(i,'ShortTouchAreaMessage',{message_type:1,short_touch_area_data:{type:i,name:'卡'+i}})]);m.step(1);assert.equal(m.active.length,2);assert.equal(m.queue.length,2);
- m.push([event(5,'ShortTouchAreaMessage',{message_type:2,short_touch_area_data:{type:3}}),event(6,'ShortTouchAreaMessage',{message_type:2,short_touch_area_data:{type:1},common:{room_id:'200'}}),event(7,'ShortTouchAreaMessage',{message_type:2,short_touch_area_data:{type:2}},{mode:'replay'})]);assert.equal(m.queue.length,1);assert.equal(m.active.length,2);
- m.paused=true;m.step(1000);assert.equal(m.active.length,2);m.paused=false;for(let i=0;i<31;i++)m.step(1000);assert.ok(m.active.length<=2);
+ const m=new StageModel();for(let i=1;i<=14;i++)m.push([event(i,'ShortTouchAreaMessage',{message_type:1,short_touch_area_data:{type:i,name:'卡'+i}})]);m.step(1);assert.equal(m.active.length,12);assert.equal(m.queue.length,2);
+ m.push([event(20,'ShortTouchAreaMessage',{message_type:2,short_touch_area_data:{type:13}}),event(21,'ShortTouchAreaMessage',{message_type:2,short_touch_area_data:{type:1},common:{room_id:'200'}}),event(22,'ShortTouchAreaMessage',{message_type:2,short_touch_area_data:{type:2}},{mode:'replay'})]);assert.equal(m.queue.length,1);assert.equal(m.active.length,12);
+ m.paused=true;m.step(1000);assert.equal(m.active.length,12);m.paused=false;for(let i=0;i<31;i++)m.step(1000);assert.ok(m.active.length<=12);
 });
 test('admin enum is a sourced symbol, never an assertion of current viewer permissions',()=>{
  const v=event(1,'AdminPrivilegeMessage',{data:{op:1,privilege:13}});assert.equal(v.content.activity.privilegeSymbol,'AdminDanmakuPrivilege');assert.match(v.summary,/管理员弹幕/);assert.doesNotMatch(v.summary,/您|你/);

@@ -14,7 +14,7 @@ const status=text=>{$('mvStatus').textContent=text;};
 try{const saved=localStorage.getItem('lw-message-images');if(saved!==null)$('mvImages').checked=saved==='true';}catch{}
 async function read(route){const r=await fetch(route==='@scopes'?'/api/v1/local/message-scopes':'/api/v1/local/messages'+route,{headers:{'X-LW-Local-View':'1'},cache:'no-store'});if(!r.ok)throw Error(r.status===404?'当前服务尚未加载实时弹幕模块，请在安全时段更新服务。':r.status===403?'本机认证失效，请刷新工作台。':'读取失败；可重试，原始记录仍保留。');return (await r.json()).data;}
 function query(){return new URLSearchParams({mode:$('mvMode').value,limit:'100',...($('mvMode').value==='live'&&$('mvScopeMode').value==='current'?{scope:'current'}:{}),roomId:scope.roomId,sessionId:scope.sessionId,namespace:scope.namespace});}
-const stage=createMessageStage({container:$('messageStage'),canvas:$('stageCanvas'),cards:$('stageCards'),status:$('stageStatus'),diagnostics:$('stageDiagnostics'),select,images:()=>$('mvImages').checked});
+const stage=createMessageStage({container:$('messageStage'),cards:$('stageCards'),likes:$('mvLikes'),status:$('stageStatus'),diagnostics:$('stageDiagnostics'),select,images:()=>$('mvImages').checked});
 function applyScope(next){
  if(scope?.scopeKey===next?.scopeKey&&scopeReady)return;scopeReady=true;scope=next;generation++;detailGeneration++;rows=[];cursor=null;historyAnchor=null;pending=null;high='0';initialized=false;busy=false;selected=null;detail=null;rowHeights.clear();stage.clear();
  $('mvTitle').textContent='选中一条消息查看详情';for(const id of ['mv-content','mvJson','mvProto','mvMapping','mvRaw','mvBinary'])$(id).replaceChildren();$('mvFieldLocator').hidden=true;render();
@@ -33,10 +33,10 @@ async function updateScope(){
 const contextVersions=new Map();window.addEventListener('lw:context',event=>{const {channel,data}=event.detail,version=channel==='session.updated'?JSON.stringify([data.sessionId,data.sessionState]):channel==='source.updated'?JSON.stringify([data.sourceEpoch,data.selectedSource,data.captureState]):JSON.stringify([data.active?.profileId,data.active?.sourceEpoch,data.lastEnded?.sessionId]);if(contextVersions.get(channel)===version)return;contextVersions.set(channel,version);if(visible()&&$('mvMode').value==='live'&&$('mvScopeMode').value==='current'){applyScope(null);updateScope().then(()=>{if(scope)latest();}).catch(e=>status(e.message));}});
 $('mvScopeMode').onchange=()=>{applyScope(null);updateScope().then(()=>{if(scope)latest();}).catch(e=>status(e.message));};
 $('mvSession').onchange=()=>{applyScope(scopeItems.find(s=>s.scopeKey===$('mvSession').value)||null);if(scope)latest();};
-function stageVisibility(){stage.visible(visible()&&$('stageEnabled').checked&&!document.hidden);$('messageStage').hidden=!$('stageEnabled').checked;}
+function stageVisibility(){stage.visible(visible()&&!document.hidden);$('messageStage').hidden=!$('stageEnabled').checked;}
 $('stageEnabled').onchange=stageVisibility;$('stagePaused').onchange=()=>stage.pause($('stagePaused').checked);document.addEventListener('visibilitychange',stageVisibility);
 function visible(){return !$('page-messages').hidden;}
-function filtered(){const category=$('mvCategory').value;return rows.filter(x=>category==='conversation'?['chat','gift','member','like','system','admin','redpacket','lottery','activity'].includes(x.category):!category||x.category===category).slice().reverse();}
+function filtered(){const category=$('mvCategory').value;return rows.filter(x=>x.category!=='like'&&(category==='conversation'?['chat','gift','member','system','admin','redpacket','lottery','activity'].includes(x.category):!category||x.category===category)).slice().reverse();}
 // Resource URLs passed the authenticated MessageView policy. Reuse a successful
 // stage fallback, or try at most three declared candidates in this DOM image.
 function businessImage(resource,alt,cls){
@@ -110,12 +110,12 @@ function report(){status(`${$('mvMode').value==='replay'?'隔离回放':'实时�
 async function latest(){
  try{await updateScope();}catch(e){status(e.message);return;}if(!scope)return;
  const gen=++generation;pending=null;historyAnchor=null;busy=true;
- try{const data=await read('?'+query());if(gen!==generation)return;if(data.scopeChanged){applyScope(null);await updateScope();return;}rows=data.items;stage.clear();stage.push(rows.slice(0,12));cursor=data.nextCursor;high=data.snapshot;initialized=true;render();report();}
+ try{const data=await read('?'+query());if(gen!==generation)return;if(data.scopeChanged){applyScope(null);await updateScope();return;}rows=data.items.filter(x=>x.category!=='like');stage.clear();stage.push(data.items.slice(0,12));cursor=data.nextCursor;high=data.snapshot;initialized=true;render();report();}
  catch(e){if(gen===generation)status(e.message);}finally{if(gen===generation){busy=false;render();}}
 }
 async function older(){
  if(busy||(!cursor&&!historyAnchor))return;$('mvFollow').checked=false;pending=null;const gen=++generation;busy=true;
- try{const q=query();q.set(historyAnchor?'beforeEventId':'cursor',historyAnchor||cursor);const data=await read('?'+q);if(gen!==generation)return;const oldSize=offsets(filtered()).at(-1),seen=new Set(rows.map(x=>x.eventId));rows=[...rows,...data.items.filter(x=>!seen.has(x.eventId))].slice(-maxCache);cursor=data.nextCursor;historyAnchor=null;render();$('mvScroll').scrollTop=Math.max(0,offsets(filtered()).at(-1)-oldSize);report();}
+ try{const q=query();q.set(historyAnchor?'beforeEventId':'cursor',historyAnchor||cursor);const data=await read('?'+q);if(gen!==generation)return;const oldSize=offsets(filtered()).at(-1),seen=new Set(rows.map(x=>x.eventId));rows=[...rows,...data.items.filter(x=>x.category!=='like'&&!seen.has(x.eventId))].slice(-maxCache);cursor=data.nextCursor;historyAnchor=null;render();$('mvScroll').scrollTop=Math.max(0,offsets(filtered()).at(-1)-oldSize);report();}
  catch(e){status(e.message);}finally{if(gen===generation){busy=false;render();}}
 }
 async function poll(){
@@ -127,7 +127,7 @@ async function poll(){
    const q=query();q.set('afterSeq',pending.after);if(pending.cursor)q.set('cursor',pending.cursor);
    const data=await read('?'+q);if(gen!==generation)return;if(data.scopeChanged){applyScope(null);await updateScope();return;}
    pending.items=[...pending.items,...data.items].slice(0,maxCache);pending.cursor=data.nextCursor;pending.snapshot=data.snapshot;
-   if(!data.hasMore){const seen=new Set(pending.items.map(x=>x.eventId)),merged=[...pending.items,...rows.filter(x=>!seen.has(x.eventId))];stage.push(pending.items);rows=merged.slice(0,maxCache);if(merged.length>maxCache||pending.items.length===maxCache)historyAnchor=rows.at(-1)?.eventId;high=pending.snapshot;pending=null;render();report();break;}
+   if(!data.hasMore){const seen=new Set(pending.items.map(x=>x.eventId)),merged=[...pending.items.filter(x=>x.category!=='like'),...rows.filter(x=>!seen.has(x.eventId))];stage.push(pending.items);rows=merged.slice(0,maxCache);if(merged.length>maxCache||pending.items.length===maxCache)historyAnchor=rows.at(-1)?.eventId;high=pending.snapshot;pending=null;render();report();break;}
   }
  }catch(e){if(gen===generation)status(e.message);}finally{if(gen===generation){busy=false;render();}}
 }
