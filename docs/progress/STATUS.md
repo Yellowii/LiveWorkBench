@@ -762,3 +762,14 @@ B提交5026c96。普通表情接官方emoji/list精确display_name目录，hide�
 运行只读核对：55976 PID27884仍加载0ae7760，CONNECTED/active=true，RAW4398、事件2026；该旧实例已记录场次于2026-10-16T19:08:33.677Z结束但未归档，不能当仍在播或可清理的空预览。此次没有启停它或18783、关闭浏览器、操作代理/DNS/CA/伴侣。新代码尚未由该进程加载；更新它需遵守用户禁止擅自启停的限制，等待明确安排。下一步安全加载新版后验证真实结束/归档及下一场，不扩大UI/插件范围。
 
 交付：本地main=5026c96，git push origin main实际失败，github.com:443约21秒连接超时；远端未确认本轮提交，不改网络、不无限重试。本节记录另提交。根目录原有STATUS36行、SOURCE_MIGRATION6行及三份调查报告保持未提交，仅暂存本会话新增42—43节；既有运行数据及测试证据不清理。
+
+
+## 44. 2026-10-17 用户授权安全更新55976（本机加载与GUI验证通过）
+
+用户明确答复“允许安全更新55976”。本次只部署已提交版本，无产品源码修改。经Gateway停止当前原生WSS、确认SourceController STOPPED/Coordinator无active/RAW和解码pending为0；核对原PID27884准确预览启动命令、同一Windows用户、127.0.0.1:55976归属及data-QBxoNB租约，创建本机私有SQLite备份后，仅结束该已空闲进程。未重新运行历史预览工具，不重导数据；复用既有预检/启动验证，在同一端口、同一数据目录启动标准server.js后台进程。通用部署保护、系统代理、DNS、CA、伴侣与18783均未操作，采集浏览器未关闭，未新开浏览器。
+
+实际版本：新PID17640，2026-10-17T00:04:11.303Z启动，加载7c2502c/指纹70e0d194f29076866206710c0ae8b887ba24a19cecd08c6ff2e67b1087664161；启动后验证health正常、loopback及SQLite租约均属于新PID。停止后与更新后4428 RAW/2060事件/1场次完全一致，DPAPI凭据、账号记录、房间配置哈希前后不变。已有ENDED场次补归档COMPLETE，当前场次查询为空，历史可查。原monitorEnabled=false/autoStart=false保留，当前STOPPED/active=null，不自动重连已结束场次。
+
+用户已有页面刷新后，实际操作当前监听空视图、历史已下播/已归档、会员表情详情、官方JSON、Proto字段定位及RAW处理链。当前渲染快照47张图已加载，普通[戳手手]与会员原生图均naturalWidth>0；对应会员图片字段为Image #1 repeated string。页面保留历史供用户查看，不将其称为当前直播内容。停止请求到启动后验证完成46.317秒，是维护窗口而非精确服务断网时长；未知消息缺口明确保留，不宣称零丢包。
+
+私有证据在worktree的.local/deployment/update-55976-20261017，含before/stopped/verified/gui/deployment/interruption统计、SQLite备份和history-emoji.png；不上传账号、业务正文、截图或原版图片。详细说明追加docs/reviews/2026-10-17-session-emoji.md。真实新扫码、在线换房、下播/再开播与长期稳定性仍未执行；本次只证明已加载新版和既有真实历史GUI可用。根目录原有36行STATUS、6行SOURCE_MIGRATION及三份调查继续保留未提交，本提交只含本节和部署核查增量。
