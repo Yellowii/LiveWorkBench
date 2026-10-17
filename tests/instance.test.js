@@ -15,7 +15,7 @@ test('a data directory has one owner and is reusable after orderly close',async 
 test('new Gateway identifies its loaded backend and actual module state',async t=>{
  const dir=await fs.mkdtemp(path.join(os.tmpdir(),'lw-instance-api-')),app=await createGateway({dataDir:dir,port:0});t.after(async()=>{await app.close();await fs.rm(dir,{recursive:true,force:true});});
  const cookie=(await fetch(app.url)).headers.get('set-cookie').split(';')[0],response=await fetch(app.url+'/api/v1/system/status',{headers:{Cookie:cookie}}),data=(await response.json()).data;
- assert.ok(data.instance?.instanceId,'loaded backend identity required');assert.match(data.instance.codeFingerprint,/^[a-f0-9]{64}$/);assert.ok(data.instance.startedAt);assert.ok(Array.isArray(data.profiles));assert.ok(Array.isArray(data.monitor));assert.equal(data.sourceControl.captureState,'STOPPED');assert.equal(data.coordinator.active,null);
+ assert.ok(data.instance?.instanceId,'loaded backend identity required');assert.match(data.instance.codeFingerprint,/^[a-f0-9]{64}$/);assert.ok(data.instance.startedAt);assert.equal(typeof data.instance.runtimeDirty,'boolean');assert.ok(Array.isArray(data.profiles));assert.ok(Array.isArray(data.monitor));assert.equal(data.sourceControl.captureState,'STOPPED');assert.equal(data.coordinator.active,null);
 });
 
 test('daemon uses the selected CaptureHost build and observes without binding a capture proxy',async t=>{

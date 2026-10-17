@@ -58,7 +58,7 @@ function Invoke-LwDeployment {
 function Get-LwDeploymentFailureMessage {
     param([string]$Code)
     $messages=@{
-        WORKSPACE_DIRTY='工作区有未提交或未跟踪的正式文件。请先保存并提交；不会覆盖这些修改。'
+        WORKSPACE_DIRTY='工作区有未提交或未跟踪的代码、配置或其他非文档文件。请先核对并提交；仅 README.md 与 docs 下 Markdown 文档可保留未提交。'
         WORKSPACE_GIT_UNAVAILABLE='无法取得当前项目的 Git HEAD。'
         WORKBENCH_STATUS_UNAVAILABLE='端口已被占用，但无法核对工作台状态；不会结束未知进程。'
         PORT_ALREADY_IN_USE='工作台端口已被占用，启动已取消；不会结束占用进程。'

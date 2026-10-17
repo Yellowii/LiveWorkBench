@@ -790,3 +790,14 @@ owner本会话→用户，基线7447a39；按用户四项具体要求实施，�
 运行事实：本轮只读核实55976与18783均未监听，旧PID17640不存在；私有目录最后诊断2026-10-17T03:16:02.034Z（北京时间11:16:02）仍CONNECTED、解析/诊断写入失败0，尾部没有退出记录、stderr为空。原因未定位，不能推断崩溃、人工停止、OS或内存问题；本轮没有重启/恢复服务、关闭浏览器或操作系统网络。新版仅同步本地文件，运行服务热加载、真实新平台并发/下播与长期稳定性未验收。
 
 交付补记：功能提交6a59933已同步本地main与既有worktree，用户原有调查改动仍为未提交。git push origin main实际失败：github.com:443约21秒连接超时；本轮远端未交付，不修改网络、不无限重试。此记录仅补充文档，不代表有运行服务加载新版。
+
+
+## 46. 2026-10-17 双击启动乱码与文档检查修复（隔离验证通过）
+
+owner本会话→用户，基线38170e3。用户提供Start报错后只读核对：原BAT已是UTF-8无BOM/CRLF，但在真实CMD隔离入口复现中文提示尾部被当作命令；原测试遗漏额外错误。当前未提交的是STATUS36行、SOURCE_MIGRATION6行及三份调查Markdown，原部署将其一并拦截。没有提交、覆盖或清理这些用户文档，也不修改系统代理、DNS、证书、伴侣、浏览器或正式数据。
+
+修复：BAT保留ASCII调用，中文菜单与提示迁至带BOM的PowerShell，Start/Stop/Update、退出码及窗口结果保留。共享workspaceState检查暂存/工作树/未跟踪文件，只允许README.md和docs/下Markdown保留未提交；代码、配置、未知路径及构建期间修改继续阻止部署。实例dirty仍保留全部改动事实，新增runtimeDirty区分纯文档，旧版dirty=true且无该字段仍拒绝自动处置。采集空闲、登录窗口、PID/Windows用户/端口/SQLite租约与版本复查不放宽。无Parser/RAW/EventStore/SessionManager或采集业务变更。文件与原因见[本轮核查](../reviews/2026-10-17-startup-guards.md)。
+
+验证：加强BAT断言先复现用户原错误，修复后六条入口、成功/失败共十二种调用通过，中文和空格目录另复查通过。最终node --test --test-concurrency=1 tests/workspace-state.test.js tests/deploy-workbench.test.js tests/instance.test.js为32/32、退出0，约194秒；涵盖文档保留/启动/停止、已改及未跟踪代码拒绝、构建期间变化、忙碌采集/登录/归属/端口/数据租约拒绝、加载版本与独立CaptureHost smoke。只用测试目录与合成服务，不能当真实WSS或长期稳定性验收。私有.local/startup-fix-20261017/regression.log保留；公开扫描292文件0发现、diff检查通过。原五项用户文档在追加本节前SHA核对不变，STATUS仅新增本节并独立暂存。
+
+运行交接：18783和55976均未监听，本轮未启动、重启或停止正式服务。根双击入口默认18783/data/pipeline-20261013；最近55976使用另一worktree中的既有data-QBxoNB，不能静默合并或改用另一套凭据。已询问用户要恢复哪套数据，选择前仅修复入口。真实账号/SQLite/RAW/历史原目录均保留；本机脚本验证不代表服务已加载本轮提交。后续按用户选择核对同一数据目录并受保护启动，不扩大UI或采集架构。

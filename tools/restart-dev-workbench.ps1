@@ -17,12 +17,13 @@ function New-LwDeploymentContext {
 
 function Get-LwWorkspaceTarget {
     param($Context)
-    $head=& git -C $Context.Root rev-parse HEAD 2>$null
-    if ($LASTEXITCODE -ne 0 -or $head -notmatch '^[a-f0-9]{40,64}$') { throw 'WORKSPACE_GIT_UNAVAILABLE' }
-    $dirty=& git -C $Context.Root status --porcelain --untracked-files=normal 2>$null
+    $json=& $Context.Node (Join-Path $Context.Root 'src/workspace-state.js') $Context.Root 2>$null
     if ($LASTEXITCODE -ne 0) { throw 'WORKSPACE_GIT_UNAVAILABLE' }
-    if ($dirty) { throw 'WORKSPACE_DIRTY' }
-    return [string]$head
+    try { $workspace=$json | ConvertFrom-Json } catch { throw 'WORKSPACE_GIT_UNAVAILABLE' }
+    if ($workspace.commit -notmatch '^[a-f0-9]{40,64}$' -or $null -eq $workspace.runtimeDirty) { throw 'WORKSPACE_GIT_UNAVAILABLE' }
+    if ($workspace.runtimeDirty -ne $false) { throw 'WORKSPACE_DIRTY' }
+    if ($workspace.dirty) { Write-Host '保留未提交的 Markdown 文档；运行代码与配置已核对为已提交版本。' }
+    return [string]$workspace.commit
 }
 
 function Get-LwWorkbenchState {
@@ -52,7 +53,7 @@ const db=new DatabaseSync(process.argv[1],{readOnly:true});const owner=db.prepar
 function Assert-LwOwnedInstance {
     param($Context,$State,[switch]$RequireIdle,[int]$ExpectedPid=0,[string]$ExpectedCommit='',[string]$ExpectedInstanceId='')
     $ownerPid=$State.Instance.pid
-    if (-not $State.BackendReady -or $State.Health -ne 'ok' -or $ownerPid -le 0 -or $State.Instance.commit -notmatch '^[a-f0-9]{40,64}$' -or $State.Instance.dirty -ne $false) { throw 'OWNED_INSTANCE_INVALID' }
+    if (-not $State.BackendReady -or $State.Health -ne 'ok' -or $ownerPid -le 0 -or $State.Instance.commit -notmatch '^[a-f0-9]{40,64}$' -or (($State.Instance.dirty -ne $false -or $State.Instance.runtimeDirty -eq $true) -and -not ($State.Instance.dirty -eq $true -and $State.Instance.runtimeDirty -eq $false))) { throw 'OWNED_INSTANCE_INVALID' }
     if (($ExpectedPid -and $ownerPid -ne $ExpectedPid) -or ($ExpectedCommit -and $State.Instance.commit -ne $ExpectedCommit) -or ($ExpectedInstanceId -and $State.Instance.instanceId -ne $ExpectedInstanceId)) { throw 'OWNED_INSTANCE_CHANGED' }
     if ($RequireIdle) {
         if ($State.CaptureState -ne 'STOPPED') { throw 'CAPTURE_NOT_STOPPED' }

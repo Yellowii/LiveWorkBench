@@ -221,7 +221,7 @@ Golden/全量检查面板通过后端 operation 显示实际验证结果；实�
 
 2026-10-13新增配置/监控/自动调度/可选浏览器/凭据与LiveHook匹配接口，详见[MONITOR_PROFILES v1](MONITOR_PROFILES.md)。旧路由兼容；身份输入只写、凭据不经DTO返回，profile修改及登录管理要求版本。环境操作仍不经新增API自动授权。可信监控END作为独立producer的生命周期证据，不混入官方业务Proto解析结果；SessionManager为唯一权威。
 
-阶段E的system/status新增instance加载标识（instanceId、commit、dirty、codeFingerprint、startedAt、pid、nodeVersion）及profiles/monitor/coordinator实际状态。版本在宿主启动时采样，不随磁盘Git变化改写；不同数据域可以运行不同宿主，同一数据域只允许一个活宿主。DATA_DIRECTORY_BUSY是启动错误，不开放终止其他宿主的API。
+阶段E的system/status新增instance加载标识（instanceId、commit、dirty、runtimeDirty、codeFingerprint、startedAt、pid、nodeVersion）及profiles/monitor/coordinator实际状态。dirty 保留全部已跟踪及未跟踪文件的修改事实；runtimeDirty 仅排除 README.md 与 docs/ 下 Markdown 文档，Git 无法核验时二者为 null。部署只允许已提交运行代码，旧版没有 runtimeDirty 且 dirty=true 的实例仍拒绝自动处置。版本在宿主启动时采样，不随磁盘Git变化改写；不同数据域可以运行不同宿主，同一数据域只允许一个活宿主。DATA_DIRECTORY_BUSY是启动错误，不开放终止其他宿主的API。
 
 Profile网络增量与networkCheck诊断见[NETWORK_TRANSPORT v1](NETWORK_TRANSPORT.md)。返回有效代理路径、DNS委托/验证、连接阶段和稳定错误码；诊断不推进监控或自动监听。凭据与URL不返回，旧配置缺省system；采集connectionMode仍独立且兼容。
 
