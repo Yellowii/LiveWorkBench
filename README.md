@@ -1,5 +1,7 @@
 # LiveWorkbench
 
+**日常实例约定（2026-10-17）**：唯一日常入口为 <http://127.0.0.1:18783>，从本地主工作区启动，固定使用 `data/pipeline-20261013` 保存账号、登录态、SQLite、RAW 和历史。双击启动/停止/更新脚本均管理此实例。55976 原预览退出日常使用，旧目录保留，不自动合并凭据或历史；隔离验证仍使用临时端口和独立测试数据。下文18780/18782仅为早期开发记录，日常以18783为准。
+
 2026-10-14 新增独立「实时弹幕」：文字/表情、礼物数量、点赞、成员与管理员消息，以及红包、福袋、活动消息的本机可读展示。支持分类、自动跟随、历史分页和内容/官方JSON/Proto字典/中文映射/RAW处理链统一详情。数据通过本机认证专用REST读取，现有公共广播、日志和导出仍脱敏。原始记录与采集链不改变；图片默认不加载，未知资源/动作/价格不猜测。规则与限制见 [MessageView](docs/contracts/MESSAGE_VIEW.md)。运行中的旧服务不会因Git提交自动更新，需在用户安排的安全时段更新；页面会显示“实时弹幕（需更新）”。
 
 Windows 本地直播工作台。默认 LiveHookSource，WebSource 由人工选择；同一时刻一个直播间、一个活动实时来源。局域网多设备前端通过受控 API Gateway 访问本地后端，不建立云端监控系统。
@@ -18,12 +20,12 @@ npm run setup:wss-signer -- --fetch
 npm run setup:browser -- --fetch
 npm run build:capture
 npm test
-npm start
+powershell.exe -NoProfile -ExecutionPolicy Bypass -File tools/deploy-dev-workbench.ps1 -Action Start
 ```
 
-打开 <http://127.0.0.1:18780>。提供持久化消息分页、官方结果脱敏投影/独立增强/RAW 引用、日志与基础指标、隔离回放的播放/暂停/单步/跳转，以及伴侣进程/启动顺序/退出重启提示。可人工选择 LiveHookSource/WebSource，再独立启动；切换停止旧来源并保留场次，不自动故障切换。真实连接、完整 daemon 恢复、通知与业务消费者仍待相应验证。
+打开 <http://127.0.0.1:18783>。提供持久化消息分页、官方结果脱敏投影/独立增强/RAW 引用、日志与基础指标、隔离回放的播放/暂停/单步/跳转，以及伴侣进程/启动顺序/退出重启提示。可人工选择 LiveHookSource/WebSource，再独立启动；切换停止旧来源并保留场次，不自动故障切换。真实连接、完整 daemon 恢复、通知与业务消费者仍待相应验证。
 
-本轮持续开发实例为 <http://127.0.0.1:18782>，使用独立 `data/continuous-20261012`。旧18780/18781实例保留。可用 LW_PORT/LW_DATA_DIR 配置独立实例，避免覆盖已有进程。
+早期持续开发曾使用18782与独立 `data/continuous-20261012`，更早也曾使用18780/18781。当前日常统一18783；原数据保留，不据历史端口记录另行启动日常实例。
 
 已授权历史样本路径仅登记在忽略的 `.local/settings.json`：`{"r01Root":"用户已授权的单个 R01 目录"}`。界面可运行 59 Golden 或载入完整 R01，原数据只读且不复制；历史 payload 不冒充新采集的完整 HTTP/WSS RAW。浏览器验收命令为 `node tools/verify-workbench.mjs`，需要本机 Edge；结果在忽略的 `artifacts/`。
 
