@@ -801,3 +801,5 @@ owner本会话→用户，基线38170e3。用户提供Start报错后只读核对
 验证：加强BAT断言先复现用户原错误，修复后六条入口、成功/失败共十二种调用通过，中文和空格目录另复查通过。最终node --test --test-concurrency=1 tests/workspace-state.test.js tests/deploy-workbench.test.js tests/instance.test.js为32/32、退出0，约194秒；涵盖文档保留/启动/停止、已改及未跟踪代码拒绝、构建期间变化、忙碌采集/登录/归属/端口/数据租约拒绝、加载版本与独立CaptureHost smoke。只用测试目录与合成服务，不能当真实WSS或长期稳定性验收。私有.local/startup-fix-20261017/regression.log保留；公开扫描292文件0发现、diff检查通过。原五项用户文档在追加本节前SHA核对不变，STATUS仅新增本节并独立暂存。
 
 运行交接：18783和55976均未监听，本轮未启动、重启或停止正式服务。根双击入口默认18783/data/pipeline-20261013；最近55976使用另一worktree中的既有data-QBxoNB，不能静默合并或改用另一套凭据。已询问用户要恢复哪套数据，选择前仅修复入口。真实账号/SQLite/RAW/历史原目录均保留；本机脚本验证不代表服务已加载本轮提交。后续按用户选择核对同一数据目录并受保护启动，不扩大UI或采集架构。
+
+交付补记：修复13f041f已快进同步本地main和既有worktree；主工作区实际Get-LwWorkspaceTarget在保留五项文档改动时通过，dirty=true/runtimeDirty=false。git push origin main实际失败：github.com:443约21秒无法连接，不修改网络、不反复重试；本轮未获远端交付确认。最终两端口仍未监听，用户原有36行STATUS/6行迁移及三份调查继续保留。
