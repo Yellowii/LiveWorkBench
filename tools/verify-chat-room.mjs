@@ -18,6 +18,14 @@ try{
  await ingest('RoomStatsMessage',{display_middle:'555人在线',display_value:'555',display_version:'5'},'200');
  await page.goto(app.url);await page.waitForFunction(()=>document.querySelector('#roomLiveStates')?.textContent.includes('合成房间一'));
  assert.match(await page.locator('#roomLiveStates').textContent(),/已开播/);assert.match(await page.locator('#roomLiveStates').textContent(),/监听已停止/);assert.match(await page.locator('#roomLiveStates').textContent(),/检测时间/);
+ // The failed connection must not be mislabeled as missing LIVE evidence.
+ const confirmed=app.profiles.state(profile.profileId);app.profiles.setState(profile.profileId,{...confirmed,queryState:'UNKNOWN',errorCode:'MONITOR_TIMEOUT',lastTransitionAt:confirmed.checkedAt});
+ app.sources.currentWeb().status={...app.sources.currentWeb().status,captureState:'FAILED',reason:'AUTH_STATE_UNAVAILABLE'};
+ await page.waitForFunction(()=>document.querySelector('#coordinateSummary').textContent.includes('AUTH_STATE_UNAVAILABLE')&&document.querySelector('#roomLiveStates').textContent.includes('本次检测超时'));
+ assert.match(await page.locator('#roomLiveStates').textContent(),/不会自动刷新/);assert.match(await page.locator('#roomLiveStates').textContent(),/上次确认：已开播/);
+ await page.screenshot({path:path.join(out,'monitor-failure.png'),fullPage:true});
+ app.profiles.setState(profile.profileId,confirmed);app.sources.currentWeb().status={...app.sources.currentWeb().status,captureState:'STOPPED',reason:null};
+ await page.waitForFunction(()=>!document.querySelector('#coordinateSummary').textContent.includes('AUTH_STATE_UNAVAILABLE'));
  // Synthetic status only: no network connection is opened by this assertion.
  app.sources.currentWeb().captureId='synthetic-chat-room';app.sources.currentWeb().status.captureState='CONNECTED';app.coordinator.state.active={profileId:profile.profileId};
  await page.waitForFunction(()=>document.querySelector('#roomLiveStates').textContent.includes('有消息数据流'));await page.screenshot({path:path.join(out,'room-status.png'),fullPage:true});

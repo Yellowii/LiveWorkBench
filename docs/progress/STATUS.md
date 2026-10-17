@@ -825,3 +825,16 @@ owner本会话→用户，基线38170e3。用户提供Start报错后只读核对
 启动后认证本机接口复核：STOPPED、coordinator.active=null，7配置monitorEnabled/autoStart均false，所有Web browserHeadless=true，BROWSER_NOT_RUNNING，inputs/events/failed均0。保存数据36549 RAW/65720事件/7场次、1账号及凭据哈希与启动前相同；这些为既有存储统计，含历史导入，不全部宣称实时真实采集。只证明服务和原数据保留，本轮未进行扫码/self认证、真实WSS、开播/下播或长期稳定性验收。
 
 GUI在18783实际操作工作台、实时弹幕当前空视图、历史场次、返回当前及工作台：显示真实已保存身份但认证待验证；历史7场次、最新已载入99条/聊天筛选56条，并明确历史观众不是当前在线；回到当前无活动场次清空消息。无采集/检测命令、浏览器兜底或跨场自动载入。私有.local/primary-18783-20261017含比较、备份、最小配置维护脚本、预检/部署/验证/GUI统计和workbench.png，均不上传。README已记录唯一日常18783/手动监听/无头兜底；公开检查292文件0发现、diff通过。未修改产品源码、系统代理/Clash/TUN/DNS/CA/伴侣，未关闭用户浏览器。原STATUS36行、迁移6行及三份调查继续保持用户未提交，只有README及本节暂存。
+
+
+## 49. 2026-10-17 开播检测、周期刷新与连接失败分离（检测/显示验证通过，采集仍失败）
+
+用户指出指定直播间开播状态异常。只读核查正式PID3260/加载010364b未变，之前已有LIVE确认，随后HTTP检测MONITOR_TIMEOUT；独立连接失败为AUTH_STATE_UNAVAILABLE，不能把它当下播或解析失败。一次本机凭据读取约298ms成功、43项Cookie仅统计不输出内容；瞬时失败根因仍未定位，不声称凭据已失效/损坏或已修复。此前手动方案同时关闭周期检测使状态不自动刷新，处理层级需要分清。
+
+最小前端修正：检测超时/结果过期、同版本上次确认与时间、关闭周期监控不刷新；活动Web的既有结束检查另显示仍开启。实际FAILED原因优先主要提示，AUTH_STATE_UNAVAILABLE显示登录态读取失败及不代表下播；旧错误恢复后移除、任意字符串不作为错误码显示。无后台源码/API/采集架构/Parser/RAW/EventStore/SessionManager修改。详见[核查与限制](../reviews/2026-10-17-monitor-failure-presentation.md)。
+
+本机仅经Gateway将用户指定目标设为monitorEnabled=true/autoStart=false，保留手动开始和无头设置，其他房间未改。13:46:27与13:46:28两次实际检查LIVE，后续两个周期检测再次成功；13:48:29北京时query/confirmed均LIVE、确认4、检测错误null。未发出监听/停止命令；最终仍FAILED/AUTH_STATE_UNAVAILABLE、active=false、inputs/events/failed均0、BROWSER_NOT_RUNNING，未重启18783或55976、未动代理/Clash/DNS/TUN/CA/伴侣/凭据。页面已刷新并选中目标，显示已开播与连接失败两种独立事实，不能写成真实WSS采集恢复。
+
+验证：新增3项显示回归先失败后通过，针对性16/16；扩展chat-room真实Parser隔离GUI通过，覆盖检测超时、上次确认、关闭监控说明、登录态失败优先和恢复清除；合成状态单列，不冒充新真实采集。原有聊天/统计/详情/窄屏GUI一并通过；公开扫描293文件0发现、diff检查通过。私有.local/monitor-investigation-20261017保留只读结果、配置前后状态和真实页面截图；没有提交真实账号、消息、Cookie、原资源或测试库。原STATUS36行、迁移6行及三份调查继续保留用户未提交，仅暂存本节和本轮文件。
+
+下一步：间歇性登录态读取失败仍待进程内安全诊断，未复现并定位前不能用一次成功或重试掩盖；不因本轮开播检测/显示通过而宣称监听或长期稳定性通过。
