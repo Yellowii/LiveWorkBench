@@ -838,3 +838,16 @@ GUI在18783实际操作工作台、实时弹幕当前空视图、历史场次、
 验证：新增3项显示回归先失败后通过，针对性16/16；扩展chat-room真实Parser隔离GUI通过，覆盖检测超时、上次确认、关闭监控说明、登录态失败优先和恢复清除；合成状态单列，不冒充新真实采集。原有聊天/统计/详情/窄屏GUI一并通过；公开扫描293文件0发现、diff检查通过。私有.local/monitor-investigation-20261017保留只读结果、配置前后状态和真实页面截图；没有提交真实账号、消息、Cookie、原资源或测试库。原STATUS36行、迁移6行及三份调查继续保留用户未提交，仅暂存本节和本轮文件。
 
 下一步：间歇性登录态读取失败仍待进程内安全诊断，未复现并定位前不能用一次成功或重试掩盖；不因本轮开播检测/显示通过而宣称监听或长期稳定性通过。
+
+
+## 50. 2026-10-19 当前场次查询阻塞与登录态超时（修正回归通过，正式连接待验）
+
+owner本会话→用户，基线714279e。前序正式进程在动态参数刷新时AUTH_STATE_UNAVAILABLE且connectionAttempts/RAW/events为0；独立读取/HTTP成功不证明WSS成功。DPAPI完整帧调整后正式重试仍失败，因此不把单项IPC调整写成采集恢复。
+
+本轮只读核查发现首页当前场次查询遗漏已知namespace，现有event_scope索引无法完整使用；约3.3GB既有库的无匹配查询耗时7530/1620/1641ms，完整作用域后0.709/0.062/0.059ms。用合成大登录态、真实DPAPI和只读历史查询隔离复现：8次旧查询阻塞约13136ms并触发AUTH_DPAPI_TIMEOUT，完整作用域下查询不足1ms、读取617ms成功。证明存在此超时路径；小登录态阻塞时曾仍成功，正式实例未加载修正，不声称排尽唯一根因。
+
+修改Gateway当前场次查询，使用权威mode/namespace/room/session，不改普通历史过滤与既有索引。补DPAPI有界完整JSON输入及私有标量诊断，保留CurrentUser/加密用途/凭据格式，辅助文件2×64KiB、宿主原滚动限制；无凭据/异常正文/消息/URL输出。未改Parser/RAW/EventStore/SessionManager或现有WSS流程。文件、计时、复现与限制见[核查记录](../reviews/2026-10-19-auth-query-blocking.md)。
+
+验证：current-event-query新增回归先失败后通过；针对current-event-query/auth-vault-diagnostics/run-diagnostics/session-scope/room-handoff/accounts/instance执行node --test --test-concurrency=1，23/23、退出0、约33秒。含真实DPAPI合成状态、破损密文保留、诊断滚动/脱敏、回环采集不受账号清除影响、切房/场次/游标及租约；合成self/回环WS不算官方扫码/WSS验收。公开扫描295文件0发现、diff通过。私有.local/auth-read-investigation-20261017保留证据，不上传。
+
+运行：18783无监听，旧PID3260已复用为svchost；最后诊断北京时间10月17日23:23:47为STOPPED/无新增RAW事件，Windows在23:24:19启动。没有证据认定Node自身崩溃或机器重启原因。本轮不启停正式服务、不改系统网络/伴侣、不关浏览器。真实登录/WSS/RAW增长及长稳需加载新版后验收。保留用户原STATUS36行、迁移6行及三份调查，只提交本轮文件和本节。
